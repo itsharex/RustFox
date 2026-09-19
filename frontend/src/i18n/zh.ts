@@ -220,7 +220,7 @@ export const zh = {
   'projectTabs.loadFail': '项目列表加载失败',
   'projectTabs.newProject': '新建项目',
   'projectTabs.projectList': '项目列表',
-  'projectTabs.rename': '重命名「{name}」',
+  'projectTabs.rename': '重命名',
   'projectTabs.delete': '删除项目',
   'projectTabs.deleteConfirm': '删除项目「{name}」？',
   'projectTabs.switchFail': '切换项目失败',

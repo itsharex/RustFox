@@ -3,8 +3,8 @@
  * ProjectTabs：顶栏多项目标签条（工作区 / 项目首页共用）。
  * - 点击标签：切换项目并进入工作区（首页点击同样跳转）；
  * - × 关闭标签（快照丢弃；关闭当前项目时 store 自动切相邻标签）；
- * - ⋯ 菜单：未打开的项目（点击打开并切换）+ 新建项目（emit 给宿主）+ 项目列表；
- *   projectActions 时追加当前项目的重命名 / 删除（工作区顶栏用，替代原侧栏头部 ⋯）。
+ * - ⋯ 菜单按三组固定分隔：未打开的项目（点击打开并切换）｜新建项目 + 项目列表｜
+ *   当前项目的重命名（短标签）/ 删除（工作区顶栏用，替代原侧栏头部 ⋯）。
  */
 import { ref, withDefaults } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -46,19 +46,19 @@ async function openMore(): Promise<void> {
         label: p.name,
         icon: 'folder' as const,
       }))
-    if (items.length) items[0] = { ...items[0], dividerBefore: true }
   } catch {
     toast.error(t('projectTabs.loadFail'))
   }
+  // 第一组：切换到未打开的项目（无则整组省略）；第二组固定组前分隔
   items.push(
-    { key: 'new-project', label: t('projectTabs.newProject'), icon: 'plus', iconAccent: true, dividerBefore: true },
-    { key: 'go-projects', label: t('projectTabs.projectList'), icon: 'folder' },
+    { key: 'new-project', label: t('projectTabs.newProject'), icon: 'plus', iconAccent: true, dividerBefore: items.length > 0 },
+    { key: 'go-projects', label: t('projectTabs.projectList'), icon: 'layout-grid' },
   )
-  // 工作区模式：当前项目的重命名 / 删除收纲到此处（项目名称旁的 ⋯）
+  // 第三组（工作区模式）：当前项目管理——短标签重命名 + 红色删除（二次确认）
   if (props.projectActions && store.project) {
     const name = store.project.name
     items.push(
-      { key: 'rename-project', label: t('projectTabs.rename', { name }), icon: 'pencil', dividerBefore: true },
+      { key: 'rename-project', label: t('projectTabs.rename'), icon: 'pencil', dividerBefore: true },
       { key: 'delete-project', label: t('projectTabs.delete'), icon: 'trash', danger: true, confirm: t('projectTabs.deleteConfirm', { name }) },
     )
   }

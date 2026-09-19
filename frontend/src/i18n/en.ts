@@ -223,7 +223,7 @@ export const en: Record<ZhKey, string> = {
   'projectTabs.loadFail': 'Failed to load projects',
   'projectTabs.newProject': 'New project',
   'projectTabs.projectList': 'Projects',
-  'projectTabs.rename': 'Rename "{name}"',
+  'projectTabs.rename': 'Rename',
   'projectTabs.delete': 'Delete project',
   'projectTabs.deleteConfirm': 'Delete project "{name}"?',
   'projectTabs.switchFail': 'Failed to switch project',
