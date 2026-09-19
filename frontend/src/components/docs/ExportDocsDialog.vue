@@ -255,7 +255,7 @@ async function startExport(): Promise<void> {
 
 .sec-label {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   font-weight: 600;
   color: var(--text-3);
   text-transform: uppercase;
@@ -363,7 +363,7 @@ async function startExport(): Promise<void> {
 }
 
 .fmt-desc {
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
 }
 
@@ -396,7 +396,7 @@ async function startExport(): Promise<void> {
   background: transparent;
   color: var(--text-2);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   cursor: pointer;
   transition:
     background var(--dur) var(--ease),

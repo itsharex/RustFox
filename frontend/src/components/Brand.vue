@@ -19,8 +19,8 @@ const t = useLocaleStore().t
       <img :src="logo" alt="" width="18" height="18" />
     </span>
     <span class="brand-text">
-      <span class="brand-title">{{ title }}</span>
-      <span v-if="subtitle" class="brand-subtitle">{{ subtitle }}</span>
+      <span class="brand-title" v-tooltip-overflow>{{ title }}</span>
+      <span v-if="subtitle" class="brand-subtitle" v-tooltip-overflow>{{ subtitle }}</span>
     </span>
   </button>
 </template>
@@ -82,7 +82,7 @@ const t = useLocaleStore().t
 }
 
 .brand-subtitle {
-  font-size: 10.5px;
+  font-size: var(--fs-xxs);
   line-height: 1.3;
   color: var(--text-3);
   overflow: hidden;

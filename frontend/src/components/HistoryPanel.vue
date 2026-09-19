@@ -190,7 +190,7 @@ function shortTime(iso: string): string {
 .hp-count {
   flex: 1;
   min-width: 0;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
   text-align: right;
 }
@@ -222,9 +222,9 @@ function shortTime(iso: string): string {
   border-radius: 6px;
   background: transparent;
   color: var(--text-2);
-  font-size: 10.5px;
+  font-size: var(--fs-xxs);
   font-family: var(--font-mono);
-  padding: 1px 7px;
+  padding: 2px 8px;
   cursor: pointer;
 }
 .hp-status-filter:hover {
@@ -287,7 +287,7 @@ function shortTime(iso: string): string {
 .hp-status {
   flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   font-weight: 600;
   color: var(--success);
 }

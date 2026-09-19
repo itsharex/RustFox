@@ -155,8 +155,8 @@ function onAction(item: ToastItem): void {
   margin-top: 1px;
   cursor: pointer;
   color: var(--rf-text-muted);
-  border-radius: 4px;
-  line-height: 1;
+  border-radius: var(--radius-sm);
+  line-height: 1.2;
 }
 
 .rf-toast-close:hover {

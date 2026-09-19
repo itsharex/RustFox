@@ -70,7 +70,7 @@ const effectiveTitle = computed(() => props.title || t('empty.title'))
 
 .es-title {
   margin: 0;
-  font-size: 13.5px;
+  font-size: var(--fs-md);
   font-weight: 600;
   color: var(--text-1);
 }

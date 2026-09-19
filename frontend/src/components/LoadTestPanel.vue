@@ -338,7 +338,7 @@ const metrics = computed<Metric[]>(() => {
 }
 
 .metric-label {
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
 }
 

@@ -216,8 +216,8 @@ html[data-theme='light'] .proj-card:hover {
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(161, 161, 170, 0.09);
-  color: #a1a1aa;
+  background: var(--bg-hover);
+  color: var(--text-2);
 }
 .proj-status .status-dot {
   width: 5px;
@@ -241,7 +241,7 @@ html[data-theme='light'] .proj-card:hover {
 }
 /* 空描述：更淡的占位文案 */
 .proj-desc.empty {
-  color: #737373;
+  color: var(--text-3);
 }
 
 /* 底栏：分隔线 + 指标行（修复文案重叠：显式行高与间距）+ hover「进入项目 →」 */
@@ -258,9 +258,9 @@ html[data-theme='light'] .proj-card:hover {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   line-height: 1.5;
-  color: #737373;
+  color: var(--text-3);
 }
 
 .metric {
@@ -287,7 +287,7 @@ html[data-theme='light'] .proj-card:hover {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   font-weight: 600;
   color: var(--accent);
   opacity: 0;

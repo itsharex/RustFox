@@ -15,6 +15,7 @@ import { useFoxApi } from '../composables/useFoxApi'
 import { useToast } from '../composables/useToast'
 import { useLocaleStore } from '../stores/locale'
 import Icon from '../components/ui/Icon.vue'
+import EmptyState from '../components/ui/EmptyState.vue'
 import Tabs, { type TabItem } from '../components/ui/Tabs.vue'
 import type { SseEventPayload, WsEventPayload } from '../types/foxApi'
 
@@ -357,7 +358,7 @@ onUnmounted(() => {
       </div>
 
       <div class="rt-log">
-        <div v-if="!wsLog.length" class="rt-empty">{{ t('realtime.wsEmpty') }}</div>
+        <div v-if="!wsLog.length"><EmptyState icon="terminal" :title="t('realtime.wsEmpty')" compact /></div>
         <div v-for="(m, i) in wsLog" :key="i" class="rt-line" :class="`dir-${m.dir}`">
           <span class="rt-time">{{ m.t }}</span>
           <span class="rt-dir">{{ m.dir === 'in' ? '↓' : m.dir === 'out' ? '↑' : '•' }}</span>
@@ -422,7 +423,7 @@ onUnmounted(() => {
       </div>
 
       <div class="rt-log">
-        <div v-if="!sseLog.length" class="rt-empty">{{ t('realtime.sseEmpty') }}</div>
+        <div v-if="!sseLog.length"><EmptyState icon="terminal" :title="t('realtime.sseEmpty')" compact /></div>
         <div v-for="(m, i) in sseLog" :key="i" class="rt-line dir-in">
           <span class="rt-time">{{ m.t }}</span>
           <span class="rt-frame">{{ m.event }}</span>
@@ -464,6 +465,12 @@ onUnmounted(() => {
   color: var(--text-2);
   white-space: nowrap;
 }
+.rt-check input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
 .rt-status {
   font-size: 12px;
   font-weight: 600;
@@ -494,11 +501,6 @@ onUnmounted(() => {
   padding: 8px 0;
   font-family: var(--font-mono);
   font-size: 12px;
-}
-.rt-empty {
-  padding: 14px 16px;
-  color: var(--text-3);
-  font-family: var(--font-sans, inherit);
 }
 .rt-line {
   display: flex;
@@ -531,10 +533,10 @@ onUnmounted(() => {
 }
 .rt-frame {
   flex-shrink: 0;
-  font-size: 10.5px;
+  font-size: var(--fs-xxs);
   font-weight: 700;
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: var(--bg-hover);
   color: var(--text-2);
 }
@@ -550,7 +552,7 @@ onUnmounted(() => {
   color: var(--text-1);
 }
 .hint-inline {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--text-3);
   white-space: nowrap;
 }

@@ -201,7 +201,7 @@ html[data-theme='light'] .cni.tone-inset .cni-input:hover:not(:disabled) {
   border: none;
   background: transparent;
   color: var(--text-3);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   padding: 0;
   transition:

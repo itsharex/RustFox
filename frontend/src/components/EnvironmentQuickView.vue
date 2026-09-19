@@ -426,7 +426,7 @@ onBeforeUnmount(() => {
   background: var(--warning);
 }
 .ed-prod {
-  background: #f97316;
+  background: var(--orange);
 }
 .ed-global {
   background: var(--accent);

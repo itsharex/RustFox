@@ -767,7 +767,7 @@ function onSplitterDblClick(): void {
   width: 100%;
   padding: 7px 10px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius);
   font-family: inherit;
   font-size: 13px;
   color: var(--text-1);
@@ -818,7 +818,7 @@ function onSplitterDblClick(): void {
   padding: 0 8px;
   border-radius: 5px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   font-weight: 700;
   letter-spacing: 0.3px;
   background: color-mix(in srgb, currentColor 14%, transparent);
@@ -842,7 +842,7 @@ function onSplitterDblClick(): void {
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius);
   background: var(--bg-2);
 }
 

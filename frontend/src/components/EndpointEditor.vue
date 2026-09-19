@@ -1240,7 +1240,7 @@ onUnmounted(() => {
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.4;
   color: var(--text-2);
   cursor: pointer;
   transition:
@@ -1753,7 +1753,7 @@ onUnmounted(() => {
 
 .example-status {
   font-weight: 700;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--rf-success);
 }
 
@@ -1769,7 +1769,7 @@ onUnmounted(() => {
 }
 
 .example-meta {
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--rf-text-muted);
 }
 

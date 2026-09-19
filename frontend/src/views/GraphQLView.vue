@@ -22,6 +22,7 @@ import { useWorkspaceStore } from '../stores/workspace'
 import { escapeHtml, highlightGraphQL, highlightJSON } from '../utils/highlight'
 import { handleTextareaTab } from '../utils/textareaIndent'
 import Modal from '../components/ui/Modal.vue'
+import EmptyState from '../components/ui/EmptyState.vue'
 import type { BodySpec, ExecuteRequestArgs, ExecuteResponse, GraphQLSpec } from '../types/foxApi'
 
 const router = useRouter()
@@ -481,7 +482,7 @@ async function copyCode() {
 
     <!-- 历史 -->
     <Modal v-model:open="historyOpen" :title="t('graphql.historyTitle')" width="560px">
-      <div v-if="!history.length" class="empty">{{ t('graphql.historyEmpty') }}</div>
+      <div v-if="!history.length"><EmptyState icon="history" :title="t('graphql.historyEmpty')" compact /></div>
       <ul v-else class="history-list">
         <li v-for="(entry, i) in history" :key="i" class="history-item" @click="applyHistory(entry)">
           <pre class="history-query">{{ entry.query }}</pre>
@@ -489,7 +490,7 @@ async function copyCode() {
         </li>
       </ul>
       <template #footer>
-        <button class="rf-btn rf-btn-sm rf-btn-danger" @click="clearHistory">{{ t('graphql.clearHistory') }}</button>
+        <button class="rf-btn rf-btn-sm rf-btn-danger-solid" @click="clearHistory">{{ t('graphql.clearHistory') }}</button>
       </template>
     </Modal>
 
@@ -533,7 +534,7 @@ async function copyCode() {
   --s-4: 16px;
   color: var(--text);
   background: var(--bg);
-  font-size: 13.5px;
+  font-size: var(--fs-md);
   padding: 48px 12px 12px;
 }
 
@@ -563,13 +564,6 @@ async function copyCode() {
   background: var(--panel-2);
   color: var(--text);
   border-color: var(--border-2);
-}
-
-.rf-btn-danger {
-  background: var(--danger);
-  color: #fff;
-  font-weight: 600;
-  border-color: transparent;
 }
 
 .rf-tabs {
@@ -811,14 +805,8 @@ async function copyCode() {
   margin-top: var(--s-2);
 }
 
-.empty {
-  text-align: center;
-  color: var(--muted);
-  padding: var(--s-4) 0;
-  font-size: 13px;
-}
-
 /* ---------- 历史 ---------- */
+
 .history-list {
   list-style: none;
   margin: 0;

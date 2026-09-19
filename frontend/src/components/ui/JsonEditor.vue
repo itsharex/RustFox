@@ -368,7 +368,7 @@ async function copyJson(): Promise<void> {
   margin: 0;
   padding: 10px 12px;
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   line-height: 1.55;
   white-space: pre;
   tab-size: 2;
@@ -465,7 +465,7 @@ async function copyJson(): Promise<void> {
 }
 .hl-gutter-line {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   line-height: 1.55;
   color: var(--tok-gutter, #5c6370);
   text-align: right;
@@ -490,10 +490,9 @@ async function copyJson(): Promise<void> {
   gap: 5px;
   padding: 2px 7px;
   border-radius: 9999px;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   font-weight: 500;
   line-height: 1.4;
-  letter-spacing: -0.01em;
 }
 .je-status.ok {
   background: var(--success-tint);

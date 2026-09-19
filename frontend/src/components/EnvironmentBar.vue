@@ -208,7 +208,7 @@ function colorClass(name: string): string {
   color: var(--warning);
 }
 .ed-prod {
-  color: #f97316;
+  color: var(--orange);
 }
 .ed-global {
   color: var(--accent);

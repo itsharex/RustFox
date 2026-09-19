@@ -1028,7 +1028,7 @@ async function remove(env: Environment): Promise<void> {
 }
 
 .em-group-title {
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   font-weight: 600;
   color: var(--text-3);
   text-transform: uppercase;
@@ -1266,7 +1266,7 @@ async function remove(env: Environment): Promise<void> {
 }
 
 .em-editor-meta {
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
   flex-shrink: 0;
 }
@@ -1342,7 +1342,7 @@ async function remove(env: Environment): Promise<void> {
 .em-mod-effective {
   flex-shrink: 0;
   margin-left: 6px;
-  padding: 1px 7px;
+  padding: 2px 8px;
   border-radius: 999px;
   font-size: 10px;
   font-weight: 600;
@@ -1463,7 +1463,7 @@ async function remove(env: Environment): Promise<void> {
   background: var(--warning);
 }
 .ed-prod {
-  background: #f97316;
+  background: var(--orange);
 }
 .ed-global {
   background: var(--accent);

@@ -156,7 +156,7 @@ function onCodeKeydown(e: KeyboardEvent): void {
 .tp-badge {
   padding: 2px 8px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   font-weight: 600;
   font-family: var(--font-mono);
 }

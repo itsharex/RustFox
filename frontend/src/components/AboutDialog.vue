@@ -233,7 +233,7 @@ function skipVersion(): void {
   height: 64px;
   margin-bottom: 6px;
   color: #fff;
-  border-radius: 18px;
+  border-radius: var(--radius-xl);
   background: var(--accent);
   box-shadow:
     0 10px 24px rgba(9, 12, 22, 0.45),
@@ -305,7 +305,7 @@ function skipVersion(): void {
 
 .a-copyright {
   margin-top: 6px;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
 }
 

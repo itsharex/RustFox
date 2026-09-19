@@ -359,7 +359,7 @@ defineExpose({ expandAll, collapseAll, matchCount })
   padding-right: 10px;
   user-select: none;
   color: var(--tok-gutter);
-  font-size: 11px;
+  font-size: var(--fs-xxs);
 }
 
 .jt-toggle {
@@ -422,7 +422,7 @@ defineExpose({ expandAll, collapseAll, matchCount })
 :deep(.jt-tok.jt-meta) {
   color: #888;
   font-style: italic;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
 }
 
 /* 查找高亮：普通匹配低对比，当前匹配高亮并描边。 */

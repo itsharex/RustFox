@@ -1082,7 +1082,7 @@ html[data-theme='light'] .body-json {
 
 .resp-meta {
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
 }
 
@@ -1125,7 +1125,7 @@ html[data-theme='light'] .body-json {
   background: var(--bg-panel);
   color: var(--success);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   cursor: pointer;
   transition:
     border-color var(--dur) var(--ease),
@@ -1198,7 +1198,7 @@ html[data-theme='light'] .body-json {
 
 .preview-note {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
   line-height: 1.5;
 }

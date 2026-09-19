@@ -125,7 +125,7 @@ function confirm(): void {
 .tcm-input {
   padding: 7px 10px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius);
   font-family: inherit;
   font-size: 13px;
   color: var(--text-1);

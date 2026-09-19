@@ -517,7 +517,7 @@ function setAuthType(type: string): void {
 
 .sig-template {
   width: 100%;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   font-size: 12px;
   min-height: 40px;
   resize: vertical;

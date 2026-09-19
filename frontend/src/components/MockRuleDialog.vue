@@ -317,4 +317,10 @@ const listTitle = computed(() => t('mockrule.listTitle', { n: rules.value.length
   font-size: 12.5px;
   color: var(--text-1);
 }
+.rule-enabled input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
 </style>

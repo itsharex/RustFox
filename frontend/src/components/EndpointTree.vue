@@ -97,6 +97,7 @@ import { escapeHtml } from '../utils/highlight'
 import { methodTone } from '../utils/methodTone'
 import Icon from './ui/Icon.vue'
 import IconButton from './ui/IconButton.vue'
+import EmptyState from './ui/EmptyState.vue'
 import Menu from './ui/Menu.vue'
 import Popconfirm from './ui/Popconfirm.vue'
 import type { MenuItem } from './ui/Menu.vue'
@@ -656,7 +657,7 @@ function onBatchMenuSelect(item: MenuItem): void {
           <span class="tree-folder-icon" @click="toggleFolder(f.id)">
             <Icon :name="expanded.has(f.id) || searchActive ? 'folder-open' : 'folder'" :size="15" />
           </span>
-          <span class="tree-name folder" @click="onFolderClick(f, $event)">{{ f.name }}</span>
+          <span class="tree-name folder" v-tooltip-overflow @click="onFolderClick(f, $event)">{{ f.name }}</span>
           <span class="tree-actions">
             <IconButton name="more-horizontal" :size="13" :title="t('common.moreActions')" @click="openFolderMenu($event, f)" />
           </span>
@@ -714,9 +715,9 @@ function onBatchMenuSelect(item: MenuItem): void {
         <template v-else>
           <span class="tree-chevron spacer"></span>
           <span class="tree-method" :class="methodTone(e.method)">{{ e.method }}</span>
-          <span class="tree-name" :class="{ dirty: store.isDirty(e.id) }" @click="onEndpointClick(e, i, $event)">
+          <span class="tree-name" :class="{ dirty: store.isDirty(e.id) }" v-tooltip-overflow @click="onEndpointClick(e, i, $event)">
             <span class="tree-name-text" v-html="highlightName(e.name || e.path)"></span>
-            <Icon v-if="store.isDirty(e.id)" class="tree-dirty" name="dot" :size="6" />
+            <Icon v-if="store.isDirty(e.id)" class="tree-dirty" name="dot" :size="8" />
           </span>
           <span class="tree-actions">
             <IconButton name="more-horizontal" :size="13" :title="t('common.moreActions')" @click="openEndpointMenu($event, e)" />
@@ -725,12 +726,12 @@ function onBatchMenuSelect(item: MenuItem): void {
       </div>
     </template>
 
-    <p
+    <EmptyState
       v-if="folderId === null && searchActive && !childFolders.length && !childEndpoints.length"
-      class="tree-empty"
-    >
-      {{ t('tree.noMatch') }}
-    </p>
+      icon="search"
+      :title="t('tree.noMatch')"
+      compact
+    />
   </div>
 
     <!-- 批量操作条（仅根实例渲染）：多选后出现 -->
@@ -923,20 +924,13 @@ function onBatchMenuSelect(item: MenuItem): void {
 /* 搜索命中高亮（v-html 注入，需 :deep） */
 :deep(.tree-hit) {
   padding: 0 1px;
-  border-radius: 3px;
-  background: rgba(250, 204, 21, 0.32);
-  color: #fde68a;
+  border-radius: var(--radius-sm);
+  background: var(--warning-tint);
+  color: var(--warning);
 }
 .tree-dirty {
   color: var(--warning);
   flex-shrink: 0;
-}
-
-.tree-empty {
-  margin: 10px 0 0;
-  font-size: 12px;
-  color: var(--text-3);
-  text-align: center;
 }
 
 /* Method 轻量徽章：布局尺寸，颜色走共享 methodTone（utils/methodTone.ts） */
@@ -952,10 +946,10 @@ function onBatchMenuSelect(item: MenuItem): void {
   border-width: 1px;
   border-style: solid;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-xxs);
   font-weight: 700;
   letter-spacing: 0.06em;
-  line-height: 1;
+  line-height: 1.2;
   white-space: nowrap;
 }
 

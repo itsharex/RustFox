@@ -52,10 +52,10 @@ const theme = useThemeStore()
 const locale = useLocaleStore()
 const t = locale.t
 
-const THEME_OPTIONS = computed<{ value: ThemeMode; label: string; icon: string }[]>(() => [
-  { value: 'system', label: t('settings.themeSystem'), icon: '💻' },
-  { value: 'dark', label: t('settings.themeDark'), icon: '🌙' },
-  { value: 'light', label: t('settings.themeLight'), icon: '☀️' },
+const THEME_OPTIONS = computed<{ value: ThemeMode; label: string; icon: IconName }[]>(() => [
+  { value: 'system', label: t('settings.themeSystem'), icon: 'monitor' },
+  { value: 'dark', label: t('settings.themeDark'), icon: 'moon' },
+  { value: 'light', label: t('settings.themeLight'), icon: 'sun' },
 ])
 
 const LANG_OPTIONS = computed<{ value: LocaleMode; label: string }[]>(() => [
@@ -658,7 +658,7 @@ const projectSummary = computed(() => {
           <span class="flex-1 truncate">{{ tab.label }}</span>
           <span
             v-if="tab.id === 'sequences' && sequencesCount"
-            class="rounded-full bg-zinc-200/70 px-1.5 py-px text-[11px] leading-4 text-zinc-600 dark:bg-white/[0.08] dark:text-zinc-400"
+            class="rounded-full bg-zinc-200/70 px-1.5 py-px text-xxs leading-4 text-zinc-600 dark:bg-white/[0.08] dark:text-zinc-400"
           >
             {{ sequencesCount }}
           </span>
@@ -729,7 +729,7 @@ const projectSummary = computed(() => {
                       "
                       @click="theme.setMode(opt.value)"
                     >
-                      <span aria-hidden="true">{{ opt.icon }}</span>
+                      <Icon :name="opt.icon" :size="13" aria-hidden="true" />
                       {{ opt.label }}
                     </button>
                   </div>
@@ -775,7 +775,7 @@ const projectSummary = computed(() => {
                       <p class="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">{{ t('settings.shortcutsJump') }}</p>
                     </div>
                     <span
-                      class="shrink-0 rounded-full border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-500 dark:border-white/[0.05] dark:bg-white/[0.03] dark:text-zinc-400"
+                      class="shrink-0 rounded-full border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-xxs text-zinc-500 dark:border-white/[0.05] dark:bg-white/[0.03] dark:text-zinc-400"
                     >
                       {{ customizedCount ? t('settings.customizedCount', { n: customizedCount }) : t('settings.customizableCount', { n: SHORTCUT_DEFAULTS.length }) }}
                     </span>
@@ -831,7 +831,7 @@ const projectSummary = computed(() => {
                         {{ t('settingsdbg.clear') }}
                       </button>
                     </div>
-                    <p class="mt-1.5 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">{{ debugStateText }}</p>
+                    <p class="mt-1.5 font-mono text-xxs text-zinc-500 dark:text-zinc-400">{{ debugStateText }}</p>
                   </div>
                 </div>
               </div>
@@ -872,13 +872,13 @@ const projectSummary = computed(() => {
                     <div class="max-w-md">
                       <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ t('settings.proxyUrlLabel') }}</div>
                       <p class="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-                        {{ t('settings.proxyUrlDescEg') }} <code class="font-mono text-[11px]">http://127.0.0.1:7890</code> {{ t('settings.proxyUrlDescOr') }}
-                        <code class="font-mono text-[11px]">socks5://host:1080</code>{{ t('settings.proxyUrlDescBlur') }}
+                        {{ t('settings.proxyUrlDescEg') }} <code class="font-mono text-xxs">http://127.0.0.1:7890</code> {{ t('settings.proxyUrlDescOr') }}
+                        <code class="font-mono text-xxs">socks5://host:1080</code>{{ t('settings.proxyUrlDescBlur') }}
                       </p>
                     </div>
                     <input
                       v-model="proxyUrl"
-                      class="rf-input h-8 w-72 shrink-0 font-mono text-[12.5px]"
+                      class="rf-input h-8 w-72 shrink-0 font-mono text-xs"
                       type="text"
                       placeholder="http://127.0.0.1:7890"
                       spellcheck="false"
@@ -928,7 +928,7 @@ const projectSummary = computed(() => {
               </header>
 
               <div v-for="g in shortcutGroups" :key="g.group" class="mb-4">
-                <div class="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                <div class="mb-1.5 px-1 text-xxs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                   {{ t(g.group) }}
                 </div>
                 <div class="overflow-hidden rounded-xl border border-zinc-200/70 bg-zinc-50/80 dark:border-white/[0.06] dark:bg-zinc-900/40">
@@ -938,10 +938,10 @@ const projectSummary = computed(() => {
                     class="flex items-center justify-between gap-3 border-b border-zinc-200/60 px-4 py-2.5 last:border-b-0 dark:border-white/[0.05]"
                   >
                     <div class="flex min-w-0 items-center gap-2">
-                      <span class="truncate text-[12.5px] text-zinc-900 dark:text-zinc-200">{{ t(row.description) }}</span>
+                      <span class="truncate text-xs text-zinc-900 dark:text-zinc-200">{{ t(row.description) }}</span>
                       <span
                         v-if="row.customized"
-                        class="shrink-0 rounded-full bg-purple-100 px-1.5 py-px text-[10px] font-medium text-purple-700 dark:bg-purple-500/15 dark:text-purple-300"
+                        class="shrink-0 rounded-full bg-purple-100 px-1.5 py-px text-xxs font-medium text-purple-700 dark:bg-purple-500/15 dark:text-purple-300"
                       >
                         {{ t('settings.customized') }}
                       </span>
@@ -976,7 +976,7 @@ const projectSummary = computed(() => {
               <header class="mb-6">
                 <h2 class="text-base font-medium text-zinc-900 dark:text-zinc-100">{{ t('settings.sequencesTitle') }}</h2>
                 <p class="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-                  {{ t('settings.seqDescA') }} <code class="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] text-purple-600 dark:bg-white/5 dark:text-purple-300">&#123;&#123;$seq:key&#125;&#125;</code> {{ t('settings.seqDescB') }}
+                  {{ t('settings.seqDescA') }} <code class="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xxs text-purple-600 dark:bg-white/5 dark:text-purple-300">&#123;&#123;$seq:key&#125;&#125;</code> {{ t('settings.seqDescB') }}
                 </p>
               </header>
 
@@ -986,7 +986,7 @@ const projectSummary = computed(() => {
                   <div class="mb-3">
                     <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ t('settings.seqAddTitle') }}</div>
                     <p class="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-                      {{ t('settings.seqGlobalHint') }} <code class="font-mono text-[11px] text-zinc-700 dark:text-zinc-300">&#123;&#123;$seq&#125;&#125;</code>
+                      {{ t('settings.seqGlobalHint') }} <code class="font-mono text-xxs text-zinc-700 dark:text-zinc-300">&#123;&#123;$seq&#125;&#125;</code>
                     </p>
                   </div>
                   <div class="flex items-center gap-2">
@@ -1022,13 +1022,13 @@ const projectSummary = computed(() => {
                 <div class="rounded-xl border border-zinc-200/70 bg-zinc-50/80 p-1 dark:border-white/[0.06] dark:bg-zinc-900/40">
                   <div class="flex items-center justify-between px-4 py-3">
                     <div class="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ t('settings.seqListTitle') }}</div>
-                    <span class="text-[11px] text-zinc-500">{{ t('settings.seqAutoSave') }}</span>
+                    <span class="text-xxs text-zinc-500">{{ t('settings.seqAutoSave') }}</span>
                   </div>
 
                   <div v-if="counters.length" class="mx-2 mb-2 overflow-hidden rounded-lg border border-zinc-200/70 bg-white dark:border-white/[0.06] dark:bg-black/20">
-                    <table class="w-full border-collapse text-left text-[12.5px]">
+                    <table class="w-full border-collapse text-left text-xs">
                       <thead>
-                        <tr class="border-b border-zinc-200/70 bg-zinc-50/60 text-[11px] text-zinc-500 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-zinc-400">
+                        <tr class="border-b border-zinc-200/70 bg-zinc-50/60 text-xxs text-zinc-500 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-zinc-400">
                           <th class="px-3.5 py-2.5 font-medium">{{ t('settings.seqColKey') }}</th>
                           <th class="w-36 px-3.5 py-2.5 font-medium">{{ t('settings.seqColNext') }}</th>
                           <th class="w-24 px-3.5 py-2.5 text-right font-medium">{{ t('settings.seqColOps') }}</th>
@@ -1044,7 +1044,7 @@ const projectSummary = computed(() => {
                             <div class="flex items-center gap-2 font-mono">
                               <span
                                 v-if="!c.key"
-                                class="inline-flex items-center rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-700 dark:bg-purple-500/15 dark:text-purple-300"
+                                class="inline-flex items-center rounded bg-purple-100 px-1.5 py-0.5 text-xxs font-medium text-purple-700 dark:bg-purple-500/15 dark:text-purple-300"
                               >
                                 {{ t('envmgr.groupGlobal') }}
                               </span>
@@ -1097,7 +1097,7 @@ const projectSummary = computed(() => {
                       <Icon name="list" :size="16" />
                     </div>
                     <p class="text-xs text-zinc-700 dark:text-zinc-400">{{ t('settings.seqEmpty') }}</p>
-                    <p class="mt-0.5 text-[11px] text-zinc-500">{{ t('settings.seqEmptyHint') }}</p>
+                    <p class="mt-0.5 text-xxs text-zinc-500">{{ t('settings.seqEmptyHint') }}</p>
                   </div>
                 </div>
               </div>
@@ -1174,25 +1174,25 @@ const projectSummary = computed(() => {
                         <span class="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ env.name }}</span>
                         <span
                           v-if="env.id === activeEnvId"
-                          class="rounded-full bg-emerald-100 px-1.5 py-px text-[10px] font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+                          class="rounded-full bg-emerald-100 px-1.5 py-px text-xxs font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
                         >
                           {{ t('envmgr.current') }}
                         </span>
                       </div>
-                      <div class="truncate font-mono text-[11px] text-zinc-600 dark:text-zinc-500">
+                      <div class="truncate font-mono text-xxs text-zinc-600 dark:text-zinc-500">
                         {{ envBase(env) || t('settings.envNoBase') }}
                       </div>
                     </div>
                   </div>
                   <div class="flex shrink-0 items-center gap-2">
                     <span
-                      class="rounded-full bg-zinc-200/70 px-2 py-0.5 text-[11px] text-zinc-600 dark:bg-white/[0.04] dark:text-zinc-400"
+                      class="rounded-full bg-zinc-200/70 px-2 py-0.5 text-xxs text-zinc-600 dark:bg-white/[0.04] dark:text-zinc-400"
                     >
                       {{ t('settings.envVarCount', { n: envVarCount(env) }) }}
                     </span>
                     <button
                       type="button"
-                      class="rounded-md px-2 py-1 text-[11px] text-zinc-500 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/[0.06] dark:hover:text-zinc-200"
+                      class="rounded-md px-2 py-1 text-xxs text-zinc-500 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/[0.06] dark:hover:text-zinc-200"
                       @click="openEnvironmentManager(env.id)"
                     >
                       {{ t('common.edit') }}
@@ -1293,7 +1293,7 @@ const projectSummary = computed(() => {
   border: 1px solid var(--border);
   background: var(--bg-card);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-all;
@@ -1310,7 +1310,7 @@ const projectSummary = computed(() => {
   background: var(--bg-hover);
   color: var(--text-1);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   white-space: nowrap;
   cursor: pointer;
   transition:

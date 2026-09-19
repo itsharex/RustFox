@@ -199,7 +199,7 @@ async function sendScratch(): Promise<void> {
   align-items: center;
   gap: 4px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
 }
 

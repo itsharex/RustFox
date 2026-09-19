@@ -186,7 +186,7 @@ function importToEditor(): void {
 
 .preview-method {
   font-weight: 700;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   padding: 2px 7px;
   border-radius: 4px;
   background: var(--info-tint);

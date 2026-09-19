@@ -322,19 +322,21 @@ async function fillFromMock(): Promise<void> {
   align-items: center;
   gap: 5px;
   padding: 4px 12px;
-  border: none;
-  border-radius: 6px;
-  background: #262626;
-  color: #e5e5e5;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-1);
   font-family: inherit;
   font-size: 12px;
   cursor: pointer;
-  transition: background var(--dur) var(--ease);
+  transition:
+    background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
 }
 .rep-mini-btn:hover {
-  background: #404040;
+  background: var(--bg-hover);
 }
 .rep-mini-btn:active {
-  background: #4a4a4a;
+  background: var(--bg-active);
 }
 </style>

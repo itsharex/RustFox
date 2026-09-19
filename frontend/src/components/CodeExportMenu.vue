@@ -197,7 +197,7 @@ async function pickLang(lang: CodeLang): Promise<void> {
   width: 100%;
   padding: 7px 10px;
   border: none;
-  border-radius: 7px;
+  border-radius: var(--radius);
   background: transparent;
   color: var(--text-1);
   font-size: 12.5px;

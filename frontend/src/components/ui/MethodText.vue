@@ -14,7 +14,7 @@ withDefaults(defineProps<{ method: string }>(), {})
 <style scoped>
 .mt {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   font-weight: 700;
   letter-spacing: 0.03em;
   line-height: 1.5;

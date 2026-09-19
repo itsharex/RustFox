@@ -140,6 +140,14 @@ function onClose(projectId: string): void {
 .proj-tabs::-webkit-scrollbar {
   display: none;
 }
+/* 悬停时露出细滚动条，暗示可横滚（默认隐藏保简洁） */
+.proj-tabs:hover {
+  scrollbar-width: thin;
+}
+.proj-tabs:hover::-webkit-scrollbar {
+  display: block;
+  height: 6px;
+}
 
 .proj-tab {
   display: inline-flex;

@@ -185,7 +185,7 @@ function shortValue(v: string): string {
   font-size: 12px;
 }
 .cp-count {
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
   white-space: nowrap;
 }
@@ -286,7 +286,7 @@ function shortValue(v: string): string {
   margin: 0;
   padding: 8px 10px;
   border-top: 1px solid var(--border);
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
 }
 </style>

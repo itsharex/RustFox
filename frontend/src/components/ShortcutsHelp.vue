@@ -77,7 +77,7 @@ const contextual = [
 .sc-keys {
   flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   padding: 2px 8px;
   border: 1px solid var(--border);
   border-bottom-width: 2px;

@@ -160,7 +160,7 @@ function onBulkKeydown(e: KeyboardEvent): void {
 
 .bulk-hint {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
 }
 </style>

@@ -162,7 +162,7 @@ function toggle(key: string, expandable: boolean): void {
 .stt-table th {
   padding: 6px 8px;
   text-align: left;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   font-weight: 600;
   color: var(--text-3);
   text-transform: uppercase;
@@ -297,7 +297,7 @@ function toggle(key: string, expandable: boolean): void {
   display: inline-block;
   padding: 0 6px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--warning);
   background: var(--warning-tint);
 }

@@ -674,7 +674,7 @@ useWindowDrag(topBarEl)
 }
 
 .top-tag {
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
   padding-left: 9px;
   border-left: 1px solid var(--border-strong);
@@ -825,9 +825,8 @@ useWindowDrag(topBarEl)
 .hero-value {
   font-family: var(--font-mono);
   font-size: 30px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.1;
-  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
   color: var(--text-1);
 }
@@ -845,7 +844,7 @@ useWindowDrag(topBarEl)
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 10.5px;
+  font-size: var(--fs-xxs);
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -892,9 +891,9 @@ useWindowDrag(topBarEl)
   width: 42px;
   text-align: center;
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: var(--fs-xxs);
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.2;
   padding: 4px 0;
   border-radius: 6px;
   border: 1px solid transparent;
@@ -933,14 +932,14 @@ useWindowDrag(topBarEl)
 }
 
 .tl-time {
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
   flex-shrink: 0;
 }
 
 .tl-path {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
   overflow: hidden;
   text-overflow: ellipsis;

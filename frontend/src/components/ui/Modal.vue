@@ -183,7 +183,7 @@ onBeforeUnmount(() => {
 
 .m-title {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--fs-lg);
   font-weight: 600;
   color: var(--text-1);
 }

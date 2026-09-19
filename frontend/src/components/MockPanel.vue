@@ -175,7 +175,7 @@ const others = (): MockRule[] =>
   flex-shrink: 0;
   width: 46px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   font-weight: 700;
 }
 

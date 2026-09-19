@@ -9,6 +9,7 @@
  */
 import { useLocaleStore } from '../../stores/locale'
 import IconButton from '../ui/IconButton.vue'
+import EmptyState from '../ui/EmptyState.vue'
 import type { FieldType, KeyValue } from '../../types/foxApi'
 
 const locale = useLocaleStore()
@@ -141,7 +142,9 @@ function removeRow(index: number): void {
             </td>
           </tr>
           <tr v-if="!rows.length">
-            <td :colspan="showExample ? 6 : 5" class="pdt-empty">{{ t('paramtable.empty') }}</td>
+            <td :colspan="showExample ? 6 : 5" class="pdt-empty">
+              <EmptyState icon="list" :title="t('paramtable.empty')" compact />
+            </td>
           </tr>
         </tbody>
       </table>
@@ -170,7 +173,7 @@ function removeRow(index: number): void {
 .pdt-table th {
   padding: 6px 8px;
   text-align: left;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   font-weight: 600;
   color: var(--text-3);
   text-transform: uppercase;
@@ -241,6 +244,7 @@ th.col-req {
   outline: none;
   border-color: var(--accent);
   background: var(--bg-code);
+  box-shadow: 0 0 0 2px var(--accent-tint);
 }
 
 .pdt-select {
@@ -262,6 +266,7 @@ th.col-req {
 .pdt-select:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-tint);
 }
 
 .pdt-check {
@@ -294,5 +299,9 @@ th.col-req {
 }
 .pdt-add:hover {
   background: var(--accent-tint);
+}
+.pdt-add:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 </style>

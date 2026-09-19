@@ -628,13 +628,13 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 10px;
+  padding: 4px 10px;
   border-radius: 6px;
   font-weight: 700;
   font-size: 12px;
   font-family: var(--font-mono);
   line-height: 1.4;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.03em;
 }
 .rp.tone-ok .rp-status {
   background: var(--success);
@@ -669,7 +669,7 @@ onUnmounted(() => {
 }
 
 .rp-meta-label {
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
 }
 
@@ -786,7 +786,7 @@ onUnmounted(() => {
   padding-right: 10px;
   user-select: none;
   color: var(--tok-gutter);
-  font-size: 11px;
+  font-size: var(--fs-xxs);
 }
 
 .rp-line-text {
@@ -926,7 +926,7 @@ onUnmounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 14px;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
 }
 </style>

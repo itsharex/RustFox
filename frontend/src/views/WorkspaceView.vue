@@ -823,7 +823,7 @@ onBeforeUnmount(() => {
   width: 26px;
   height: 26px;
   border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  border-radius: 7px;
+  border-radius: var(--radius);
   background: var(--accent-tint);
   color: var(--accent);
   cursor: pointer;
@@ -861,8 +861,8 @@ onBeforeUnmount(() => {
     background var(--dur) var(--ease);
 }
 .sidebar-search:focus-within {
-  border-color: #7e57ff;
-  box-shadow: 0 0 0 3px rgba(126, 87, 255, 0.18);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-tint);
 }
 
 .ss-icon {
@@ -930,7 +930,7 @@ onBeforeUnmount(() => {
   flex: 1 1 0;
   justify-content: center;
   height: 28px;
-  border-radius: 7px;
+  border-radius: var(--radius);
   font-size: 12px;
 }
 .sidebar-tabs :deep(.tab.active) {

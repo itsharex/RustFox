@@ -247,7 +247,7 @@ function importToEditor(): void {
 .preview-method {
   flex-shrink: 0;
   font-weight: 700;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   padding: 2px 7px;
   border-radius: 4px;
   background: var(--info-tint);
@@ -263,7 +263,7 @@ function importToEditor(): void {
 .preview-lang {
   flex-shrink: 0;
   margin-left: auto;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
 }
 

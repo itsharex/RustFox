@@ -125,7 +125,7 @@ async function createFolder(): Promise<void> {
     >
       <span class="method-tag" :class="methodTone(tab.method)">{{ tab.method }}</span>
       <span class="tab-title" v-tooltip-overflow="tab.title">{{ tab.title }}</span>
-      <span v-if="tab.dirty" class="tab-dirty" :title="t('tabbar.unsaved')"><Icon name="dot" :size="7" /></span>
+      <span v-if="tab.dirty" class="tab-dirty" :title="t('tabbar.unsaved')"><Icon name="dot" :size="8" /></span>
       <Popconfirm
         v-if="tab.dirty"
         :title="t('tabbar.closeConfirm')"
@@ -184,7 +184,7 @@ async function createFolder(): Promise<void> {
   padding: 0 4px 0 10px;
   border-radius: var(--radius) var(--radius) 0 0;
   position: relative;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--text-2);
   cursor: pointer;
   user-select: none;
@@ -217,9 +217,9 @@ async function createFolder(): Promise<void> {
 .method-tag {
   flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: var(--fs-xxs);
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.2;
   padding: 3px 6px;
   border-radius: 999px;
 }

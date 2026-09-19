@@ -212,7 +212,7 @@ const showExport = ref(false)
         </div>
       </div>
       <div class="head-sub">
-        <h3 class="head-name">{{ draft.name || t('default.endpointName') }}</h3>
+        <h3 class="head-name" v-tooltip-overflow>{{ draft.name || t('default.endpointName') }}</h3>
         <span class="head-status" :class="`s-${draft.status}`">
           {{ t(STATUS_KEYS[draft.status]) }}
         </span>
@@ -421,11 +421,11 @@ const showExport = ref(false)
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4.5px 12px;
-  border: 1px solid rgba(64, 64, 64, 0.6);
+  padding: 4px 12px;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
-  background: #262626;
-  color: #e5e5e5;
+  background: var(--bg-card);
+  color: var(--text-1);
   font-family: inherit;
   font-size: 12px;
   font-weight: 500;
@@ -435,15 +435,7 @@ const showExport = ref(false)
     border-color var(--dur) var(--ease);
 }
 .head-export:hover {
-  background: #404040;
-}
-html[data-theme='light'] .head-export {
   background: var(--bg-hover);
-  color: var(--text-1);
-  border-color: var(--border-strong);
-}
-html[data-theme='light'] .head-export:hover {
-  background: var(--bg-active);
 }
 
 .head-sub {
@@ -467,7 +459,7 @@ html[data-theme='light'] .head-export:hover {
   flex-shrink: 0;
   padding: 1px 8px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--info);
   background: var(--info-tint);
   border: 1px solid var(--info-border);
@@ -539,7 +531,7 @@ html[data-theme='light'] .head-export:hover {
 }
 
 .meta-item dt {
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
 }
 
@@ -589,7 +581,7 @@ html[data-theme='light'] .head-export:hover {
 }
 
 .path-vars-label {
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
 }
 
@@ -641,7 +633,7 @@ html[data-theme='light'] .head-export:hover {
 .kv-table th {
   padding: 5px 10px;
   text-align: left;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   font-weight: 600;
   color: var(--text-3);
   text-transform: uppercase;

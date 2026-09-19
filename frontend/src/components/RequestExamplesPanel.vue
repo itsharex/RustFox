@@ -151,7 +151,7 @@ function shortTime(iso: string): string {
   min-width: 0;
   padding: 6px 10px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius);
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-1);
@@ -170,7 +170,7 @@ function shortTime(iso: string): string {
   flex-shrink: 0;
   padding: 6px 14px;
   border: none;
-  border-radius: 7px;
+  border-radius: var(--radius);
   font-family: inherit;
   font-size: 12.5px;
   color: #fff;
@@ -219,7 +219,7 @@ function shortTime(iso: string): string {
 
 .rex-meta {
   margin-top: 1px;
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-3);
 }
 

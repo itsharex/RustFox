@@ -127,7 +127,7 @@ function onInputKeydown(e: KeyboardEvent): void {
 .findbar-count {
   flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xxs);
   color: var(--text-2);
   min-width: 52px;
   text-align: right;
