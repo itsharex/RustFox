@@ -9,6 +9,8 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { join } from '@tauri-apps/api/path'
 import { open } from '@tauri-apps/plugin-dialog'
 import { revealItemInDir } from '@tauri-apps/plugin-opener'
+import { relaunch } from '@tauri-apps/plugin-process'
+import { copyText } from '../utils/clipboard'
 import { useFoxApi } from '../composables/useFoxApi'
 import { useToast } from '../composables/useToast'
 import { useThemeStore, type ThemeMode } from '../stores/theme'
@@ -164,6 +166,7 @@ onMounted(async () => {
   await loadEnvironments()
   await loadCounters()
   reloadSkipped()
+  await loadDataDirs()
 })
 
 // ---------- 通用设置：请求超时（自动保存） ----------
@@ -315,9 +318,96 @@ async function addSeq(): Promise<void> {
   }
 }
 
+// ---------- 数据目录（rustfox.db / master.key 所在；变更重启后生效） ----------
+const dataDir = ref('')
+const defaultDataDir = ref('')
+const needRestart = ref(false)
+
+async function loadDataDirs(): Promise<void> {
+  try {
+    dataDir.value = await api.getDataDir()
+  } catch {
+    dataDir.value = ''
+  }
+  try {
+    defaultDataDir.value = await api.getDefaultDataDir()
+  } catch {
+    defaultDataDir.value = ''
+  }
+}
+
+const isDefaultDir = computed(
+  () => !!dataDir.value && !!defaultDataDir.value && dataDir.value === defaultDataDir.value,
+)
+
+async function pickDataDir(): Promise<void> {
+  const picked = await open({ directory: true, title: t('settings.dataDirTitle') })
+  if (typeof picked !== 'string' || !picked) return // 用户取消
+  try {
+    await api.setDataDir(picked)
+    await loadDataDirs()
+    needRestart.value = true
+    toast.success(t('settings.dataDirSaved'), { message: t('settings.dataDirRestartHint') })
+  } catch (err) {
+    toast.error(t('settings.dataDirSaveFail'), {
+      message: err instanceof Error ? err.message : String(err),
+    })
+  }
+}
+
+async function resetDataDirToDefault(): Promise<void> {
+  try {
+    await api.resetDataDir()
+    await loadDataDirs()
+    needRestart.value = true
+    toast.success(t('settings.dataDirResetDone'), { message: t('settings.dataDirRestartHint') })
+  } catch (err) {
+    toast.error(t('settings.dataDirSaveFail'), {
+      message: err instanceof Error ? err.message : String(err),
+    })
+  }
+}
+
+async function revealDataDir(): Promise<void> {
+  if (!dataDir.value) return
+  try {
+    await revealItemInDir(dataDir.value)
+  } catch {
+    toast.error(t('settings.revealFail'))
+  }
+}
+
+const copiedDataDir = ref(false)
+let copiedDataDirTimer: ReturnType<typeof setTimeout> | undefined
+
+/** 点击路径复制完整目录（ overlong 路径全宽展示 + 可选中，复制给反馈图标）。 */
+async function copyDataDir(): Promise<void> {
+  if (!dataDir.value) return
+  const ok = await copyText(dataDir.value)
+  if (!ok) {
+    toast.error(t('response.copyFail'))
+    return
+  }
+  copiedDataDir.value = true
+  if (copiedDataDirTimer) clearTimeout(copiedDataDirTimer)
+  copiedDataDirTimer = setTimeout(() => {
+    copiedDataDir.value = false
+  }, 1500)
+  toast.success(t('settings.dataDirCopied'))
+}
+
+async function restartNow(): Promise<void> {
+  try {
+    await relaunch()
+  } catch (err) {
+    toast.error(t('settings.restartFail'), {
+      message: err instanceof Error ? err.message : String(err),
+    })
+  }
+}
+
 // ---------- 数据与备份 ----------
-async function exportBackup(): Promise<void> {
-  if (!project.value) return
+async function exportBackup(): Promise<void> {  if (!project.value) return
   busy.value = true
   try {
     const text = await api.backupExport(project.value.id)
@@ -524,6 +614,7 @@ watch(recordingId, (id) => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onRecordKeydown, true)
+  if (copiedDataDirTimer) clearTimeout(copiedDataDirTimer)
 })
 
 function resetOneShortcut(id: string): void {
@@ -1148,6 +1239,54 @@ const projectSummary = computed(() => {
                   />
                 </div>
               </div>
+
+              <div class="mt-4 rounded-xl border border-zinc-200/70 bg-zinc-50/80 p-5 dark:border-white/[0.06] dark:bg-zinc-900/40">
+                <div class="flex items-center justify-between gap-4">
+                  <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ t('settings.dataDir') }}</div>
+                  <div class="flex shrink-0 items-center gap-2">
+                    <button class="rf-btn rf-btn-sm" type="button" @click="pickDataDir">
+                      <Icon name="folder" :size="13" />
+                      {{ t('settings.dataDirChange') }}
+                    </button>
+                    <button
+                      class="rf-btn rf-btn-sm"
+                      type="button"
+                      :disabled="isDefaultDir"
+                      @click="resetDataDirToDefault"
+                    >
+                      {{ t('settings.dataDirReset') }}
+                    </button>
+                    <button
+                      class="rf-btn rf-btn-sm"
+                      type="button"
+                      :disabled="!dataDir"
+                      @click="revealDataDir"
+                    >
+                      {{ t('settings.dataDirReveal') }}
+                    </button>
+                  </div>
+                </div>
+                <div class="datadir-path">
+                  <span class="datadir-path-text">{{ dataDir || '…' }}</span>
+                  <button
+                    class="datadir-copy-btn"
+                    :class="{ copied: copiedDataDir }"
+                    type="button"
+                    :title="copiedDataDir ? t('settings.dataDirCopied') : t('settings.dataDirCopy')"
+                    :disabled="!dataDir"
+                    @click="copyDataDir"
+                  >
+                    <Icon :name="copiedDataDir ? 'check' : 'copy'" :size="13" />
+                  </button>
+                </div>
+                <p class="mt-2 text-xs text-zinc-600 dark:text-zinc-400">{{ t('settings.dataDirDesc') }}</p>
+                <p v-if="needRestart" class="mt-3 text-xs text-zinc-600 dark:text-zinc-400">
+                  {{ t('settings.dataDirRestartNow') }}
+                  <button class="rf-btn rf-btn-sm ml-2" type="button" @click="restartNow">
+                    {{ t('settings.restartNow') }}
+                  </button>
+                </p>
+              </div>
             </section>
 
             <!-- 环境管理 -->
@@ -1283,6 +1422,65 @@ const projectSummary = computed(() => {
 .sd-dot-active {
   background: var(--success);
   box-shadow: 0 0 0 3px var(--success-tint);
+}
+
+/* 数据目录路径：全宽展示（自动换行不断尾），文本可选中；复制走右侧显式按钮 */
+.datadir-path {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px 6px 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-1);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-1);
+  cursor: text;
+}
+.datadir-path-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.datadir-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition:
+    background var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+.datadir-copy-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+.datadir-copy-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.datadir-copy-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.datadir-copy-btn.copied {
+  color: var(--success);
+}
+.datadir-copy-btn.copied:hover {
+  color: var(--success);
 }
 .log-view {
   margin: 0;

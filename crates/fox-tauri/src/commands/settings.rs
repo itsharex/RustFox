@@ -134,3 +134,178 @@ pub async fn apply_saved_proxy(db: &sqlx::SqlitePool) {
         }
     }
 }
+
+/// 当前生效的数据目录（rustfox.db / master.key / logs / snapshots 所在）。
+#[tauri::command(rename_all = "camelCase")]
+pub async fn get_data_dir() -> CommandResult<String> {
+    Ok(fox_storage::db::data_dir().to_string_lossy().to_string())
+}
+
+/// 默认数据目录（无覆盖时；恢复默认用）。
+#[tauri::command(rename_all = "camelCase")]
+pub async fn get_default_data_dir() -> CommandResult<String> {
+    Ok(fox_storage::db::default_data_dir()
+        .to_string_lossy()
+        .to_string())
+}
+
+/// 设置数据目录：校验绝对路径 + 建目录 + 可写探测，通过后写入 bootstrap 文件。
+/// 即时生效需重启（DB 连接池与密钥缓存与进程同生命周期）。
+/// 注意：新目录从空数据启动，旧数据请先用备份 JSON 导出、切换后导入。
+#[tauri::command(rename_all = "camelCase")]
+pub async fn set_data_dir(path: String) -> CommandResult<()> {
+    validate_data_dir_candidate(&path)?;
+    let target = std::path::PathBuf::from(path.trim());
+    std::fs::create_dir_all(&target)
+        .map_err(|e| CommandError::with_code("IO", format!("创建目录失败：{e}")))?;
+    // 可写探测（建删空文件；失败即拒收，避免重启后打不开库）。
+    let probe = target.join(".rustfox-write-test");
+    std::fs::write(&probe, b"ok")
+        .map_err(|e| CommandError::with_code("IO", format!("目录不可写：{e}")))?;
+    let _ = std::fs::remove_file(&probe);
+    let bootstrap = fox_storage::db::bootstrap_path();
+    if let Some(parent) = bootstrap.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| CommandError::with_code("IO", format!("创建配置目录失败：{e}")))?;
+    }
+    std::fs::write(&bootstrap, target.to_string_lossy().as_bytes())
+        .map_err(|e| CommandError::with_code("IO", format!("写入目录配置失败：{e}")))?;
+    Ok(())
+}
+
+/// 恢复默认数据目录（删除 bootstrap 覆盖；重启后生效）。
+#[tauri::command(rename_all = "camelCase")]
+pub async fn reset_data_dir() -> CommandResult<()> {
+    let bootstrap = fox_storage::db::bootstrap_path();
+    if bootstrap.exists() {
+        std::fs::remove_file(&bootstrap)
+            .map_err(|e| CommandError::with_code("IO", format!("删除目录配置失败：{e}")))?;
+    }
+    Ok(())
+}
+
+/// 校验候选目录：非空、绝对路径、与默认目录不相同。
+fn validate_data_dir_candidate(raw: &str) -> CommandResult<()> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err(CommandError::validation("数据目录不能为空"));
+    }
+    let p = std::path::PathBuf::from(trimmed);
+    if !p.is_absolute() {
+        return Err(CommandError::validation("数据目录必须使用绝对路径"));
+    }
+    if same_path(&p, &fox_storage::db::default_data_dir()) {
+        return Err(CommandError::validation("已是默认目录，无需设置"));
+    }
+    Ok(())
+}
+
+/// 路径等价比较（大小写/分隔符按平台语义；`~` 不展开——候选已要求绝对路径）。
+#[cfg(not(windows))]
+fn same_path(a: &std::path::Path, b: &std::path::Path) -> bool {
+    a == b
+}
+
+/// Windows 上路径大小写不敏感，逐组件比较。
+#[cfg(windows)]
+fn same_path(a: &std::path::Path, b: &std::path::Path) -> bool {
+    let norm = |p: &std::path::Path| {
+        p.components()
+            .map(|c| c.as_os_str().to_string_lossy().to_lowercase())
+            .collect::<Vec<_>>()
+    };
+    norm(a) == norm(b)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Mutex, OnceLock};
+
+    /// 环境变量是进程全局的：涉及覆盖解析的用例串行执行。
+    fn env_serial() -> std::sync::MutexGuard<'static, ()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// 隔离 bootstrap 落盘位置（否则单测会污染真实数据目录）。
+    fn isolated_bootstrap(name: &str) -> PathBufGuard {
+        let dir = std::env::temp_dir().join(format!(
+            "rustfox-bootstrap-test-{name}-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("建隔离目录");
+        let prev = std::env::var_os(fox_core::paths::BOOTSTRAP_DIR_ENV);
+        std::env::set_var(fox_core::paths::BOOTSTRAP_DIR_ENV, &dir);
+        PathBufGuard { dir, prev }
+    }
+
+    struct PathBufGuard {
+        dir: std::path::PathBuf,
+        prev: Option<std::ffi::OsString>,
+    }
+
+    impl Drop for PathBufGuard {
+        fn drop(&mut self) {
+            match &self.prev {
+                Some(v) => std::env::set_var(fox_core::paths::BOOTSTRAP_DIR_ENV, v),
+                None => std::env::remove_var(fox_core::paths::BOOTSTRAP_DIR_ENV),
+            }
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+
+    #[test]
+    fn validate_rejects_bad_candidates() {
+        assert!(validate_data_dir_candidate("").is_err());
+        assert!(validate_data_dir_candidate("   ").is_err());
+        assert!(validate_data_dir_candidate("relative/path").is_err());
+        let def = fox_storage::db::default_data_dir()
+            .to_string_lossy()
+            .to_string();
+        assert!(
+            validate_data_dir_candidate(&def).is_err(),
+            "与默认目录相同应拒收"
+        );
+    }
+
+    #[tokio::test]
+    async fn set_reset_data_dir_roundtrip() {
+        let _serial = env_serial();
+        let _iso = isolated_bootstrap("roundtrip");
+        // 确保环境变量覆盖不干扰 bootstrap 路径断言
+        let prev_data_env = std::env::var_os(fox_core::paths::DATA_DIR_ENV);
+        std::env::remove_var(fox_core::paths::DATA_DIR_ENV);
+
+        let target =
+            std::env::temp_dir().join(format!("rustfox-datadir-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&target);
+        set_data_dir(target.to_string_lossy().to_string())
+            .await
+            .expect("合法目录应写入成功");
+        assert!(
+            target.join("rustfox.db").parent().is_some(),
+            "目标目录应已创建"
+        );
+        assert_eq!(
+            fox_core::paths::data_dir_override(),
+            Some(target.clone()),
+            "写入后覆盖应生效"
+        );
+        assert_eq!(
+            get_data_dir().await.expect("读取"),
+            target.to_string_lossy().to_string()
+        );
+
+        reset_data_dir().await.expect("重置应成功");
+        assert_eq!(fox_core::paths::data_dir_override(), None);
+        let _ = std::fs::remove_dir_all(&target);
+        match prev_data_env {
+            Some(v) => std::env::set_var(fox_core::paths::DATA_DIR_ENV, v),
+            None => std::env::remove_var(fox_core::paths::DATA_DIR_ENV),
+        }
+    }
+}

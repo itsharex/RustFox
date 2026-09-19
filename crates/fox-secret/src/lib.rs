@@ -36,10 +36,15 @@ pub struct MasterKey([u8; 32]);
 
 /// 数据目录（与 fox-storage::db::data_dir 一致：Windows 上同为 Roaming，
 /// 保证 master.key 与 rustfox.db 同树，用户整目录备份不会漏密钥）。
+/// 可覆盖（`RUSTFOX_DATA_DIR` / bootstrap 文件），见 `fox_core::paths`；
+/// 无覆盖时保持历史行为（固定 `RustFox`，无 -dev 后缀——dev 的库在
+/// RustFox-dev 而密钥在此，改动会 orphan 现有密钥，故维持原样）。
 pub fn data_dir() -> PathBuf {
-    dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("RustFox")
+    fox_core::paths::data_dir_override().unwrap_or_else(|| {
+        dirs::data_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("RustFox")
+    })
 }
 
 /// 旧版数据目录（dirs::data_local_dir）：Windows 上与 data_dir 不同树。

@@ -81,6 +81,10 @@ RustFox 核心插件的默认权限：允许前端调用全部 fox 命令
 - `allow-set-http-proxy`
 - `allow-get-http-timeout-ms`
 - `allow-set-http-timeout-ms`
+- `allow-get-data-dir`
+- `allow-get-default-data-dir`
+- `allow-set-data-dir`
+- `allow-reset-data-dir`
 - `allow-list-seq-counters`
 - `allow-set-seq-counter`
 - `allow-delete-seq-counter`
@@ -887,6 +891,58 @@ Denies the get_active_project command without any pre-configured scope.
 <tr>
 <td>
 
+`fox-tauri:allow-get-data-dir`
+
+</td>
+<td>
+
+Enables the get_data_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:deny-get-data-dir`
+
+</td>
+<td>
+
+Denies the get_data_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:allow-get-default-data-dir`
+
+</td>
+<td>
+
+Enables the get_default_data_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:deny-get-default-data-dir`
+
+</td>
+<td>
+
+Denies the get_default_data_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `fox-tauri:allow-get-endpoint`
 
 </td>
@@ -1667,6 +1723,32 @@ Denies the read_text_file command without any pre-configured scope.
 <tr>
 <td>
 
+`fox-tauri:allow-reset-data-dir`
+
+</td>
+<td>
+
+Enables the reset_data_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:deny-reset-data-dir`
+
+</td>
+<td>
+
+Denies the reset_data_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `fox-tauri:allow-save-endpoint`
 
 </td>
@@ -1998,6 +2080,32 @@ Enables the set_active_project command without any pre-configured scope.
 <td>
 
 Denies the set_active_project command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:allow-set-data-dir`
+
+</td>
+<td>
+
+Enables the set_data_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:deny-set-data-dir`
+
+</td>
+<td>
+
+Denies the set_data_dir command without any pre-configured scope.
 
 </td>
 </tr>

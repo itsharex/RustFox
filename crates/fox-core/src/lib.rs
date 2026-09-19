@@ -1,6 +1,7 @@
 pub mod curl_parser;
 pub mod error;
 pub mod model;
+pub mod paths;
 pub mod util;
 pub mod variable;
 

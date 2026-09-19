@@ -10,16 +10,21 @@ use fox_core::{AppError, Result};
 
 /// {SystemDataDir}/RustFox（开发构建用 RustFox-dev，与正式版数据隔离：
 /// 避免 tauri dev 跑过更新的迁移后，旧正式版打开同一数据库因迁移版本
-/// 校验失败而启动即退出）
+/// 校验失败而启动即退出）。
+/// 可覆盖：`RUSTFOX_DATA_DIR` 环境变量 > 默认目录下的 `data_dir.txt`
+/// （设置页写入）> 默认。见 `fox_core::paths`。
 pub fn data_dir() -> PathBuf {
-    let sub = if cfg!(debug_assertions) {
-        "RustFox-dev"
-    } else {
-        "RustFox"
-    };
-    dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join(sub)
+    fox_core::paths::resolve_data_dir_with_default(default_data_dir())
+}
+
+/// 默认数据目录（无覆盖时；见 `fox_core::paths::default_data_dir`）。
+pub fn default_data_dir() -> PathBuf {
+    fox_core::paths::default_data_dir()
+}
+
+/// bootstrap 文件路径（设置页写入的覆盖配置所在，见 `fox_core::paths`）。
+pub fn bootstrap_path() -> PathBuf {
+    fox_core::paths::bootstrap_path()
 }
 
 /// 日志目录 {SystemDataDir}/RustFox/logs

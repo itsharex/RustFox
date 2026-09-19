@@ -389,6 +389,15 @@ export function useFoxApi() {
   const backupRestore = (text: string) =>
     run(() => call<BackupSummary>('backup_restore', { text }))
 
+  // ---------- 数据目录（设置页；变更重启后生效） ----------
+  const getDataDir = () => run(() => call<string>('get_data_dir', {}))
+
+  const getDefaultDataDir = () => run(() => call<string>('get_default_data_dir', {}))
+
+  const setDataDir = (path: string) => run(() => call<void>('set_data_dir', { path }))
+
+  const resetDataDir = () => run(() => call<void>('reset_data_dir', {}))
+
   // ---------- 导入导出 ----------
   const importDocument = (text: string) =>
     run(() => call<ImportResult>('import_document', { text }))
@@ -563,6 +572,10 @@ export function useFoxApi() {
     testHttpProxy,
     backupExport,
     backupRestore,
+    getDataDir,
+    getDefaultDataDir,
+    setDataDir,
+    resetDataDir,
     importDocument,
     exportOpenapi,
     exportDocs,

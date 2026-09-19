@@ -649,6 +649,7 @@ version = "0.0.1"
 dependencies = [
  "async-trait",
  "chrono",
+ "dirs",
  "rand 0.8.7",
  "regex",
  "reqwest",
@@ -657,6 +658,7 @@ dependencies = [
  "shell-words",
  "sqlx",
  "thiserror 1.0.69",
+ "tracing",
  "uuid",
 ]
 
@@ -760,6 +762,7 @@ dependencies = [
  "aes-gcm",
  "base64 0.22.1",
  "dirs",
+ "fox-core",
  "rand 0.8.7",
  "thiserror 1.0.69",
 ]
