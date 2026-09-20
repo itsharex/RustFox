@@ -276,8 +276,6 @@ export const en: Record<ZhKey, string> = {
   'editor.exampleDeleteFail': 'Failed to delete example',
   'editor.endpointNamePh': 'Endpoint name',
   'editor.endpointNameHint': 'Click to rename inline',
-  'editor.moduleHint': 'Which service module this request belongs to. Uses the default module base when unbound',
-  'editor.defaultModule': 'Default module',
   'editor.copyUrl': 'Copy full request URL',
   'editor.clearPath': 'Clear path (Esc)',
   'editor.send': 'Send',

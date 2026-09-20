@@ -273,8 +273,6 @@ export const zh = {
   'editor.exampleDeleteFail': '删除示例失败',
   'editor.endpointNamePh': '接口名称',
   'editor.endpointNameHint': '点击可直接修改接口名称',
-  'editor.moduleHint': '选择该请求归属的服务模块；未绑定（默认）时使用默认模块基址',
-  'editor.defaultModule': '默认模块',
   'editor.copyUrl': '复制完整请求地址',
   'editor.clearPath': '清空路径 (Esc)',
   'editor.send': '发送',

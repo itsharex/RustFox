@@ -18,7 +18,6 @@ import { useShortcuts, shortcutDef } from '../composables/useShortcuts'
 import {
   envBaseUrl,
   environmentVariableMap,
-  moduleBaseUrl,
   resolveRequestUrl,
   resolveVariables,
   variableListToMap,
@@ -276,40 +275,6 @@ const activeEnv = computed(
 )
 const activeEnvName = computed(() => activeEnv.value?.name ?? '')
 
-/**
- * 当前标签页绑定的模块（id，空 = 默认模块）。按 endpointId 持久化到 localStorage，
- * 刷新 / 重开标签后保持「该接口归属哪个服务」的记忆。
- */
-const moduleId = ref<string | null>(null)
-
-watch(
-  () => draft.value?.id,
-  (id) => {
-    if (!id) {
-      moduleId.value = null
-      return
-    }
-    try {
-      moduleId.value = typeof localStorage !== 'undefined' ? localStorage.getItem(`rustfox:module:${id}`) : null
-    } catch {
-      moduleId.value = null
-    }
-  },
-  { immediate: true },
-)
-
-function setModule(id: string): void {
-  moduleId.value = id || null
-  if (draft.value?.id) {
-    try {
-      if (id) localStorage.setItem(`rustfox:module:${draft.value.id}`, id)
-      else localStorage.removeItem(`rustfox:module:${draft.value.id}`)
-    } catch {
-      // ignore storage errors
-    }
-  }
-}
-
 /** 环境变量 + 项目变量 + 全局变量合并表（chips / 预览解析用；优先级 环境 > 项目 > 全局）。 */
 const envVars = computed(() => ({
   ...variableListToMap(store.globalVariables),
@@ -317,12 +282,8 @@ const envVars = computed(() => ({
   ...environmentVariableMap(activeEnv.value, store.project?.id),
 }))
 
-/** 地址栏前缀 chip 文案：绑定的模块基址 > 环境 base_url 变量的「解析后」实际值或会话 Base URL。 */
+/** 地址栏前缀 chip 文案：环境 base_url 变量的「解析后」实际值或会话 Base URL。 */
 const resolvedDomain = computed(() => {
-  if (moduleId.value && activeEnv.value) {
-    const b = moduleBaseUrl(activeEnv.value, moduleId.value)
-    if (b) return resolveVariables(b, envVars.value)
-  }
   const src = urlDomain.value
   if (!src) return ''
   return resolveVariables(src, envVars.value)
@@ -465,14 +426,13 @@ const urlPath = computed({
   },
 })
 
-/** 请求地址（与 send / 代码生成 / 压测共用）；多模块按绑定模块基址拼接，变量由 resolveRequestUrl 解析。 */
+/** 请求地址（与 send / 代码生成 / 压测共用）；有环境时按默认模块（优先当前项目绑定）拼接，变量由 resolveRequestUrl 解析。 */
 function buildUrl(): string {
   const d = draft.value
   if (!d) return ''
   if (isAbsolutePath(d.path)) return d.path
-  // 有环境（默认模块或显式绑定模块基址）时按多模块规则解析。
-  if (activeEnv.value && (moduleId.value || envBaseUrl(activeEnv.value))) {
-    return resolveRequestUrl(activeEnv.value, moduleId.value, d.path, envVars.value, d.project_id).url
+  if (activeEnv.value && envBaseUrl(activeEnv.value)) {
+    return resolveRequestUrl(activeEnv.value, null, d.path, envVars.value, d.project_id).url
   }
   const path = d.path.startsWith('/') ? d.path : `/${d.path}`
   return `${store.urlDomain}${path}`
@@ -851,23 +811,6 @@ onUnmounted(() => {
             <span class="env-badge-text">{{ envBadgeLabel }}</span>
             <Icon name="chevron-down" :size="11" class="env-badge-chevron" />
           </button>
-        </Tooltip>
-        <Tooltip
-          v-if="activeEnv && activeEnv.modules.length > 0 && !isAbsPath"
-          :content="t('editor.moduleHint')"
-          placement="bottom"
-        >
-          <CustomSelect
-            class="mod-select"
-            pop-class="mod-pop"
-            :model-value="moduleId ?? ''"
-            :options="[
-              { value: '', label: t('editor.defaultModule') },
-              ...activeEnv.modules.map((m) => ({ value: m.id, label: m.module_name })),
-            ]"
-            size="sm"
-            @change="setModule(String($event))"
-          />
         </Tooltip>
         <div class="url-input-wrap">
           <input
@@ -1275,27 +1218,6 @@ onUnmounted(() => {
 /* 会话级 Base URL（未使用环境变量）：中性文字 */
 .env-badge.session {
   color: var(--text-2);
-}
-
-/* ---- 模块绑定选择器（多模块环境下显示） ---- */
-.mod-select {
-  flex-shrink: 0;
-}
-.mod-select :deep(.cs-trigger) {
-  height: 30px;
-  border-color: var(--border);
-  background: var(--bg-panel);
-  font-size: 11.5px;
-  color: var(--text-2);
-  border-radius: 6px;
-  padding: 0 8px;
-}
-.mod-select :deep(.cs-trigger:hover:not(:disabled)) {
-  border-color: var(--border-strong);
-  background: var(--bg-hover);
-}
-:global(.mod-pop .cs-pop) {
-  min-width: 150px;
 }
 .env-badge.session:hover {
   color: var(--text-1);
