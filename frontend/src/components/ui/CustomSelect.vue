@@ -23,8 +23,10 @@ const props = withDefaults(
     disabled?: boolean
     size?: 'sm' | 'md'
     popClass?: string
+    /** 弹窗最小宽度（px）：触发器太窄时（如请求栏模块选择）保证选项可读，默认跟触发器等宽。 */
+    popMinWidth?: number
   }>(),
-  { modelValue: null, placeholder: '', disabled: false, size: 'md', popClass: '' },
+  { modelValue: null, placeholder: '', disabled: false, size: 'md', popClass: '', popMinWidth: 0 },
 )
 
 const locale = useLocaleStore()
@@ -36,6 +38,8 @@ const effectivePlaceholder = computed(() => props.placeholder || t('select.ph'))
 const emit = defineEmits<{
   'update:modelValue': [value: string | number]
   change: [value: string | number]
+  open: []
+  close: []
 }>()
 
 const open = ref(false)
@@ -69,20 +73,23 @@ function measure(): void {
   pos.value = {
     left: rect.left,
     top: up ? rect.top - height - 4 : rect.bottom + 4,
-    width: rect.width,
+    width: Math.max(rect.width, props.popMinWidth ?? 0),
     up,
   }
 }
 
 function openPopup(): void {
-  if (props.disabled) return
+  if (props.disabled || open.value) return
   measure()
   open.value = true
   highlight.value = selectedIndex.value
+  emit('open')
 }
 
 function close(): void {
+  if (!open.value) return
   open.value = false
+  emit('close')
 }
 
 function pick(option: SelectOption): void {
@@ -202,7 +209,7 @@ onBeforeUnmount(() => {
           <span class="cs-opt-check">
             <Icon v-if="String(o.value) === String(modelValue)" name="check" :size="12" />
           </span>
-          <span class="cs-opt-label">
+          <span class="cs-opt-label" :title="o.label">
             <slot name="option" :option="o" :selected="String(o.value) === String(modelValue)">
               {{ o.label }}
             </slot>

@@ -3,11 +3,11 @@
  * Tooltip：hover 提示（250ms 延迟出现，随触发元素定位）。
  * 触发元素为默认插槽；气泡 fixed 定位避免被 overflow 裁剪。
  */
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const props = withDefaults(
-  defineProps<{ content: string; placement?: 'top' | 'bottom' }>(),
-  { content: '', placement: 'top' },
+  defineProps<{ content: string; placement?: 'top' | 'bottom'; disabled?: boolean }>(),
+  { content: '', placement: 'top', disabled: false },
 )
 
 const visible = ref(false)
@@ -17,7 +17,7 @@ const pos = ref({ left: 0, top: 0 })
 let timer: number | null = null
 
 function show(): void {
-  if (!props.content) return
+  if (props.disabled || !props.content) return
   timer = window.setTimeout(() => {
     // 先渲染气泡再测量定位：v-if 未激活时 tipEl 为空，直接 position() 会
     // 停留在 (0,0) 导致气泡漂到窗口左上角（遮挡 macOS 交通灯）。
@@ -55,6 +55,14 @@ function position(): void {
 function onReposition(): void {
   if (visible.value) position()
 }
+
+// 禁用瞬间正在显示的气泡立刻收起（如包裹的下拉菜单打开时避让）。
+watch(
+  () => props.disabled,
+  (disabled) => {
+    if (disabled) hide()
+  },
+)
 
 /**
  * 模块级共享 reposition 注册表：工具栏 / 树中几十个 Tooltip 实例

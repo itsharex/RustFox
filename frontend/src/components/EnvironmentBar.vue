@@ -25,6 +25,8 @@ const t = locale.t
 const barEl = ref<HTMLElement | null>(null)
 const showQuick = ref(false)
 const showManager = ref(false)
+/** 环境下拉菜单是否打开：打开时禁用触发器上的悬浮提示，避免与菜单重叠。 */
+const envMenuOpen = ref(false)
 
 const activeEnv = computed(
   () => store.environments.find((e) => e.id === store.activeEnvId) ?? null,
@@ -61,7 +63,7 @@ function colorClass(name: string): string {
 <template>
   <div ref="barEl" class="env-bar">
     <div class="eb-group">
-      <Tooltip :content="tooltipContent" placement="bottom">
+      <Tooltip :content="tooltipContent" :disabled="envMenuOpen" placement="bottom">
         <CustomSelect
           class="eb-select"
           pop-class="env-pop"
@@ -70,6 +72,8 @@ function colorClass(name: string): string {
           :placeholder="t('envbar.placeholder')"
           size="sm"
           @change="onChange"
+          @open="envMenuOpen = true"
+          @close="envMenuOpen = false"
         >
           <template #display="{ selected }">
             <span class="edot" :class="`ed-${colorClass(selected?.label ?? '')}`"></span>
