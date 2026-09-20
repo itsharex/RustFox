@@ -162,6 +162,15 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const dirtyCache = new Map<string, [number, boolean]>()
 
   /**
+   * 新建接口的创建时快照：openNewEndpoint 产生的草稿尚无保存态，
+   * 原来对「无保存态」一律判脏，导致刚 + 出来、一个字没改的空接口
+   * 也显示小圆点、关闭弹二次确认。有快照时与快照比（改后删回原样
+   * 也算干净）；保存 / 关闭标签时清理。
+   * openCurlDraft / 历史恢复的草稿自带用户内容，不建快照、保持按脏处理。
+   */
+  const pristineBaselines = new Map<string, Endpoint>()
+
+  /**
    * 保存态索引：isDirty / titleOf 原来每次调用都 `endpoints.find`
    *（O(标签数 × 接口数)），此处随列表刷新重建一次，查询 O(1)。
    */
@@ -172,10 +181,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     const draft = drafts.value.get(id)
     if (!draft) return false
     const saved = savedIndex.value.get(id)
-    if (!saved) return true
+    // 无保存态的新建接口与创建快照比（无快照的野草稿保守按脏）
+    const baseline = saved ?? pristineBaselines.get(id)
+    if (!baseline) return true
     const cached = dirtyCache.get(id)
     if (cached && cached[0] === dirtyTick.value) return cached[1]
-    const result = !eq(draft, saved)
+    const result = !eq(draft, baseline)
     dirtyCache.set(id, [dirtyTick.value, result])
     return result
   }
@@ -862,6 +873,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       updated_at: now,
     }
     drafts.value.set(blank.id, blank)
+    pristineBaselines.set(blank.id, JSON.parse(JSON.stringify(blank)) as Endpoint)
     if (!openTabs.value.includes(blank.id)) openTabs.value.push(blank.id)
     activeTabId.value = blank.id
     focusTitle()
@@ -882,6 +894,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     if (idx === -1) return
     openTabs.value.splice(idx, 1)
     drafts.value.delete(id)
+    pristineBaselines.delete(id)
     // 示例缓存随标签释放（每条含完整响应 body），重开标签时懒加载重建。
     examples.value.delete(id)
     requestExamples.value.delete(id)
@@ -917,6 +930,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         ...saved,
         request: JSON.parse(JSON.stringify(saved.request)),
       })
+      // 落库后以保存态为准，创建快照使命完成
+      pristineBaselines.delete(saved.id)
       toast.success(t('ws.endpointSaved', { name: saved.name }))
       return true
     } catch (err) {

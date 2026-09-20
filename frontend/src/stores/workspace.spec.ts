@@ -174,6 +174,35 @@ describe('workspace store 多项目快照切换', () => {
     expect(store.project?.id).toBe('p-b')
     expect(store.openProjects.map((t) => t.id)).toEqual(['p-a', 'p-b'])
   })
+
+  it('新建空接口默认干净：无改动关闭不确认；改动后才变脏', async () => {
+    const store = useWorkspaceStore()
+    backend.setActive('p-a')
+    await store.init()
+    store.openNewEndpoint(null)
+    const id = store.activeTabId!
+    // 刚 + 出来、一个字没改：干净（无小圆点、无关闭确认）
+    expect(store.isDirty(id)).toBe(false)
+    // 改名 → 脏（定版推进是 watcher 套 nextTick 的两跳，这里等两拍）
+    const blankName = store.draftOf(id)!.name
+    store.draftOf(id)!.name = '新建用户'
+    await nextTick()
+    await nextTick()
+    expect(store.isDirty(id)).toBe(true)
+    // 改回原样 → 干净
+    store.draftOf(id)!.name = blankName
+    await nextTick()
+    await nextTick()
+    expect(store.isDirty(id)).toBe(false)
+    // 改路径 → 脏；保存后回归干净（创建快照使命完成）
+    store.draftOf(id)!.path = '/users'
+    await nextTick()
+    await nextTick()
+    expect(store.isDirty(id)).toBe(true)
+    store.draftOf(id)!.name = '新建用户'
+    expect(await store.saveActiveDraft()).toBe(true)
+    expect(store.isDirty(id)).toBe(false)
+  })
 })
 
 describe('moveEndpoint：移动后打开草稿的 folder_id / sort_order 同步', () => {
