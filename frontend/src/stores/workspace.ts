@@ -905,6 +905,20 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   }
 
+  /** 关闭除 keepId 外的全部标签（返回关闭数；脏标签由调用方先确认）。 */
+  function closeOtherTabs(keepId: string): number {
+    const targets = openTabs.value.filter((id) => id !== keepId)
+    targets.forEach((id) => closeTab(id))
+    return targets.length
+  }
+
+  /** 关闭全部标签（返回关闭数；脏标签由调用方先确认）。 */
+  function closeAllTabs(): number {
+    const targets = [...openTabs.value]
+    targets.forEach((id) => closeTab(id))
+    return targets.length
+  }
+
   /** 保存当前草稿：新建（列表无此 id）走创建，否则走更新。 */
   async function saveActiveDraft(): Promise<boolean> {
     const draft = activeEndpoint.value
@@ -1611,6 +1625,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     focusTitleSignal,
     setDraft,
     closeTab,
+    closeOtherTabs,
+    closeAllTabs,
     saveActiveDraft,
     deleteEndpoint,
     undoDelete,

@@ -542,8 +542,6 @@ onBeforeUnmount(() => {
       <main class="rf-main">
         <TabBar
           v-if="store.openTabs.length"
-          @import-curl="openCurlImport(null)"
-          @import-openapi="showDocImport = true"
         />
         <EndpointEditor />
       </main>

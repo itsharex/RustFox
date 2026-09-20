@@ -203,6 +203,23 @@ describe('workspace store 多项目快照切换', () => {
     expect(await store.saveActiveDraft()).toBe(true)
     expect(store.isDirty(id)).toBe(false)
   })
+
+  it('批量关闭：closeOthers 保留当前，closeAll 清空并回退激活', async () => {
+    const store = useWorkspaceStore()
+    backend.setActive('p-a')
+    await store.init()
+    store.openEndpoint(store.endpoints[0]!)
+    store.openNewEndpoint(null)
+    store.openNewEndpoint(null)
+    expect(store.openTabs).toHaveLength(3)
+    const keep = store.activeTabId!
+    expect(store.closeOtherTabs(keep)).toBe(2)
+    expect(store.openTabs).toEqual([keep])
+    expect(store.activeTabId).toBe(keep)
+    expect(store.closeAllTabs()).toBe(1)
+    expect(store.openTabs).toHaveLength(0)
+    expect(store.activeTabId).toBeNull()
+  })
 })
 
 describe('moveEndpoint：移动后打开草稿的 folder_id / sort_order 同步', () => {

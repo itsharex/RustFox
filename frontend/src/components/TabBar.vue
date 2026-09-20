@@ -2,13 +2,14 @@
 /**
  * TabBar：打开中的接口标签页。
  * - 每个标签：方法标签（GET 绿 / POST 黄…）+ 截断的接口名；宽 120–200px；
+ * - 布局：「+」紧跟末尾 tab，溢出时吸在右边缘（Chrome 式，sticky 实现），
+ *   tab 再多也不会把它滚丢；
  * - 激活态 = text-1 + 底部主题色下划线；未保存草稿在标题旁显示小圆点，
  *   hover 时圆点被 ✕ 替换（两者不同时出现，避免挤占）；
  * - 关闭按钮 hover 才出现；脏标签关闭走 Popconfirm。
  */
 import { computed, nextTick, ref, watch } from 'vue'
 import { useWorkspaceStore } from '../stores/workspace'
-import { useToast } from '../composables/useToast'
 import { useLocaleStore } from '../stores/locale'
 import { methodTone } from '../utils/methodTone'
 import Icon from './ui/Icon.vue'
@@ -18,14 +19,8 @@ import Popconfirm from './ui/Popconfirm.vue'
 import Tooltip from './ui/Tooltip.vue'
 
 const store = useWorkspaceStore()
-const toast = useToast()
 const locale = useLocaleStore()
 const t = locale.t
-
-const emit = defineEmits<{
-  'import-curl': []
-  'import-openapi': []
-}>()
 
 function close(id: string): void {
   store.closeTab(id)
@@ -65,100 +60,117 @@ const tabs = computed(() =>
   })),
 )
 
-// ---------- 「+」快捷新建：主区 = 空 HTTP 请求，箭头 = 新建类型菜单 ----------
+// ---------- 标签管理菜单：关闭当前 / 其他 / 全部（有未保存时行内二次确认） ----------
 const addMenu = ref<InstanceType<typeof Menu> | null>(null)
 const addArrowEl = ref<HTMLButtonElement | null>(null)
 
-const ADD_MENU_ITEMS = computed<MenuItem[]>(() => [
-  { key: 'endpoint', label: t('tabbar.newRequest'), icon: 'zap', shortcut: '⌘N' },
-  { key: 'curl', label: t('tabbar.importCurl'), icon: 'terminal', dividerBefore: true },
-  { key: 'openapi', label: t('tabbar.importOpenapi'), icon: 'download' },
-  { key: 'folder', label: t('tabbar.newFolderMenu'), icon: 'folder-plus', dividerBefore: true },
-])
+/** 含未保存标签时，二次确认才放行批量关闭（与单标签 Popconfirm 同语义）。 */
+function unsavedConfirm(count: number): string {
+  return t('tabbar.closeUnsavedConfirm', { n: count })
+}
+
+const TAB_MENU_ITEMS = computed<MenuItem[]>(() => {
+  const ids = store.openTabs
+  const active = store.activeTabId
+  const others = ids.filter((id) => id !== active)
+  const othersDirty = others.filter((id) => store.isDirty(id)).length
+  const allDirty = ids.filter((id) => store.isDirty(id)).length
+  return [
+    {
+      key: 'close-current',
+      label: t('tabbar.closeCurrent'),
+      icon: 'x',
+      disabled: !active,
+      ...(active && store.isDirty(active) ? { confirm: t('tabbar.closeConfirm') } : {}),
+    },
+    {
+      key: 'close-others',
+      label: t('tabbar.closeOthers'),
+      disabled: others.length === 0,
+      ...(othersDirty > 0 ? { confirm: unsavedConfirm(othersDirty) } : {}),
+    },
+    {
+      key: 'close-all',
+      label: t('tabbar.closeAll'),
+      disabled: ids.length === 0,
+      ...(allDirty > 0 ? { confirm: unsavedConfirm(allDirty) } : {}),
+    },
+  ]
+})
 
 function openAddMenu(): void {
-  if (addArrowEl.value) addMenu.value?.openAt(addArrowEl.value, ADD_MENU_ITEMS.value)
+  if (addArrowEl.value) addMenu.value?.openAt(addArrowEl.value, TAB_MENU_ITEMS.value)
+}
+
+function runMenuAction(item: MenuItem): void {
+  if (item.key === 'close-current' && store.activeTabId) {
+    store.closeTab(store.activeTabId)
+  } else if (item.key === 'close-others' && store.activeTabId) {
+    store.closeOtherTabs(store.activeTabId)
+  } else if (item.key === 'close-all') {
+    store.closeAllTabs()
+  }
 }
 
 function onAddMenuSelect(item: MenuItem): void {
-  if (item.key === 'endpoint') {
-    store.openNewEndpoint(null)
-  } else if (item.key === 'curl') {
-    emit('import-curl')
-  } else if (item.key === 'openapi') {
-    emit('import-openapi')
-  } else if (item.key === 'folder') {
-    void createFolder()
-  }
+  // 无 confirm 的项直接执行；有 confirm 的走行内确认视图
+  runMenuAction(item)
 }
 
-async function createFolder(): Promise<void> {
-  const now = new Date().toISOString()
-  try {
-    await store.saveFolder({
-      id: crypto.randomUUID(),
-      project_id: store.project?.id ?? '',
-      parent_id: null,
-      name: t('tabbar.newFolder'),
-      sort_order: 0,
-      created_at: now,
-      updated_at: now,
-    })
-    toast.success(t('tabbar.folderCreated'))
-  } catch (err) {
-    toast.error(t('tabbar.folderCreateFail'), {
-      message: err instanceof Error ? err.message : String(err),
-    })
-  }
+function onAddMenuConfirm(item: MenuItem): void {
+  // 二次确认通过：强制执行（与 onSelect 同分支）
+  runMenuAction(item)
 }
 </script>
 
 <template>
   <div ref="barEl" class="tab-bar">
-    <div
-      v-for="tab in tabs"
-      :key="tab.id"
-      class="tab"
-      :class="{ active: store.activeTabId === tab.id }"
-      @click="store.activeTabId = tab.id"
-      @mousedown="onTabMouseDown($event, tab.id)"
-    >
-      <span class="method-tag" :class="methodTone(tab.method)">{{ tab.method }}</span>
-      <span class="tab-title" v-tooltip-overflow="tab.title">{{ tab.title }}</span>
-      <span v-if="tab.dirty" class="tab-dirty" :title="t('tabbar.unsaved')"><Icon name="dot" :size="8" /></span>
-      <Popconfirm
-        v-if="tab.dirty"
-        :title="t('tabbar.closeConfirm')"
-        @confirm="close(tab.id)"
+    <div class="tab-scroll">
+      <div
+        v-for="tab in tabs"
+        :key="tab.id"
+        class="tab"
+        :class="{ active: store.activeTabId === tab.id }"
+        @click="store.activeTabId = tab.id"
+        @mousedown="onTabMouseDown($event, tab.id)"
       >
-        <IconButton class="tab-close" name="x" :size="12" :title="t('common.close')" />
-      </Popconfirm>
-      <IconButton v-else class="tab-close" name="x" :size="12" :title="t('common.close')" @click.stop="close(tab.id)" />
-    </div>
-    <Tooltip :content="t('tabbar.newRequestHint')">
-      <div class="tab-add-group">
-        <button
-          class="tab-add tab-add-main"
-          type="button"
-          :aria-label="t('tabbar.newRequest')"
-          @click="store.openNewEndpoint(null)"
+        <span class="method-tag" :class="methodTone(tab.method)">{{ tab.method }}</span>
+        <span class="tab-title" v-tooltip-overflow="tab.title">{{ tab.title }}</span>
+        <span v-if="tab.dirty" class="tab-dirty" :title="t('tabbar.unsaved')"><Icon name="dot" :size="8" /></span>
+        <Popconfirm
+          v-if="tab.dirty"
+          :title="t('tabbar.closeConfirm')"
+          @confirm="close(tab.id)"
         >
-          <Icon name="plus" :size="15" />
-        </button>
-        <span class="tab-add-sep" aria-hidden="true"></span>
-        <button
-          ref="addArrowEl"
-          class="tab-add tab-add-arrow"
-          type="button"
-          :aria-label="t('tabbar.newTypeMenu')"
-          :title="t('tabbar.newTypeMenu')"
-          @click="openAddMenu"
-        >
-          <Icon name="chevron-down" :size="12" />
-        </button>
+          <IconButton class="tab-close" name="x" :size="12" :title="t('common.close')" />
+        </Popconfirm>
+        <IconButton v-else class="tab-close" name="x" :size="12" :title="t('common.close')" @click.stop="close(tab.id)" />
       </div>
-    </Tooltip>
-    <Menu ref="addMenu" @select="onAddMenuSelect" />
+      <Tooltip :content="t('tabbar.newRequestHint')">
+        <div class="tab-add-group">
+          <button
+            class="tab-add tab-add-main"
+            type="button"
+            :aria-label="t('tabbar.newRequest')"
+            @click="store.openNewEndpoint(null)"
+          >
+            <Icon name="plus" :size="15" />
+          </button>
+          <span class="tab-add-sep" aria-hidden="true"></span>
+          <button
+            ref="addArrowEl"
+            class="tab-add tab-add-arrow"
+            type="button"
+            :aria-label="t('tabbar.tabMenu')"
+            :title="t('tabbar.tabMenu')"
+            @click="openAddMenu"
+          >
+            <Icon name="chevron-down" :size="12" />
+          </button>
+        </div>
+      </Tooltip>
+    </div>
+    <Menu ref="addMenu" @select="onAddMenuSelect" @confirm="onAddMenuConfirm" />
   </div>
 </template>
 
@@ -167,11 +179,29 @@ async function createFolder(): Promise<void> {
   display: flex;
   gap: 2px;
   padding: 6px 8px 0;
-  overflow-x: auto;
-  overflow-y: hidden;
   border-bottom: 1px solid var(--border);
   background: var(--bg-panel);
   flex-shrink: 0;
+}
+
+/* 内层滚动区：只有标签横滚 */
+.tab-scroll {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* 新建组跟在末尾 tab 后面；溢出时吸在右边缘（Chrome 式），永远可见 */
+.tab-scroll > .tt-trigger {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  flex-shrink: 0;
+  align-self: center;
+  margin-bottom: 2px;
 }
 
 .tab {
@@ -259,7 +289,7 @@ async function createFolder(): Promise<void> {
   color: var(--danger);
 }
 
-/* ---- 快捷新建「+」：主区 + 箭头下拉 组合按钮 ---- */
+/* ---- 快捷新建「+」：主区 + 箭头下拉 组合按钮（吸住时盖住下方滚过的标签，需实底） ---- */
 .tab-add-group {
   display: inline-flex;
   align-items: stretch;
@@ -270,6 +300,7 @@ async function createFolder(): Promise<void> {
   border: 1px solid transparent;
   border-radius: 6px;
   overflow: hidden;
+  background: var(--bg-panel);
   transition:
     border-color var(--dur) var(--ease),
     background var(--dur) var(--ease);

@@ -137,13 +137,11 @@ export const en: Record<ZhKey, string> = {
 
   'tabbar.newRequest': 'New HTTP request',
   'tabbar.newRequestHint': 'New request (⌘N)',
-  'tabbar.newTypeMenu': 'New type menu',
-  'tabbar.importCurl': 'Import cURL...',
-  'tabbar.importOpenapi': 'Import OpenAPI / Swagger...',
-  'tabbar.newFolderMenu': 'New folder...',
-  'tabbar.newFolder': 'New folder',
-  'tabbar.folderCreated': 'Folder created. Rename it in the sidebar',
-  'tabbar.folderCreateFail': 'Failed to create folder',
+  'tabbar.tabMenu': 'Tab management',
+  'tabbar.closeCurrent': 'Close current tab',
+  'tabbar.closeOthers': 'Close other tabs',
+  'tabbar.closeAll': 'Close all tabs',
+  'tabbar.closeUnsavedConfirm': '{n} unsaved tab(s) will lose changes. Continue?',
   'tabbar.unsaved': 'Unsaved',
   'tabbar.closeConfirm': 'This endpoint has unsaved changes. Close anyway?',
 

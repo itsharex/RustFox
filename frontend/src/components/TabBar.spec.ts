@@ -1,0 +1,186 @@
+/**
+ * TabBar 单测：
+ * 回归——tab 开多时「+」新建按钮被滚出可视区（+ 在滚动区外固定时，
+ * 离末尾 tab 太远；之前在滚动区内末尾时又会被滚丢）。
+ * 现状：＋紧跟末尾 tab，溢出时 sticky 吸在右边缘（Chrome 式），两种情况都可见。
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { nextTick, reactive } from 'vue'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import TabBar from './TabBar.vue'
+import { useLocaleStore } from '../stores/locale'
+
+// 响应式假 store（watcher 与模板需跟踪 activeTabId 变化）
+let mocked: ReturnType<typeof makeStore>
+function makeStore() {
+  return reactive({
+    openTabs: ['t1', 't2', 't3', 't4', 't5', 't6', 't7', 't8'],
+    project: { id: 'p1' },
+    activeTabId: 't8' as string | null,
+    draftOf: (id: string) => ({ method: 'GET', id }),
+    titleOf: (id: string) => `未命名接口 ${id}`,
+    isDirty: vi.fn((_id: string) => false),
+    closeTab: vi.fn(),
+    closeOtherTabs: vi.fn(),
+    closeAllTabs: vi.fn(),
+    openNewEndpoint: vi.fn(),
+    saveFolder: vi.fn(),
+  })
+}
+
+vi.mock('../stores/workspace', () => ({
+  useWorkspaceStore: () => mocked,
+}))
+
+vi.mock('../composables/useToast', () => ({
+  useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn(), toast: vi.fn() }),
+}))
+
+beforeEach(() => {
+  setActivePinia(createPinia())
+  // 文案断言锁定中文（jsdom 默认语言为英文，跟随系统会解析出英文）
+  useLocaleStore().setMode('zh')
+  mocked = makeStore()
+  // jsdom 未实现 scrollIntoView：桩住并记录调用目标
+  Element.prototype.scrollIntoView = vi.fn() as unknown as typeof Element.prototype.scrollIntoView
+})
+
+afterEach(() => {
+  document.body.innerHTML = ''
+  vi.restoreAllMocks()
+})
+
+function mountBar() {
+  return mount(TabBar, { attachTo: document.body })
+}
+
+describe('TabBar：新建按钮紧跟末尾且不被滚丢', () => {
+  it('「+」是滚动区内最后一个孩子：tab 少时紧贴末尾', () => {
+    const wrapper = mountBar()
+    const scroll = document.querySelector('.tab-scroll')
+    expect(scroll).toBeTruthy()
+    const kids = Array.from(scroll!.children)
+    // 8 个 tab + 末尾的 + 触发包裹层
+    expect(kids).toHaveLength(9)
+    expect(kids.slice(0, 8).every((el) => el.classList.contains('tab'))).toBe(true)
+    const addWrap = kids[8] as HTMLElement
+    expect(addWrap.querySelector('.tab-add-group')).toBeTruthy()
+    wrapper.unmount()
+  })
+
+  it('「+」包裹层 sticky 右吸：溢出时钉在右边缘', () => {
+    const wrapper = mountBar()
+    // jsdom 无布局且本工程 vitest 不注入 SFC 样式，定位能力用源码断言
+    //（themePattern.spec.ts 同款做法）；DOM 顺序由上一用例覆盖
+    const src = readFileSync(join(process.cwd(), 'src/components/TabBar.vue'), 'utf8')
+    const style = src.slice(src.indexOf('<style'))
+    expect(style).toContain('.tab-scroll > .tt-trigger')
+    expect(style).toMatch(/position:\s*sticky/)
+    expect(style).toMatch(/right:\s*0/)
+    wrapper.unmount()
+  })
+
+  it('点击「+」主区新建空请求（行为保持）', () => {
+    const wrapper = mountBar()
+    document
+      .querySelector<HTMLButtonElement>('.tab-add-main')!
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(mocked.openNewEndpoint).toHaveBeenCalledWith(null)
+    wrapper.unmount()
+  })
+
+  it('切换激活 tab 时滚动的是 tab 本体（+ 按钮不受影响）', async () => {
+    const wrapper = mountBar()
+    const spy = Element.prototype.scrollIntoView as unknown as ReturnType<typeof vi.fn>
+    spy.mockClear()
+    mocked.activeTabId = 't1'
+    await nextTick()
+    await nextTick()
+    expect(spy).toHaveBeenCalledTimes(1)
+    // 调用目标即当前激活的 tab 行，而非容器或 + 按钮
+    expect(spy.mock.instances[0]).toBe(document.querySelector('.tab.active'))
+    wrapper.unmount()
+  })
+
+  it('关闭按钮调 closeTab（行为保持）', async () => {
+    const wrapper = mountBar()
+    const closeBtn = document.querySelectorAll('.tab-close')[0] as HTMLButtonElement
+    closeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await nextTick()
+    expect(mocked.closeTab).toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  /** 打开箭头下拉菜单，返回菜单项文案列表。 */
+  async function openMenuLabels(): Promise<string[]> {
+    document
+      .querySelector<HTMLButtonElement>('.tab-add-arrow')!
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await nextTick()
+    return Array.from(document.querySelectorAll('.rf-menu-item')).map(
+      (m) => m.textContent?.trim() ?? '',
+    )
+  }
+
+  function clickMenuItem(label: string): void {
+    const item = Array.from(document.querySelectorAll<HTMLElement>('.rf-menu-item')).find(
+      (m) => m.textContent?.trim() === label,
+    )!
+    item.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  }
+
+  it('下拉为标签管理三项：无新建/导入重复项', async () => {
+    const wrapper = mountBar()
+    expect(await openMenuLabels()).toEqual(['关闭当前标签页', '关闭其他标签页', '关闭全部标签页'])
+    wrapper.unmount()
+  })
+
+  it('关闭其他：仅保留当前（干净时无二次确认）', async () => {
+    const wrapper = mountBar()
+    await openMenuLabels()
+    clickMenuItem('关闭其他标签页')
+    await nextTick()
+    expect(mocked.closeOtherTabs).toHaveBeenCalledWith('t8')
+    expect(mocked.closeTab).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('关闭全部：干净时直接执行', async () => {
+    const wrapper = mountBar()
+    await openMenuLabels()
+    clickMenuItem('关闭全部标签页')
+    await nextTick()
+    expect(mocked.closeAllTabs).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('含未保存时行内二次确认，确认后才执行', async () => {
+    mocked.isDirty.mockImplementation((id: string) => id !== 't8')
+    const wrapper = mountBar()
+    await openMenuLabels()
+    clickMenuItem('关闭其他标签页')
+    await nextTick()
+    // 进入确认视图：展示未保存数，尚未执行
+    expect(document.querySelector('.rf-menu-confirm-title')?.textContent).toContain('7')
+    expect(mocked.closeOtherTabs).not.toHaveBeenCalled()
+    const ok = document.querySelector<HTMLButtonElement>('.rf-menu-confirm-actions .rf-btn-danger')!
+    ok.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await nextTick()
+    expect(mocked.closeOtherTabs).toHaveBeenCalledWith('t8')
+    wrapper.unmount()
+  })
+
+  it('仅剩一个标签时关闭其他禁用', async () => {
+    mocked.openTabs.splice(0, mocked.openTabs.length, 't8')
+    const wrapper = mountBar()
+    await openMenuLabels()
+    const disabled = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.rf-menu-item[disabled]'),
+    ).map((m) => m.textContent?.trim())
+    expect(disabled).toEqual(['关闭其他标签页'])
+    wrapper.unmount()
+  })
+})

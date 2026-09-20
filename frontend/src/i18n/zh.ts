@@ -134,13 +134,11 @@ export const zh = {
 
   'tabbar.newRequest': '新建 HTTP 请求',
   'tabbar.newRequestHint': '新建请求 (⌘N)',
-  'tabbar.newTypeMenu': '新建类型菜单',
-  'tabbar.importCurl': '导入 cURL...',
-  'tabbar.importOpenapi': '导入 OpenAPI / Swagger...',
-  'tabbar.newFolderMenu': '新建目录分组...',
-  'tabbar.newFolder': '新建文件夹',
-  'tabbar.folderCreated': '已创建文件夹，可在左侧重命名',
-  'tabbar.folderCreateFail': '创建文件夹失败',
+  'tabbar.tabMenu': '标签页管理',
+  'tabbar.closeCurrent': '关闭当前标签页',
+  'tabbar.closeOthers': '关闭其他标签页',
+  'tabbar.closeAll': '关闭全部标签页',
+  'tabbar.closeUnsavedConfirm': '还有 {n} 个未保存，关闭将丢失改动，继续？',
   'tabbar.unsaved': '未保存',
   'tabbar.closeConfirm': '该接口有未保存的修改，确认关闭？',
 
