@@ -329,7 +329,7 @@ onUnmounted(() => {
     </div>
 
     <!-- WebSocket -->
-    <div v-if="mainTab === 'ws'">
+    <div v-if="mainTab === 'ws'" class="rt-pane">
       <div class="row rf-mb-2">
         <input
           v-model="wsUrl"
@@ -397,7 +397,7 @@ onUnmounted(() => {
     </div>
 
     <!-- SSE -->
-    <div v-else>
+    <div v-else class="rt-pane">
       <div class="row rf-mb-2">
         <input
           v-model="sseUrl"
@@ -448,9 +448,18 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 .rt-top {
   justify-content: flex-start;
+}
+/* 页签内容区：flex 纵向撑满，日志区 flex:1 吃掉剩余高度（直接子节点必须是它，block 包裹会断掉传递） */
+.rt-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 4px;
 }
 .rt-url {
   flex: 1;

@@ -22,11 +22,11 @@ const locale = useLocaleStore()
 const t = locale.t
 const route = useRoute()
 
-/** 仪表板 / 工作区页自带顶栏品牌（工作区顶部栏已内嵌品牌），隐藏全局浮层品牌避免重复。 */
-const showFloatingBrand = computed(
-  () => route.path !== '/projects' && route.path !== '/workspace',
-)
-
+/**
+ * 悬浮品牌：仅在无路由匹配时展示。四个正式视图（项目列表 / 工作区 /
+ * GraphQL / 实时调试）自带顶栏，在此叠加浮层会盖住返回按钮等头部控件。
+ */
+const showFloatingBrand = computed(() => route.matched.length === 0)
 const showAbout = ref(false)
 let unlistenAbout: UnlistenFn | null = null
 let stopAutoUpdate: (() => void) | null = null

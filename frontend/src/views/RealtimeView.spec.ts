@@ -42,4 +42,16 @@ describe('RealtimeView', () => {
     expect(wrapper.text()).toContain('订阅后在此查看事件流')
     wrapper.unmount()
   })
+
+  it('日志区在 flex 页签容器内撑满（block 包裹会断掉高度传递）', async () => {
+    const wrapper = mountView()
+    for (const tab of [0, 1]) {
+      await wrapper.findAll('[role="tab"]')[tab].trigger('click')
+      const log = document.querySelector('.rt-log') as HTMLElement
+      expect(log).toBeTruthy()
+      // .rt-log 的 offsetParent 链上必须是 .rt-pane（flex 纵向），否则 flex:1 失效
+      expect(log.parentElement?.classList.contains('rt-pane')).toBe(true)
+    }
+    wrapper.unmount()
+  })
 })
