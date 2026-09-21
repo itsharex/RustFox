@@ -138,6 +138,17 @@ describe('TabBar：新建按钮紧跟末尾且不被滚丢', () => {
     wrapper.unmount()
   })
 
+  it('下拉行视觉统一：纯文本行 + 危险项标红分隔', async () => {
+    const wrapper = mountBar()
+    await openMenuLabels()
+    // 三行均无图标（标签不错位），关闭全部标红且组前分隔
+    expect(document.querySelectorAll('.rf-menu-item .rf-menu-icon')).toHaveLength(0)
+    const danger = document.querySelector('.rf-menu-item.danger')
+    expect(danger?.textContent?.trim()).toBe('关闭全部标签页')
+    expect(danger?.previousElementSibling?.classList.contains('rf-menu-divider')).toBe(true)
+    wrapper.unmount()
+  })
+
   it('关闭其他：仅保留当前（干净时无二次确认）', async () => {
     const wrapper = mountBar()
     await openMenuLabels()
@@ -171,6 +182,35 @@ describe('TabBar：新建按钮紧跟末尾且不被滚丢', () => {
     await nextTick()
     expect(mocked.closeOtherTabs).toHaveBeenCalledWith('t8')
     wrapper.unmount()
+  })
+
+  it('下拉在触发器右侧展开（左对齐，不盖住左侧标签）', async () => {
+    // 宽视口 + 靠右的触发器：左对齐展开应落在触发器左缘
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1600 })
+    const wrapper = mountBar()
+    try {
+      const arrow = document.querySelector<HTMLElement>('.tab-add-arrow')!
+      vi.spyOn(arrow, 'getBoundingClientRect').mockReturnValue({
+        left: 1200,
+        right: 1240,
+        top: 10,
+        bottom: 38,
+        width: 40,
+        height: 28,
+        x: 1200,
+        y: 10,
+        toJSON: () => '',
+      })
+      arrow.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await nextTick()
+      const menu = document.querySelector('.rf-menu') as HTMLElement
+      expect(menu).toBeTruthy()
+      // left 对齐：菜单左缘 == 触发器左缘（右对齐会是 1240-176=1064）
+      expect(menu.style.left).toBe('1200px')
+      wrapper.unmount()
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 })
+    }
   })
 
   it('仅剩一个标签时关闭其他禁用', async () => {
