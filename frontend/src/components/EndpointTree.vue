@@ -579,6 +579,25 @@ function onFolderClick(f: Folder, event: MouseEvent): void {
   toggleFolder(f.id)
 }
 
+/**
+ * 行级点击：整行（文本/徽章/空白 padding）都响应，行内控件除外。
+ * 背景：点击原来只绑在 .tree-name 文本 span 上，行 padding 与
+ * 文本右侧空白点不中任何东西（点击死区）。
+ */
+function interactiveTarget(event: MouseEvent): boolean {
+  return !!(event.target as HTMLElement).closest?.('input,button,textarea,select,a')
+}
+
+function onEndpointRowClick(e: Endpoint, index: number, event: MouseEvent): void {
+  if (interactiveTarget(event)) return
+  onEndpointClick(e, index, event)
+}
+
+function onFolderRowClick(f: Folder, event: MouseEvent): void {
+  if (interactiveTarget(event)) return
+  onFolderClick(f, event)
+}
+
 const selectionCount = computed(
   () => treeSelection.endpoints.size + treeSelection.folders.size,
 )
@@ -634,11 +653,12 @@ function onBatchMenuSelect(item: MenuItem): void {
         data-dnd-kind="folder"
         :data-dnd-id="f.id"
         @pointerdown="onRowPointerDown($event, 'folder', f.id)"
+        @click="onFolderRowClick(f, $event)"
       >
         <span
           class="tree-chevron"
           :class="{ open: expanded.has(f.id) || searchActive }"
-          @click="toggleFolder(f.id)"
+          @click.stop="toggleFolder(f.id)"
         >
           <Icon name="chevron-right" :size="12" :stroke-width="1.25" />
         </span>
@@ -654,10 +674,10 @@ function onBatchMenuSelect(item: MenuItem): void {
           />
         </template>
         <template v-else>
-          <span class="tree-folder-icon" @click="toggleFolder(f.id)">
+          <span class="tree-folder-icon" @click.stop="toggleFolder(f.id)">
             <Icon :name="expanded.has(f.id) || searchActive ? 'folder-open' : 'folder'" :size="15" />
           </span>
-          <span class="tree-name folder" v-tooltip-overflow @click="onFolderClick(f, $event)">{{ f.name }}</span>
+          <span class="tree-name folder" v-tooltip-overflow>{{ f.name }}</span>
           <span class="tree-actions">
             <IconButton name="more-horizontal" :size="13" :title="t('common.moreActions')" @click="openFolderMenu($event, f)" />
           </span>
@@ -700,6 +720,7 @@ function onBatchMenuSelect(item: MenuItem): void {
         :data-dnd-id="e.id"
         :data-dnd-index="i"
         @pointerdown="onRowPointerDown($event, 'endpoint', e.id)"
+        @click="onEndpointRowClick(e, i, $event)"
       >
         <template v-if="editing?.kind === 'rename-endpoint' && editing.id === e.id">
           <input
@@ -715,7 +736,7 @@ function onBatchMenuSelect(item: MenuItem): void {
         <template v-else>
           <span class="tree-chevron spacer"></span>
           <span class="tree-method" :class="methodTone(e.method)">{{ e.method }}</span>
-          <span class="tree-name" :class="{ dirty: store.isDirty(e.id) }" v-tooltip-overflow @click="onEndpointClick(e, i, $event)">
+          <span class="tree-name" :class="{ dirty: store.isDirty(e.id) }" v-tooltip-overflow>
             <span class="tree-name-text" v-html="highlightName(e.name || e.path)"></span>
             <Icon v-if="store.isDirty(e.id)" class="tree-dirty" name="dot" :size="8" />
           </span>
@@ -773,7 +794,9 @@ function onBatchMenuSelect(item: MenuItem): void {
 .tree {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  /* 行间零间隙：gap 会在行与行之间留下点不中的死区（圆角行边角除外）；
+     视觉呼吸感由行内 padding 承担，对标 VS Code / Obsidian 目录树 */
+  gap: 0;
 }
 
 .tree-row {
