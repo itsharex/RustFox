@@ -256,6 +256,9 @@ async fn import_curl_handler(
     repo::save_endpoint(&state.db, &endpoint)
         .await
         .map_err(api_error)?;
+    repo::touch_project(&state.db, &endpoint.project_id)
+        .await
+        .map_err(api_error)?;
 
     let _ = state.events.send(AgentEvent::EndpointImported {
         endpoint_id: endpoint.id,

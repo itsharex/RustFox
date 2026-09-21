@@ -26,9 +26,14 @@ export function avatarStyle(name: string): { background: string; color: string }
 }
 
 export function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
-  return name.trim().slice(0, 1).toUpperCase() || '?'
+  const trimmed = name.trim();
+  if (!trimmed) return '?';
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  // 中文名常带共同前缀（如「小奏技术·用户服务」）：取末段前两字才有区分度
+  const segments = trimmed.split(/[·•・:：\-—_\/|｜]/).map((s) => s.trim()).filter(Boolean);
+  const last = segments.length > 1 ? segments[segments.length - 1] : trimmed;
+  return last.slice(0, 2).toUpperCase() || '?';
 }
 
 export function timeAgo(iso: string): string {

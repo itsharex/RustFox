@@ -2,9 +2,11 @@
 /**
  * DashboardNav：仪表板左侧导航。
  *
- * - 仅保留已实现入口：仪表板 / API 项目（主页面）；
+ * - 仅保留已实现入口：仪表板（主页面）；
  * - 设置入口在顶栏右上角（齿轮按钮），导航不再重复；
  * - 集合、API 文档等未实现模块暂不展示。
+ * 注意：此前「仪表板 / API 项目」曾是两个同路由入口（navActive 恒双真，
+ * 两个紫 pill 同时高亮），已合并为单一入口。
  */
 import { useRouter } from 'vue-router'
 import Icon from '../ui/Icon.vue'
@@ -16,11 +18,11 @@ const t = locale.t
 
 const NAV_ITEMS = [
   { key: 'dashboard', labelKey: 'pnav.dashboard', icon: 'gauge' as const, route: '/projects' },
-  { key: 'projects', labelKey: 'pnav.projects', icon: 'folder' as const, route: '/projects' },
 ]
 
-function navActive(item: (typeof NAV_ITEMS)[number]): boolean {
-  return item.route === '/projects'
+/** 导航仅在仪表板页挂载，唯一入口恒为激活态。 */
+function navActive(): boolean {
+  return true
 }
 
 function onNav(item: (typeof NAV_ITEMS)[number]): void {
@@ -34,7 +36,7 @@ function onNav(item: (typeof NAV_ITEMS)[number]): void {
       v-for="item in NAV_ITEMS"
       :key="item.key"
       class="nav-item"
-      :class="{ active: navActive(item) }"
+      :class="{ active: navActive() }"
       type="button"
       @click="onNav(item)"
     >
@@ -83,14 +85,14 @@ function onNav(item: (typeof NAV_ITEMS)[number]): void {
 .nav-item:active {
   background: var(--bg-active);
 }
-/* 选中态：Obsidian 全宽紫 pill（渐变 + 光晕 + 白字） */
+/* 选中态：Obsidian 全宽主题 pill（渐变 + 光晕 + 白字，跟随主题 accent） */
 .nav-item.active {
-  background: linear-gradient(135deg, #7e57ff, #6e46ff);
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
   color: #fff;
   font-weight: 600;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    0 4px 14px rgba(126, 87, 255, 0.35);
+    0 4px 14px var(--accent-tint);
 }
 
 .nav-label {

@@ -557,14 +557,6 @@ useWindowDrag(topBarEl)
                 {{ t('projectlist.dropHint') }}
               </template>
             </p>
-            <div class="add-actions">
-              <button class="add-btn" type="button" @click="showCreate = true">
-                <Icon name="plus" :size="13" /> {{ t('workspace.createProject') }}
-              </button>
-              <button class="add-btn" type="button" @click="droppedText = ''; showImport = true">
-                <Icon name="download" :size="13" /> {{ t('projectlist.importExternal') }}
-              </button>
-            </div>
           </div>
 
           <div v-else-if="!filtered.length && !loading" class="dash-empty">
@@ -1060,36 +1052,6 @@ useWindowDrag(topBarEl)
   transition: color var(--dur) var(--ease);
 }
 .add-card:hover .add-text {
-  color: var(--accent-hover);
-}
-
-.add-actions {
-  display: flex;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.add-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  background: var(--bg-panel);
-  color: var(--text-1);
-  font-size: 12px;
-  font-family: inherit;
-  cursor: pointer;
-  transition:
-    border-color var(--dur) var(--ease),
-    background var(--dur) var(--ease),
-    color var(--dur) var(--ease);
-}
-.add-btn:hover {
-  border-color: var(--accent);
-  background: var(--accent-tint);
   color: var(--accent-hover);
 }
 

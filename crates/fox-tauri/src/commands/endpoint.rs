@@ -49,6 +49,7 @@ pub async fn save_endpoint(
         return Err(CommandError::validation("接口路径必须以 / 开头"));
     }
     repo::save_endpoint(&state.db, &endpoint).await?;
+    repo::touch_project(&state.db, &endpoint.project_id).await?;
     Ok(endpoint)
 }
 

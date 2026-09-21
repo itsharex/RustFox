@@ -9,6 +9,16 @@ use fox_core::{AppError, Result};
 
 use super::rows::EndpointRow;
 
+/// 触摸父项目更新时间：接口增删改视为项目活跃（仪表板最近活动排序 / 卡片更新时间）。
+pub async fn touch_project(db: &SqlitePool, project_id: &Uuid) -> Result<()> {
+    sqlx::query("UPDATE projects SET updated_at = ? WHERE id = ?")
+        .bind(Utc::now().to_rfc3339())
+        .bind(project_id.to_string())
+        .execute(db)
+        .await?;
+    Ok(())
+}
+
 pub async fn create_endpoint(
     db: &SqlitePool,
     project_id: Uuid,
@@ -50,6 +60,7 @@ pub async fn create_endpoint(
     .bind(row.updated_at.clone())
     .execute(db)
     .await?;
+    touch_project(db, &model.project_id).await?;
     Ok(model)
 }
 
@@ -91,10 +102,19 @@ pub async fn update_endpoint(db: &SqlitePool, endpoint: &Endpoint) -> Result<End
     if result.rows_affected() == 0 {
         return Err(AppError::NotFound(format!("接口（{}）", endpoint.id)));
     }
+    touch_project(db, &updated.project_id).await?;
     Ok(updated)
 }
 
 pub async fn delete_endpoint(db: &SqlitePool, endpoint_id: Uuid) -> Result<()> {
+    // 先触摸（删除后即查不到归属项目）
+    sqlx::query(
+        "UPDATE projects SET updated_at = ? WHERE id = (SELECT project_id FROM endpoints WHERE id = ?)",
+    )
+    .bind(Utc::now().to_rfc3339())
+    .bind(endpoint_id.to_string())
+    .execute(db)
+    .await?;
     sqlx::query("DELETE FROM endpoints WHERE id = ?")
         .bind(endpoint_id.to_string())
         .execute(db)
@@ -139,6 +159,7 @@ pub async fn duplicate_endpoint(db: &SqlitePool, endpoint_id: Uuid) -> Result<En
     .bind(row.updated_at.clone())
     .execute(db)
     .await?;
+    touch_project(db, &duplicate.project_id).await?;
     Ok(duplicate)
 }
 

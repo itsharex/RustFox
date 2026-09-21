@@ -50,9 +50,9 @@ const emit = defineEmits<{
     <div class="proj-main">
       <div class="proj-title-row">
         <span class="proj-title" v-tooltip-overflow="project.name">{{ project.name }}</span>
-        <span class="proj-status" :class="{ active }">
+        <span v-if="active" class="proj-status active">
           <span class="status-dot" aria-hidden="true"></span>
-          {{ active ? t('pcard.statusActive') : t('pcard.statusDraft') }}
+          {{ t('pcard.statusActive') }}
         </span>
       </div>
       <p class="proj-desc" :class="{ empty: !project.description }">

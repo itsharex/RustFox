@@ -4,6 +4,7 @@ use sqlx::SqlitePool;
 
 use fox_storage::db::memory_pool;
 use fox_storage::repository as repo;
+use uuid::Uuid;
 
 use fox_core::model::{EnvironmentVariable, ModuleUrlConfig, WsMessageType};
 
@@ -174,6 +175,59 @@ async fn endpoint_crud() {
     assert_eq!(
         repo::list_endpoints(&db, project.id).await.unwrap().len(),
         1
+    );
+}
+
+/// 接口增删改触摸父项目更新时间（仪表板最近活动排序 / 卡片更新时间）。
+/// 直接 SQL 回拨项目时间到过去，保证断言不受毫秒级同值影响。
+/// 回拨哨兵：远古时间（RFC3339 字典序即时间序，可直接字符串比较）。
+const ANCIENT: &str = "2000-01-01T00:00:00+00:00";
+
+async fn backdate_project(db: &SqlitePool, id: Uuid) {
+    sqlx::query("UPDATE projects SET updated_at = ? WHERE id = ?")
+        .bind(ANCIENT)
+        .bind(id.to_string())
+        .execute(db)
+        .await
+        .unwrap();
+}
+
+async fn project_updated_at(db: &SqlitePool, id: Uuid) -> String {
+    repo::get_project(db, id)
+        .await
+        .unwrap()
+        .updated_at
+        .to_rfc3339()
+}
+
+#[tokio::test]
+async fn endpoint_mutation_touches_project_updated_at() {
+    let db = pool().await;
+    let project = repo::create_project(&db, "P", "").await.unwrap();
+
+    backdate_project(&db, project.id).await;
+    let created = repo::create_endpoint(&db, project.id, None, "查询用户")
+        .await
+        .unwrap();
+    assert!(
+        project_updated_at(&db, project.id).await.as_str() > ANCIENT,
+        "新建接口应触摸项目更新时间"
+    );
+
+    backdate_project(&db, project.id).await;
+    let mut updated = created.clone();
+    updated.path = "/users".into();
+    repo::update_endpoint(&db, &updated).await.unwrap();
+    assert!(
+        project_updated_at(&db, project.id).await.as_str() > ANCIENT,
+        "更新接口应触摸项目更新时间"
+    );
+
+    backdate_project(&db, project.id).await;
+    repo::delete_endpoint(&db, created.id).await.unwrap();
+    assert!(
+        project_updated_at(&db, project.id).await.as_str() > ANCIENT,
+        "删除接口应触摸项目更新时间"
     );
 }
 
