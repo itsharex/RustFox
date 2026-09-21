@@ -61,8 +61,9 @@ const tabs = computed(() =>
 )
 
 // ---------- 标签管理菜单：关闭当前 / 其他 / 全部（有未保存时行内二次确认） ----------
-const addMenu = ref<InstanceType<typeof Menu> | null>(null)
-const addArrowEl = ref<HTMLButtonElement | null>(null)
+// 菜单在触发器右侧展开（left 对齐），贴着 + 按钮往右下开，避免盖住左侧标签。
+const tabMenu = ref<InstanceType<typeof Menu> | null>(null)
+const tabArrowEl = ref<HTMLButtonElement | null>(null)
 
 /** 含未保存标签时，二次确认才放行批量关闭（与单标签 Popconfirm 同语义）。 */
 function unsavedConfirm(count: number): string {
@@ -79,7 +80,6 @@ const TAB_MENU_ITEMS = computed<MenuItem[]>(() => {
     {
       key: 'close-current',
       label: t('tabbar.closeCurrent'),
-      icon: 'x',
       disabled: !active,
       ...(active && store.isDirty(active) ? { confirm: t('tabbar.closeConfirm') } : {}),
     },
@@ -92,14 +92,16 @@ const TAB_MENU_ITEMS = computed<MenuItem[]>(() => {
     {
       key: 'close-all',
       label: t('tabbar.closeAll'),
+      danger: true,
+      dividerBefore: true,
       disabled: ids.length === 0,
       ...(allDirty > 0 ? { confirm: unsavedConfirm(allDirty) } : {}),
     },
   ]
 })
 
-function openAddMenu(): void {
-  if (addArrowEl.value) addMenu.value?.openAt(addArrowEl.value, TAB_MENU_ITEMS.value)
+function openTabMenu(): void {
+  if (tabArrowEl.value) tabMenu.value?.openAt(tabArrowEl.value, TAB_MENU_ITEMS.value, 'left')
 }
 
 function runMenuAction(item: MenuItem): void {
@@ -112,12 +114,12 @@ function runMenuAction(item: MenuItem): void {
   }
 }
 
-function onAddMenuSelect(item: MenuItem): void {
+function onTabMenuSelect(item: MenuItem): void {
   // 无 confirm 的项直接执行；有 confirm 的走行内确认视图
   runMenuAction(item)
 }
 
-function onAddMenuConfirm(item: MenuItem): void {
+function onTabMenuConfirm(item: MenuItem): void {
   // 二次确认通过：强制执行（与 onSelect 同分支）
   runMenuAction(item)
 }
@@ -158,19 +160,19 @@ function onAddMenuConfirm(item: MenuItem): void {
           </button>
           <span class="tab-add-sep" aria-hidden="true"></span>
           <button
-            ref="addArrowEl"
+            ref="tabArrowEl"
             class="tab-add tab-add-arrow"
             type="button"
             :aria-label="t('tabbar.tabMenu')"
-            :title="t('tabbar.tabMenu')"
-            @click="openAddMenu"
+          :title="t('tabbar.tabMenu')"
+          @click="openTabMenu"
           >
             <Icon name="chevron-down" :size="12" />
           </button>
         </div>
       </Tooltip>
     </div>
-    <Menu ref="addMenu" @select="onAddMenuSelect" @confirm="onAddMenuConfirm" />
+    <Menu ref="tabMenu" @select="onTabMenuSelect" @confirm="onTabMenuConfirm" />
   </div>
 </template>
 
