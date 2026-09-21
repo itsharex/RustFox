@@ -21,6 +21,7 @@ import HistoryPanel from '../components/HistoryPanel.vue'
 import Icon from '../components/ui/Icon.vue'
 import IconButton from '../components/ui/IconButton.vue'
 import Menu, { type MenuItem } from '../components/ui/Menu.vue'
+import CreatePanel, { type CreateActionKey } from '../components/CreatePanel.vue'
 import Modal from '../components/ui/Modal.vue'
 import SettingsDialog from '../components/SettingsDialog.vue'
 import ShortcutsHelp from '../components/ShortcutsHelp.vue'
@@ -205,6 +206,11 @@ function openCurlImport(folderId: string | null): void {
 const docsBtn = ref<HTMLButtonElement | null>(null)
 const mockBtn = ref<HTMLButtonElement | null>(null)
 const menuRef = ref<InstanceType<typeof Menu> | null>(null)
+const createPanelRef = ref<InstanceType<typeof CreatePanel> | null>(null)
+/** 新建面板是否打开：打开时禁用 + 按钮上的悬浮提示，避免与面板重叠。 */
+const createOpen = ref(false)
+/** 共享菜单是否打开：打开时禁用触发器上的悬浮提示，避免与菜单重叠。 */
+const menuOpen = ref(false)
 
 // ---------- 项目标签（顶栏多项目切换，共享组件） ----------
 const treeRef = ref<InstanceType<typeof EndpointTree> | null>(null)
@@ -291,20 +297,20 @@ function createFolderAtRoot(): void {
   treeRef.value?.startEdit('create-folder', { parentId: null })
 }
 
-// ---------- 侧栏目录工具栏：「+ 新建」下拉 + 全部展开 / 折叠 ----------
+// ---------- 侧栏目录工具栏：「+ 新建」面板 + 全部展开 / 折叠 ----------
 const addBtn = ref<HTMLElement | null>(null)
 const expandTick = ref(0)
 const collapseTick = ref(0)
 
-const CREATE_ITEMS = computed<MenuItem[]>(() => [
-  { key: 'new-request', label: t('workspace.newRequest'), icon: 'file-plus', iconAccent: true, shortcut: '⌘N' },
-  { key: 'new-folder', label: t('workspace.newFolder'), icon: 'folder-plus' },
-  { key: 'import-curl', label: t('workspace.importCurl'), icon: 'terminal', dividerBefore: true },
-  { key: 'import-doc', label: t('workspace.importDoc'), icon: 'upload' },
-])
-
 function openCreateMenu(): void {
-  if (addBtn.value) menuRef.value?.openAt(addBtn.value, CREATE_ITEMS.value, 'right')
+  if (addBtn.value) createPanelRef.value?.openAt(addBtn.value)
+}
+
+function onCreateSelect(key: CreateActionKey): void {
+  if (key === 'new-request') store.openNewEndpoint(null)
+  else if (key === 'new-folder') createFolderAtRoot()
+  else if (key === 'import-curl') openCurlImport(null)
+  else if (key === 'import-doc') showDocImport.value = true
 }
 
 const DOCS_ITEMS = computed<MenuItem[]>(() => [
@@ -342,10 +348,6 @@ function onMockSelect(item: MenuItem): void {
 function onMenuSelect(item: MenuItem): void {
   if (item.key === 'new-project') openCreateProject()
   else if (item.key === 'import' || item.key === 'export') onDocsSelect(item)
-  else if (item.key === 'new-request') store.openNewEndpoint(null)
-  else if (item.key === 'new-folder') createFolderAtRoot()
-  else if (item.key === 'import-curl') openCurlImport(null)
-  else if (item.key === 'import-doc') showDocImport.value = true
   else onMockSelect(item)
 }
 
@@ -490,7 +492,7 @@ onBeforeUnmount(() => {
               </button>
             </div>
             <div class="sidebar-tools">
-              <Tooltip :content="t('workspace.newHint')">
+              <Tooltip :content="t('workspace.newHint')" :disabled="createOpen">
                 <button
                   ref="addBtn"
                   class="tool-add"
@@ -547,7 +549,13 @@ onBeforeUnmount(() => {
       </main>
     </div>
 
-    <Menu ref="menuRef" @select="onMenuSelect" />
+    <Menu ref="menuRef" @select="onMenuSelect" @open="menuOpen = true" @close="menuOpen = false" />
+    <CreatePanel
+      ref="createPanelRef"
+      @select="onCreateSelect"
+      @open="createOpen = true"
+      @close="createOpen = false"
+    />
 
     <Modal v-model:open="showCreateProject" :title="t('workspace.createProject')" width="420px" @close="showCreateProject = false">
       <div class="form-field">

@@ -30,6 +30,8 @@ export interface MenuItem {
 const emit = defineEmits<{
   select: [item: MenuItem]
   confirm: [item: MenuItem]
+  open: []
+  close: []
 }>()
 
 type View = { kind: 'list' } | { kind: 'confirm'; item: MenuItem }
@@ -59,11 +61,14 @@ function openAt(el: HTMLElement, menuItems: MenuItem[], side: 'right' | 'left' =
   pos.value = { left, top }
   view.value = { kind: 'list' }
   open.value = true
+  emit('open')
 }
 
 function close(): void {
+  if (!open.value) return
   open.value = false
   view.value = { kind: 'list' }
+  emit('close')
 }
 
 function onItemClick(item: MenuItem): void {
