@@ -7,7 +7,7 @@ RustFox 是一个本地运行的 API 调试与接口测试工具（桌面应用 
 
 | 项目 | 要求 |
 | --- | --- |
-| 操作系统 | macOS / Linux / Windows（Dioxus 桌面） |
+| 操作系统 | macOS / Linux / Windows（Tauri 2 桌面） |
 | Rust 工具链 | ≥ 1.79（构建时需要，运行不需要） |
 | 网络 | 仅构建期需要下载依赖；运行期完全离线 |
 
@@ -65,7 +65,7 @@ scripts/package-tauri.sh
 | 导入兼容（OpenAPI 3.0 / Swagger 2.0 / Postman v2.1，JSON+YAML） | 设置页 |
 | 自动化测试（配置/断言/变量链） | 工作区 Tests Tab + 历史测试列表 |
 | 接口压测（并发基准） | 工作区 Tests Tab「压测」区 |
-| 客户端代码生成（curl / Python / JS / Go） | 工作区地址栏「生成代码」 |
+| 客户端代码生成（cURL / JavaScript / Java / Go / Rust / Python / PHP） | 工作区地址栏「生成代码」 |
 | Mock Server | 设置页（端口 4010 起自动 +1） |
 | 响应示例 / 项目文档导出 | 工作区 Docs Tab |
 | 备份 / 恢复 | 设置页 |
@@ -78,7 +78,7 @@ scripts/package-tauri.sh
 
 ## 客户端代码生成
 
-工作区地址栏「生成代码」按钮 → 弹窗选择语言（curl / Python(requests) / JavaScript(fetch) / Go(net/http)），
+工作区地址栏「生成代码」按钮 → 弹窗选择语言（cURL / JavaScript / Java / Go / Rust / Python / PHP），
 基于**渲染后**的请求生成（自动完成变量、环境变量、路径变量、base_url 替换；含认证头与启用的请求头）。
 
 ## 接口压测（并发基准）
@@ -94,7 +94,7 @@ Tests Tab「压测」区：输入并发数（默认 10）与总请求数（默�
 - 路径参数：`/users/{id}`；Query/Header 匹配每行 `key=value`。
 - body 模板变量：`{{params.id}}`、`{{query.name}}`、`{{headers.X-Token}}`、
   `{{mock.uuid|email|name|word|timestamp|int}}`。
-- 修改接口或规则后需重启 Mock 生效。
+- 修改接口或规则后 Mock **热重载**自动生效，无需重启。
 
 ## 自动化测试
 
@@ -127,7 +127,7 @@ Tests Tab 的 JSON 配置（写入接口 `request_json.tests`，保存后生效�
 | --- | --- |
 | 构建失败：`invalid metadata files for crate rustversion` | `rm -f target/release/deps/librustversion-*.dylib` 后重新构建 |
 | Mock 端口被占用 | 工具自动 +1；如需固定端口，先停止占用方 |
-| 导入 OpenAPI 报「无法识别」 | 支持 OpenAPI 3.0 / Swagger 2.0 / Postman v2.1（JSON+YAML），3.1+ 请先转换；检查是否为有效 JSON/YAML |
+| 导入 OpenAPI 报「无法识别」 | 支持 OpenAPI 3.0 / 3.1（3.1 自动归一化）/ Swagger 2.0 / Postman v2.1（JSON+YAML）；检查是否为有效 JSON/YAML |
 | 环境变量显示为密文 | 见上文「环境变量加密」，用备份恢复找回 |
 | 数据库损坏 | 全部数据在 `rustfox.db`，备份目录中的 JSON 可完整恢复 |
 

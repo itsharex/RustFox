@@ -277,4 +277,4 @@ Configure `rustfox-mcp` once in MCP clients (bundled in installers since v0.0.10
 
 - "Feedback" in the top bar → generates a local environment/log summary → attach it to a GitHub Issue
 - The Settings "Logs" tab shows runtime logs (daily rolling files) and opens the log directory
-- Data, deployment and advanced guides: `README.md` and `docs/DEPLOY.md` (Chinese)
+- Data, deployment and advanced guides: [README.md](../../README.md) (English) and `docs/DEPLOY.md` (Chinese); English docs index: [en/README.md](README.md)

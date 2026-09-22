@@ -1,191 +1,189 @@
 # RustFox
 
-> 约 10 MB 的轻量跨平台 API 调试工具。一个安装包，开箱即用。
+> A lightweight cross-platform API debugging client in ~10 MB. One installer, ready to run.
 
-**语言 / Language**：简体中文 · [English](README_EN.md)
+**Language / 语言**：English · [简体中文](README.zh-CN.md)
 
 <!--
-  示例图片：docs/imags/home.png（主页）、docs/imags/api-home.png（工作区）。
-  更新截图后替换下面两行的路径即可。
+  Screenshots: docs/imags/home.png (dashboard), docs/imags/api-home.png (workspace).
+  Replace the paths below after updating the screenshots.
 -->
-[![RustFox 主页截图](docs/imags/home.png)](docs/imags/home.png)
+[![RustFox dashboard](docs/imags/home.png)](docs/imags/home.png)
 
-[![RustFox 工作区截图](docs/imags/api-home.png)](docs/imags/api-home.png)
+[![RustFox workspace](docs/imags/api-home.png)](docs/imags/api-home.png)
 
-## 为什么选择 RustFox？
+## Why RustFox?
 
-### 🪶 10 MB，零运行时依赖
+### 🪶 10 MB, zero runtime dependencies
 
-同类工具把整个 Chromium/Node.js 运行时打包进安装包，RustFox 用 **Rust + Tauri 2 + 系统 WebView**——不内置浏览器内核、无 Node 沙箱、无 JRE，装完即用。
+Competing tools bundle an entire Chromium/Node.js runtime. RustFox is built with **Rust + Tauri 2 + the system WebView** — no bundled browser engine, no Node sandbox, no JRE. Install and go.
 
-| 维度 | RustFox | Postman | Bruno | Insomnia |
+| Dimension | RustFox | Postman | Bruno | Insomnia |
 | --- | --- | --- | --- | --- |
-| 安装包体积 | **~10 MB** | ~310 MB (Electron) | ~433 MB (Electron) | ~200 MB (Electron) |
-| 首屏启动 | **< 1 秒** | 2–4 秒 | 2–5 秒 | 2–4 秒 |
-| 运行时内存 | **~40 MB** | ~500 MB+ | ~300 MB+ | ~200 MB+ |
-| 应用壳 | 系统 WebView（无内置 Chromium） | Chromium + Node.js | Chromium + Node.js | Chromium + Node.js |
+| Installer size | **~10 MB** | ~310 MB (Electron) | ~433 MB (Electron) | ~200 MB (Electron) |
+| Cold start | **< 1 s** | 2–4 s | 2–5 s | 2–4 s |
+| Runtime memory | **~40 MB** | ~500 MB+ | ~300 MB+ | ~200 MB+ |
+| App shell | System WebView (no bundled Chromium) | Chromium + Node.js | Chromium + Node.js | Chromium + Node.js |
 
-同等工作负载下，安装包体积缩小 **20–40 倍**、启动快 **2–5 倍**、占用内存减少一个数量级。
+Same workload: **20–40× smaller** installer, **2–5× faster** startup, an order of magnitude less memory.
 
-### ⚡ 快，但功能不缺
+### ⚡ Fast, without cutting features
 
-Rust LTO 优化 + 单一进程模型 + SQLite 零拷贝本地存储——秒开、秒搜、秒发；请求 / Mock / 测试 / 压测全部内置，不依赖云端服务。
+Rust LTO + a single-process model + zero-copy SQLite storage — instant open, search, and send. Requests / Mock / testing / load testing are all built in, with no cloud dependency.
 
-### 🔒 本地优先，数据在自己手里
+### 🔒 Local-first, your data stays yours
 
-数据只存在本机 `rustfox.db`，环境变量值 **AES-256-GCM 加密**存储；一键备份为 JSON，随时可恢复。
+Everything lives in a local `rustfox.db`; environment variable values are **AES-256-GCM encrypted** at rest. One-click JSON backup, restore anytime.
 
-## 功能
+## Features
 
-### 请求与编辑
+### Requests & editing
 
-- 8 种 HTTP 方法、6 种请求体（JSON / Form / x-www-form-urlencoded / Multipart / GraphQL / Text）
-- Params / Headers / Body / Auth / Tests / Docs 分页编辑，未保存草稿自动标记
-- cURL 一键粘贴导入，自动识别方法 / URL / Header / Body / Basic Auth（地址栏直接粘贴 cURL 也会自动解析回填当前接口）
-- 环境变量 `{{name}}` 任意位置自动解析（环境 > 项目 优先级）
+- 8 HTTP methods, 6 body types (JSON / Form / x-www-form-urlencoded / Multipart / GraphQL / Text)
+- Params / Headers / Body / Auth / Tests / Docs tabs; unsaved drafts are flagged automatically
+- Paste-to-import cURL: method / URL / headers / body / Basic Auth detected automatically (pasting cURL straight into the address bar parses it into the current request too)
+- `{{name}}` variables resolved anywhere (environment > project precedence)
 
-### 认证与安全
+### Auth & security
 
-- API Key / Basic / Bearer / OAuth2（Authorization Code / Client Credentials / Password / Implicit 四模式）
-- 令牌自动附加请求头，无需手写
+- API Key / Basic / Bearer / OAuth2 (Authorization Code / Client Credentials / Password / Implicit)
+- Tokens attach to requests automatically — no hand-written headers
 
-### 响应体验
+### Response experience
 
-- 格式化 JSON 树 / Raw / 响应头 / 状态码 / 耗时 / 大小
-- 流式下载保存到本地，请求历史可重发、可删除
+- Pretty JSON tree / raw / response headers / status / duration / size
+- Streaming downloads to disk; request history can be re-sent or deleted
 
-### Mock Server
+### Mock server
 
-- 本地 axum Mock（端口 4010 起自动探测），无需联网
-- **Mock 规则**（方法 + 路径 + Header + Body 匹配）优先，接口「响应示例」兜底
-- 模板变量：`{{params.id}}` `{{headers.X-Token}}` `{{mock.uuid|email|name|word|int}}`
+- Local axum mock server (port auto-probing from 4010), works fully offline
+- **Mock rules** (method + path + header + body matching) take priority; endpoint "response examples" as fallback
+- Template variables: `{{params.id}}` `{{headers.X-Token}}` `{{mock.uuid|email|name|word|int}}`
 
-### 自动化测试与压测
+### Automated testing & load testing
 
-- JSON 测试脚本：`pre_request` 注入变量、`extract` 提取传递、`assertions` 断言
-- 测试用例：多用例管理，列表按名称 / 路径 / Body 搜索，Drawer 内请求 Body 支持实时查找高亮
-- 单接口 / 文件夹 / 全项目一键运行，结果与历史留存
-- 压测：并发 × 总请求数，输出 QPS、平均耗时、P50/P90/P99、错误样例，chart.js 图表
+- JSON test scripts: `pre_request` variable injection, `extract` capture, `assertions`
+- Test cases: multi-case management, list search by name / path / body, live find-highlight for the request body inside the drawer
+- Run one endpoint / a folder / the whole project; results and history are kept
+- Load testing: concurrency × total requests, with QPS, average latency, P50/P90/P99 and error samples charted via chart.js
 
-### 导入导出与协作
+### Import / export & collaboration
 
-- OpenAPI 3.x / Swagger 2.0 / Postman Collection v2.1 导入导出
-- 单接口 / 全项目导出 Markdown 文档
-- 客户端代码生成：cURL / JavaScript / Java / Go / Rust / Python / PHP（自动含变量替换与认证头，带语法高亮）
+- OpenAPI 3.x / Swagger 2.0 / Postman Collection v2.1 import and export
+- Markdown docs for a single endpoint or the whole project
+- Client code generation: cURL / JavaScript / Java / Go / Rust / Python / PHP (variable substitution and auth headers included, syntax highlighted)
 
-### 更多
+### More
 
-- GraphQL 调试视图
-- 实时调试：WebSocket 收发 / SSE 订阅（可弹出独立窗口）
-- 环境导入导出（RustFox 原生 / Postman）、OpenAPI 3.1 导入
-- Cookie 管理（查看/按域清理/单请求禁用）、Mock 热重载与故障注入
-- 删除撤销、目录树多选批量操作、快捷键帮助（Ctrl+/）、设置页日志查看
-- 备份（JSON）与恢复（ID 全量重映射，绝不覆盖现有数据）
-- 深色 / 浅色 / 跟随系统主题
+- GraphQL debugging view
+- Realtime debugging: WebSocket send/receive / SSE subscribe (pop-out window supported)
+- Environment import/export (native / Postman), OpenAPI 3.1 import
+- Cookie management (inspect/clear per domain, per-request disable), Mock hot-reload & fault injection
+- Undo delete, tree multi-select batch ops, shortcut help (Ctrl+/), in-app log viewer
+- Backup (JSON) & restore (full ID remapping, never overwrites existing data)
+- Dark / light / follow-system theme
 
-## AI Agent 集成
+## AI Agent integration
 
-RustFox 内置 **Agent 控制面**（应用启动时自动拉起）：本机回环地址上的带令牌 HTTP API，
-让 AI Agent（Claude / Cursor / 任意能执行命令的工具）直接把 cURL 命令保存为接口，无需人工粘贴。
+RustFox ships with a built-in **Agent control plane** (started automatically with the app): a token-protected HTTP API on loopback that lets AI agents (Claude / Cursor / anything that can run commands) save cURL commands as endpoints — no manual copy-paste.
 
-完整指南（获取 `rustfox-mcp`、各客户端配置、HTTP API 手册、排障）：**[docs/AGENT.md](docs/AGENT.md)**
+Full guide (`rustfox-mcp` setup, client configuration, HTTP API reference, troubleshooting): **[docs/en/AGENT.md](docs/en/AGENT.md)**
 
-### MCP Server（推荐）
+### MCP server (recommended)
 
-> **前置**：MCP 配置需要 `rustfox-mcp` 二进制。v0.0.10+ 安装包不在 PATH，必须填安装包内绝对路径（macOS 安装包：`/Applications/RustFox.app/Contents/MacOS/rustfox-mcp`）。
-> **v0.0.10 起安装包已内置**，无需额外安装；更早版本请先按 [docs/AGENT.md](docs/AGENT.md) 构建。
+> **Prerequisite**: MCP needs the `rustfox-mcp` binary. Installers since v0.0.10 bundle it, but it is not on PATH — use the absolute path inside the install (macOS: `/Applications/RustFox.app/Contents/MacOS/rustfox-mcp`).
 
-Claude Code 等支持 MCP 的客户端，在项目 `.mcp.json` 中配置一次：
+For MCP-capable clients such as Claude Code, configure it once in the project `.mcp.json`:
 
 ```json
 { "mcpServers": { "rustfox": { "command": "/Applications/RustFox.app/Contents/MacOS/rustfox-mcp" } } }
 ```
 
-> 仅当二进制已加入 PATH 时才可写裸 `rustfox-mcp`（如 Linux .deb 安装、或 `cargo build --release -p fox-mcp` 后放入 `/usr/local/bin`）。
+> A bare `rustfox-mcp` works only if the binary is on PATH (Linux .deb install, or a `cargo build --release -p fox-mcp` copied into `/usr/local/bin`).
 
-配好后直接让 AI 把接口存进 RustFox（贴 cURL 或贴代码都行）：
+Then just ask the AI to save endpoints into RustFox (paste cURL or source code):
 
 ```
-把这个接口保存到 RustFox：
+Save this endpoint to RustFox:
 @PostMapping("/orders")
 public Result<Long> createOrder(@RequestBody CreateOrderReq req) { ... }
 ```
 
-之后对话里说「把这个 curl 存到 RustFox」即可。提供 4 个工具：
+Afterwards, say "save this curl to RustFox" in chat. Four tools are provided:
 
-| 工具 | 说明 |
+| Tool | Description |
 | --- | --- |
-| `save_curl` | 解析 cURL 并保存为接口（URL 拆 base_url + 路径 + query） |
-| `list_projects` | 项目列表 |
-| `list_endpoints` | 项目下的接口列表 |
-| `agent_info` | 控制面地址与令牌文件位置 |
+| `save_curl` | Parse a cURL command and save it as an endpoint (URL split into base_url + path + query) |
+| `list_projects` | List projects |
+| `list_endpoints` | List endpoints of a project |
+| `agent_info` | Control-plane address and token file location |
 
-### 直接 HTTP
+### Direct HTTP
 
-任何能发 HTTP 的工具也可以直接调用控制面：
+Any tool that can send HTTP can call the control plane directly:
 
-| 方法 | 路径 | 说明 |
+| Method | Path | Description |
 | --- | --- | --- |
 | POST | `/agent/curl` | `{command, projectId?, name?, folderId?}` → endpointId |
-| GET | `/agent/projects` | 项目列表 |
-| GET | `/agent/endpoints/:projectId` | 接口列表 |
-| GET | `/agent/health` | 存活探针 |
+| GET | `/agent/projects` | List projects |
+| GET | `/agent/endpoints/:projectId` | List endpoints |
+| GET | `/agent/health` | Liveness probe |
 
-鉴权：请求头 `Authorization: Bearer <token>` 或 `X-Agent-Token`；
-token 位于数据目录 `agent-token` 文件（0600），应用内「Agent 状态」或
-`agent_status` 命令可查路径。端口从 `4110` 起自动探测。
+Auth: header `Authorization: Bearer <token>` or `X-Agent-Token`;
+the token lives in the `agent-token` file inside the data directory (0600). The port auto-probes from `4110`.
 
-安全设计：只绑定 `127.0.0.1`；写操作仅限导入；不覆盖已有 `base_url` 配置（冲突时返回 warning）。
+Security: loopback-only binding; the only write operation is import; existing `base_url` values are never overwritten (a conflict returns a warning).
 
-## 下载与安装
+## Download & install
 
-在 [Releases](https://github.com/weihubeats/RustFox/releases) 下载对应平台安装包：
+Grab the installer for your platform from [Releases](https://github.com/weihubeats/RustFox/releases):
 
-| 平台 | 安装包 |
+| Platform | Installer |
 | --- | --- |
-| Windows | `RustFox_*-x64-setup.exe`（NSIS 安装包，SmartScreen 提示时选「更多信息 → 仍要运行」） |
-| macOS | `RustFox_*-aarch64.dmg`（Apple Silicon）/ `RustFox_*-x64.dmg`（Intel） |
+| Windows | `RustFox_*-x64-setup.exe` (NSIS; on SmartScreen pick "More info → Run anyway") |
+| macOS | `RustFox_*-aarch64.dmg` (Apple Silicon) / `RustFox_*-x64.dmg` (Intel) |
 | Linux | `.deb` / `.rpm` / `.AppImage` |
 
-> **macOS 首次打开提示「已损坏，无法打开」？** 应用本身没有损坏——这是 Gatekeeper
-> 对未做 Apple 签名公证应用的拦截。把应用拖入「应用程序」后，在终端执行一次：
+> **macOS says the app is damaged?** It isn't — that's Gatekeeper blocking an un-notarized app. Move the app into Applications, then run once:
 >
 > ```bash
 > xattr -cr /Applications/RustFox.app
 > ```
 >
-> 然后右键 →「打开」即可。详见[使用手册](docs/USER_GUIDE.md#12-macos)。
+> Then right-click → Open. See the [user guide](docs/en/USER_GUIDE.md#12-macos).
 
-安装后可在应用内「关于 → Check for Updates」检查并一键升级新版本（v0.0.3 起支持自动更新）。
+After installing, use "About → Check for Updates" in-app to upgrade (auto-update supported since v0.0.3).
 
-## 从源码构建（开发者）
+## Building from source (developers)
 
-前置：Rust 工具链 + Node 22。
+Prerequisites: Rust toolchain + Node 22.
 
 ```bash
-cargo build --workspace        # 构建全部后端 crate
-cargo test --workspace         # 运行全部测试
+cargo build --workspace        # build all backend crates
+cargo test --workspace         # run all tests
 npm --prefix frontend install
-npm --prefix frontend run tauri dev     # 开发模式（Vite HMR）
-scripts/package-tauri.sh                # 一键打包分发包
+npm --prefix frontend run tauri dev     # dev mode (Vite HMR)
+scripts/package-tauri.sh                # package distributables in one step
 ```
 
-> 架构原理、Crate 划分、IPC 与数据流等开发细节见 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**（Tauri 2 + Vue 3 三层架构，含架构图）。
+> Architecture, crate layout, IPC and data flow: **[docs/en/ARCHITECTURE.md](docs/en/ARCHITECTURE.md)** (Tauri 2 + Vue 3, with diagrams).
 
-## 文档
+## Documentation
 
-| 文档 | 说明 |
+| Document | Description |
 | --- | --- |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架构总览（Tauri 2 + Vue 3，含架构图与界面布局图） |
-| [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | 用户手册 |
-| [docs/AGENT.md](docs/AGENT.md) | AI Agent 集成（MCP / HTTP 控制面） |
-| [CHANGELOG.md](CHANGELOG.md) | 版本变化速览 |
-| [docs/README.md](docs/README.md) | 文档索引（用户 / 开发者 / 运维分流） |
-| [docs/SPEC.md](docs/SPEC.md) | 历史规范（已冻结，仅追溯用） |
-| [docs/SMOKE_TEST.md](docs/SMOKE_TEST.md) | 手动验收清单 |
-| [docs/DEPLOY.md](docs/DEPLOY.md) | 发布与部署 |
-| [docs/MILESTONES.md](docs/MILESTONES.md) | 里程碑总览 |
-| [docs/PROGRESS.md](docs/PROGRESS.md) | 开发进度记录 |
+| [docs/en/README.md](docs/en/README.md) | Docs index (EN; Chinese-only docs marked) |
+| [docs/en/ARCHITECTURE.md](docs/en/ARCHITECTURE.md) | Architecture overview (Tauri 2 + Vue 3, with diagrams) |
+| [docs/en/USER_GUIDE.md](docs/en/USER_GUIDE.md) | End-user manual |
+| [docs/en/AGENT.md](docs/en/AGENT.md) | AI Agent integration (MCP / HTTP control plane) |
+| [docs/en/MIGRATION.md](docs/en/MIGRATION.md) | Migration from Apifox / Postman |
+| [CHANGELOG.md](CHANGELOG.md) | Version highlights (Chinese) |
+| [docs/README.md](docs/README.md) | Docs index (Chinese) |
+| [docs/SPEC.md](docs/SPEC.md) | Historical spec, frozen (Chinese) |
+| [docs/SMOKE_TEST.md](docs/SMOKE_TEST.md) | Manual acceptance checklist (Chinese) |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | Release & deployment (Chinese) |
+| [docs/MILESTONES.md](docs/MILESTONES.md) | Milestones (Chinese) |
+| [docs/PROGRESS.md](docs/PROGRESS.md) | Development progress log (Chinese) |
 
 ## License
 

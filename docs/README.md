@@ -1,5 +1,6 @@
 # RustFox 文档索引
 
+> 英文索引见 [en/README.md](en/README.md)。
 > 事实源说明：`SPEC.md` 为 M0–M16 历史规范（已冻结）；Tauri 迁移后的架构以
 > `ARCHITECTURE.md` 为准；版本变化看仓库根 `CHANGELOG.md`。
 
@@ -9,6 +10,7 @@
 | --- | --- |
 | [USER_GUIDE.md](USER_GUIDE.md) / [en/USER_GUIDE.md](en/USER_GUIDE.md) | 用户手册（安装 / 请求 / 环境 / Mock / 测试 / 外观偏好，中英双语） |
 | [AGENT.md](AGENT.md) / [en/AGENT.md](en/AGENT.md) | AI Agent 集成（MCP / HTTP 控制面，中英双语） |
+| [MIGRATION.md](MIGRATION.md) / [en/MIGRATION.md](en/MIGRATION.md) | Apifox / Postman 迁移（中英双语） |
 | [../CHANGELOG.md](../CHANGELOG.md) | 版本变化速览 |
 
 ## 面向开发者 / 运维
@@ -27,5 +29,6 @@
 
 ## 官网
 
-- `website/index.html`（中文）/ `website/en/index.html`（English）：静态落地页，随仓库版本同步更新；
-  通过 GitHub Pages 自动部署。
+- `website/index.html`（English，默认）/ `website/zh/index.html`（中文）：
+  静态落地页，随仓库版本同步更新；通过 GitHub Pages 自动部署。
+  旧地址 `/en/` 会跳转到英文首页。

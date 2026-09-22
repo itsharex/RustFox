@@ -282,4 +282,4 @@ MCP 客户端配一次 `rustfox-mcp`（v0.0.10+ 安装包内置），或任意�
 
 - 顶栏右上方「反馈」按钮 → 一键生成本机环境/日志摘要报告 → 提交到项目仓库 Issue
 - 设置页「日志」Tab 可直接查看运行日志（按天滚动文件）与打开日志目录
-- 数据、部署、进阶指南见 `README.md` 与 `docs/DEPLOY.md`
+- 数据、部署、进阶指南见 [README.zh-CN.md](../README.zh-CN.md) 与 `docs/DEPLOY.md`；英文文档索引：[en/README.md](en/README.md)
