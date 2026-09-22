@@ -21,6 +21,7 @@ export function makeDraft(overrides: Partial<Endpoint> = {}): Endpoint {
       timeout_ms: 30000,
       follow_redirects: true,
       tests: null,
+      body_docs: {},
     },
     created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z',

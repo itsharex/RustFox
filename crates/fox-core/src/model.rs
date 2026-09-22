@@ -503,6 +503,20 @@ impl BodySpec {
     }
 }
 
+/// JSON Body / 响应示例的字段文档（设计页结构化编辑器的注释 sidecar）。
+///
+/// key 为 RFC6901 JSON Pointer 路径（如 `/user/name`、数组样本元素用 `/0`），
+/// 与前端 `jsonTree` 编辑器生成的 path 一一对应；发送 / Mock 均忽略此数据。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct FieldDoc {
+    /// 字段说明（展示用注释）。
+    #[serde(default)]
+    pub description: String,
+    /// 是否必填（结构化编辑器勾选；样本推断默认为 true）。
+    #[serde(default = "default_true")]
+    pub required: bool,
+}
+
 /// 测试配置（pre_request / extract / assertions），存储为 JSON。
 pub type TestConfig = serde_json::Value;
 
@@ -533,6 +547,9 @@ pub struct RequestSpec {
     /// 禁用 Cookie 自动回放（默认 false = 携带 jar 中的同域 Cookie）。
     #[serde(default)]
     pub disable_cookies: bool,
+    /// JSON Body 字段文档（JSON Pointer → 注释；设计页结构化编辑器用，发送时忽略）。
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub body_docs: HashMap<String, FieldDoc>,
 }
 
 impl Default for RequestSpec {
@@ -548,6 +565,7 @@ impl Default for RequestSpec {
             follow_redirects: true,
             tests: None,
             disable_cookies: false,
+            body_docs: HashMap::new(),
         }
     }
 }
@@ -768,6 +786,9 @@ pub struct ResponseExample {
     pub headers: HashMap<String, String>,
     pub body: String,
     pub content_type: String,
+    /// 响应字段文档（JSON Pointer → 注释；设计页结构化编辑器用）。
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub docs: HashMap<String, FieldDoc>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

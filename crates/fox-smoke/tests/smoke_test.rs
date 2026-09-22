@@ -184,6 +184,7 @@ async fn openapi_roundtrip_and_backup() {
         headers: HashMap::from([("x-id".into(), "7".into())]),
         body: "{\"id\":7,\"name\":\"tom\"}".into(),
         content_type: "application/json".into(),
+        docs: HashMap::new(),
         created_at: Utc::now(),
         updated_at: Utc::now(),
     };
@@ -382,6 +383,7 @@ async fn curl_import_roundtrip_keeps_url_headers_body() {
             follow_redirects: true,
             tests: None,
             disable_cookies: false,
+            body_docs: std::collections::HashMap::new(),
         },
         created_at: now,
         updated_at: now,
@@ -456,6 +458,7 @@ async fn test_case_management_flow() {
             follow_redirects: true,
             tests: None,
             disable_cookies: false,
+            body_docs: std::collections::HashMap::new(),
         },
         created_at: Utc::now(),
         updated_at: Utc::now(),

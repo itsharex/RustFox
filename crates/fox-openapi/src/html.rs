@@ -247,6 +247,7 @@ mod tests {
                 headers: Default::default(),
                 body: "{\"ok\":true}".into(),
                 content_type: "application/json".into(),
+                docs: Default::default(),
                 created_at: Utc::now(),
                 updated_at: Utc::now(),
             }],

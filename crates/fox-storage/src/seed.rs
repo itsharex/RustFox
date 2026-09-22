@@ -513,6 +513,7 @@ fn response_example(
         headers: HashMap::new(),
         body: body.to_string(),
         content_type: "application/json".to_string(),
+        docs: HashMap::new(),
         created_at: now,
         updated_at: now,
     }

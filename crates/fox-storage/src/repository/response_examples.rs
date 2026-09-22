@@ -10,6 +10,7 @@ use fox_core::Result;
 
 use super::rows::ResponseExampleRow;
 
+/// 新建或按 id 覆盖写入响应示例（upsert：同 id 重复保存时更新而非主键冲突）。
 pub async fn create_response_example<'e>(
     executor: impl sqlx::Executor<'e, Database = sqlx::Sqlite>,
     endpoint_id: Uuid,
@@ -18,8 +19,17 @@ pub async fn create_response_example<'e>(
     let row = ResponseExampleRow::from_model(example);
     sqlx::query(
         "INSERT INTO response_examples
-             (id, endpoint_id, name, status, headers_json, body, content_type, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             (id, endpoint_id, name, status, headers_json, body, content_type, docs_json, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+            endpoint_id = excluded.endpoint_id,
+            name = excluded.name,
+            status = excluded.status,
+            headers_json = excluded.headers_json,
+            body = excluded.body,
+            content_type = excluded.content_type,
+            docs_json = excluded.docs_json,
+            updated_at = excluded.updated_at",
     )
     .bind(&row.id)
     .bind(&row.endpoint_id)
@@ -28,6 +38,7 @@ pub async fn create_response_example<'e>(
     .bind(row.headers_json.clone())
     .bind(&row.body)
     .bind(&row.content_type)
+    .bind(row.docs_json.clone())
     .bind(row.created_at.clone())
     .bind(row.updated_at.clone())
     .execute(executor)
@@ -41,7 +52,7 @@ pub async fn list_response_examples(
     endpoint_id: Uuid,
 ) -> Result<Vec<ResponseExample>> {
     let rows: Vec<ResponseExampleRow> = sqlx::query_as(
-        "SELECT id, endpoint_id, name, status, headers_json, body, content_type, created_at, updated_at
+        "SELECT id, endpoint_id, name, status, headers_json, body, content_type, docs_json, created_at, updated_at
          FROM response_examples WHERE endpoint_id = ? ORDER BY created_at",
     )
     .bind(endpoint_id.to_string())
@@ -65,7 +76,7 @@ pub async fn list_response_examples_by_endpoints(
             continue;
         }
         let mut qb = QueryBuilder::new(
-            "SELECT id, endpoint_id, name, status, headers_json, body, content_type, created_at, updated_at
+            "SELECT id, endpoint_id, name, status, headers_json, body, content_type, docs_json, created_at, updated_at
              FROM response_examples WHERE endpoint_id IN (",
         );
         let mut separated = qb.separated(", ");
@@ -100,7 +111,7 @@ pub async fn delete_response_examples(db: &SqlitePool, endpoint_id: Uuid) -> Res
     Ok(())
 }
 
-/// 带 id：原样写入响应示例。
+/// 带 id：原样写入响应示例（upsert，同 id 覆盖更新，见 [`create_response_example`]）。
 pub async fn save_response_example<'e>(
     executor: impl sqlx::Executor<'e, Database = sqlx::Sqlite>,
     example: &ResponseExample,

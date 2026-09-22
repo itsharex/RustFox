@@ -358,6 +358,7 @@ pub(crate) fn render_spec(spec: &RequestSpec, vars: &VariableMap) -> RequestSpec
         follow_redirects: spec.follow_redirects,
         tests: spec.tests.clone(),
         disable_cookies: spec.disable_cookies,
+        body_docs: spec.body_docs.clone(),
     }
 }
 
@@ -512,6 +513,7 @@ mod tests {
             follow_redirects: true,
             tests: None,
             disable_cookies: false,
+            body_docs: HashMap::new(),
         };
         let response = ExecuteResponse {
             status: 200,

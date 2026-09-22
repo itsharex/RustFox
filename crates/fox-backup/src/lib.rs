@@ -360,6 +360,7 @@ mod tests {
             headers: HashMap::new(),
             body: r#"{"list":[]}"#.into(),
             content_type: "application/json".into(),
+            docs: HashMap::new(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };

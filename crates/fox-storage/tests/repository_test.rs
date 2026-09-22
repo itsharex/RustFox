@@ -6,7 +6,7 @@ use fox_storage::db::memory_pool;
 use fox_storage::repository as repo;
 use uuid::Uuid;
 
-use fox_core::model::{EnvironmentVariable, ModuleUrlConfig, WsMessageType};
+use fox_core::model::{EnvironmentVariable, ModuleUrlConfig, ResponseExample, WsMessageType};
 
 async fn pool() -> SqlitePool {
     memory_pool().await.unwrap()
@@ -480,4 +480,38 @@ async fn save_environment_repeated_id_updates_not_conflicts() {
 
     let fetched = repo::get_environment(&db, created.id).await.unwrap();
     assert_eq!(fetched.name, "生产");
+}
+
+#[tokio::test]
+async fn save_response_example_repeated_id_updates_not_conflicts() {
+    let db = pool().await;
+    let project = repo::create_project(&db, "P", "").await.unwrap();
+    let ep = repo::create_endpoint(&db, project.id, None, "E")
+        .await
+        .unwrap();
+
+    let now = chrono::Utc::now();
+    let ex = ResponseExample {
+        id: Uuid::new_v4(),
+        endpoint_id: ep.id,
+        name: "200 响应".into(),
+        status: 200,
+        headers: std::collections::HashMap::new(),
+        body: "{}".into(),
+        content_type: "application/json".into(),
+        docs: std::collections::HashMap::new(),
+        created_at: now,
+        updated_at: now,
+    };
+    repo::save_response_example(&db, &ex).await.unwrap();
+
+    // 同 id 二次保存 = 覆盖更新（设计页「保存修改」路径），不得主键冲突。
+    let mut edited = ex.clone();
+    edited.body = "{\"code\":0}".into();
+    edited.updated_at = chrono::Utc::now();
+    repo::save_response_example(&db, &edited).await.unwrap();
+
+    let list = repo::list_response_examples(&db, ep.id).await.unwrap();
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0].body, "{\"code\":0}");
 }

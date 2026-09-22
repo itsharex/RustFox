@@ -358,6 +358,7 @@ pub(crate) struct ResponseExampleRow {
     pub(crate) headers_json: String,
     pub(crate) body: String,
     pub(crate) content_type: String,
+    pub(crate) docs_json: String,
     pub(crate) created_at: String,
     pub(crate) updated_at: String,
 }
@@ -372,6 +373,7 @@ impl ResponseExampleRow {
             headers_json: serde_json::to_string(&model.headers).unwrap_or_else(|_| "{}".into()),
             body: model.body.clone(),
             content_type: model.content_type.clone(),
+            docs_json: serde_json::to_string(&model.docs).unwrap_or_else(|_| "{}".into()),
             created_at: model.created_at.to_rfc3339(),
             updated_at: model.updated_at.to_rfc3339(),
         }
@@ -386,6 +388,7 @@ impl ResponseExampleRow {
             headers: serde_json::from_str(&self.headers_json).unwrap_or_default(),
             body: self.body,
             content_type: self.content_type,
+            docs: serde_json::from_str(&self.docs_json).unwrap_or_default(),
             created_at: parse_time(&self.created_at)?,
             updated_at: parse_time(&self.updated_at)?,
         })

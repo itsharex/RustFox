@@ -2,7 +2,7 @@
 /**
  * ParamDefineTable：接口设计页的参数定义表。
  *
- * - 列：参数名 | 类型 | 必填 | 说明 | 示例值 | 操作（删除）；
+ * - 列：参数名 | 类型 | 必填 | 启用 | 说明 | 示例值 | 操作（删除）；
  * - 行内直接编辑，修改以整组新数组回调（update:modelValue），由父级写回草稿；
  * - 「+ 添加参数」在末尾追加空行（enabled 默认开启）；
  * - 类型下拉为原生 select 紧凑样式（行内控件不引 CustomSelect，避免每行浮层开销）。
@@ -40,6 +40,9 @@ function typeOf(row: KeyValue): FieldType {
 }
 function requiredOf(row: KeyValue): boolean {
   return row.required ?? true
+}
+function enabledOf(row: KeyValue): boolean {
+  return row.enabled ?? true
 }
 
 /** 单元格修改：浅拷贝该行后整组回传，保持草稿数组响应式更新。 */
@@ -80,6 +83,7 @@ function removeRow(index: number): void {
             <th class="col-key">{{ t('paramtable.colKey') }}</th>
             <th class="col-type">{{ t('body.colType') }}</th>
             <th class="col-req">{{ t('paramtable.required') }}</th>
+            <th class="col-en">{{ t('paramtable.enabled') }}</th>
             <th class="col-desc">{{ t('paramtable.colDesc') }}</th>
             <th v-if="showExample" class="col-example">{{ t('paramtable.colExample') }}</th>
             <th class="col-op"></th>
@@ -119,6 +123,16 @@ function removeRow(index: number): void {
                 "
               />
             </td>
+            <td class="col-en">
+              <input
+                class="pdt-check"
+                type="checkbox"
+                :checked="enabledOf(row)"
+                @change="
+                  patch(i, { enabled: ($event.target as HTMLInputElement).checked })
+                "
+              />
+            </td>
             <td class="col-desc">
               <input
                 class="pdt-input"
@@ -142,7 +156,7 @@ function removeRow(index: number): void {
             </td>
           </tr>
           <tr v-if="!rows.length">
-            <td :colspan="showExample ? 6 : 5" class="pdt-empty">
+            <td :colspan="showExample ? 7 : 6" class="pdt-empty">
               <EmptyState icon="list" :title="t('paramtable.empty')" compact />
             </td>
           </tr>
@@ -203,6 +217,13 @@ function removeRow(index: number): void {
   text-align: center;
 }
 th.col-req {
+  text-align: center;
+}
+.col-en {
+  width: 6%;
+  text-align: center;
+}
+th.col-en {
   text-align: center;
 }
 .col-desc {

@@ -52,6 +52,7 @@ export function defaultRequestSpec(): Endpoint['request'] {
     follow_redirects: true,
     tests: null,
     disable_cookies: false,
+    body_docs: {},
   }
 }
 

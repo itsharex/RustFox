@@ -69,6 +69,7 @@ fn request_spec() -> RequestSpec {
         follow_redirects: true,
         tests: None,
         disable_cookies: false,
+        body_docs: std::collections::HashMap::new(),
     }
 }
 
@@ -142,6 +143,7 @@ fn ipc_models_serialize_snake_case_keys() {
             headers: HashMap::new(),
             body: "{}".into(),
             content_type: "application/json".into(),
+            docs: HashMap::new(),
             created_at: now,
             updated_at: now,
         },

@@ -89,6 +89,7 @@ pub fn endpoint_from_curl(
             follow_redirects: true,
             tests: None,
             disable_cookies: false,
+            body_docs: std::collections::HashMap::new(),
         },
         created_at: now,
         updated_at: now,

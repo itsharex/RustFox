@@ -144,6 +144,14 @@ export interface GraphQLSpec {
   operation_name: string
 }
 
+/** 字段文档（Rust `FieldDoc`）：设计页结构化 Body 编辑器的注释 sidecar，key 为 JSON Pointer。 */
+export interface FieldDoc {
+  /** 字段说明（展示用注释）。 */
+  description?: string
+  /** 是否必填（样本推断默认 true）。 */
+  required?: boolean
+}
+
 /** 请求 Body（Rust `BodySpec`，tag = "mode"）。 */
 export type BodySpec =
   | { mode: 'none' }
@@ -188,6 +196,8 @@ export interface RequestSpec {
   tests: unknown | null
   /** 禁用 Cookie 自动回放（默认 false = 携带 Jar 中的同域 Cookie）。 */
   disable_cookies?: boolean
+  /** JSON Body 字段文档（JSON Pointer → 注释；设计页结构化编辑器用，发送时忽略）。 */
+  body_docs?: Record<string, FieldDoc>
 }
 
 /** 自增序列（Rust `SeqCounter`）；value 为下一次输出值，key 为空表示全局 `$seq`。 */
@@ -355,6 +365,8 @@ export interface ResponseExample {
   headers: Record<string, string>
   body: string
   content_type: string
+  /** 响应字段文档（JSON Pointer → 注释；设计页结构化编辑器用）。 */
+  docs?: Record<string, FieldDoc>
   created_at: string
   updated_at: string
 }

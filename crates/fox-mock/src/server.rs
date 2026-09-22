@@ -688,6 +688,7 @@ mod tests {
             headers: HashMap::new(),
             body: "{\"ok\":true}".into(),
             content_type: "application/json".into(),
+            docs: HashMap::new(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
         };
