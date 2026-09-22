@@ -302,6 +302,10 @@ export const zh = {
   'editor.saveExampleTitle': '保存响应示例',
   'editor.exampleNameHint': '请输入示例名称：',
   'editor.exampleNamePh': '例如：成功响应',
+  'editor.baseUrlHint':
+    '当接口路径不是以 http:// 或 https:// 起始时，系统将自动添加所选环境的前置 URL；否则将忽略前置 URL。',
+  'editor.copyBaseUrl': '复制 Base URL',
+  'editor.baseCopied': 'Base URL 已复制',
   'editor.badgeEnv': '环境：{env}',
   'editor.badgeUnresolved': '{v} 未定义，请求将按字面量发送',
   'editor.badgeEnvBase': '环境：{env} | 基础路径：{url}',

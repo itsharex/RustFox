@@ -26,7 +26,6 @@ import { isCurlCommand } from '../utils/url'
 import {
   applyMethodDefaults,
   envBadgeLabel as envBadgeLabelOf,
-  envBadgeTooltip as envBadgeTooltipOf,
   methodNeedsBody,
 } from '../utils/requestBar'
 import AuthPanel from './AuthPanel.vue'
@@ -56,6 +55,7 @@ import ToolsDrawer from './ToolsDrawer.vue'
 import type { TabItem } from './ui/Tabs.vue'
 import type {
   ExecuteResponse,
+  Environment,
   HttpMethod,
   RequestSpec,
   ResponseExample,
@@ -266,9 +266,6 @@ const folderName = computed(() => {
   return store.folders.find((f) => f.id === draft.value!.folder_id)?.name ?? ''
 })
 
-/** 路径是否为完整绝对 URL（此时不显示前缀 chip，地址栏直接展示全文）。 */
-const isAbsPath = computed(() => (draft.value ? isAbsolutePath(draft.value.path) : false))
-
 /** 激活环境（chip 色点）。 */
 const activeEnv = computed(
   () => store.environments.find((e) => e.id === store.activeEnvId) ?? null,
@@ -301,9 +298,57 @@ const chipClass = computed(() => {
   return 'session'
 })
 
-/** 点击基础 URL 标签 → 打开环境管理。 */
+/** Base URL 下拉「管理环境…」→ 打开环境管理。 */
 const showEnvManager = ref(false)
 const showMockRules = ref(false)
+
+/** 地址栏 Base URL 下拉（Apifox 式：前置 URL 选择器）。 */
+const BASE_URL_MANAGE = '__manage__'
+const baseUrlMenuOpen = ref(false)
+
+const sessionBaseVars = computed(() => ({
+  ...variableListToMap(store.globalVariables),
+  ...(store.project?.variables ?? {}),
+}))
+
+function resolveEnvBaseUrl(env: Environment): string {
+  const vars = {
+    ...sessionBaseVars.value,
+    ...environmentVariableMap(env, store.project?.id),
+  }
+  const raw = envBaseUrl(env, store.project?.id)
+  return raw ? resolveVariables(raw, vars) : ''
+}
+
+/** 下拉选项：`''`=无环境（会话 Base URL），各环境=解析后前置 URL，末项=管理环境。 */
+const baseUrlOptions = computed(() => {
+  const opts: { value: string; label: string }[] = []
+  const session = store.sessionBaseUrl
+    ? resolveVariables(store.sessionBaseUrl, sessionBaseVars.value)
+    : ''
+  opts.push({ value: '', label: session || t('envbar.noEnv') })
+  for (const env of store.environments) {
+    opts.push({ value: env.id, label: resolveEnvBaseUrl(env) || t('envbar.noEnv') })
+  }
+  opts.push({ value: BASE_URL_MANAGE, label: t('envbar.manage') })
+  return opts
+})
+
+/** 下拉行右侧标签：环境名 / 无环境。 */
+function baseUrlSideLabel(value: string): string {
+  if (value === BASE_URL_MANAGE) return ''
+  if (!value) return t('envbar.noEnv')
+  return store.environments.find((e) => e.id === value)?.name ?? ''
+}
+
+function onBaseUrlChange(value: string | number): void {
+  const v = String(value)
+  if (v === BASE_URL_MANAGE) {
+    showEnvManager.value = true
+    return
+  }
+  void store.setEnvironment(v === '' ? null : v)
+}
 
 /** Base URL 紧凑标签：直接展示解析后的裸域名（无域名时退回环境名），一眼可见实际发送目标。 */
 const envBadgeLabel = computed(() =>
@@ -314,18 +359,7 @@ const envBadgeLabel = computed(() =>
   }),
 )
 
-/** Base URL 标签悬浮提示：`环境：X | 基础路径：https://...`（无环境时仅展示路径来源）。 */
-const envBadgeTooltip = computed(() => {
-  if (!draft.value || isAbsPath.value) return ''
-  return envBadgeTooltipOf(
-    {
-      urlDomain: urlDomain.value,
-      resolvedDomain: resolvedDomain.value,
-      envName: activeEnvName.value,
-    },
-    (key, params) => t(key, params),
-  )
-})
+
 
 /** 路径输入框元素引用（快捷按钮聚焦回跳）。 */
 const urlInputEl = ref<HTMLInputElement | null>(null)
@@ -392,7 +426,8 @@ const urlPath = computed({
     const v = value.trim()
     if (!v) return
 
-    // 1) 粘贴/改写完整 URL：origin 写入域名源（环境变量优先），query 并入参数。
+    // 1) 粘贴/改写完整 URL：query 并入参数；展示前缀为环境变量时 origin+path
+    //    整条存入 path（发送走 isAbsolutePath 分支，不覆写共享环境），否则 origin 写会话 Base URL。
     const abs = v.match(/^(?:https?|wss?):\/\/[^/]+/)
     if (abs) {
       let rest = v.slice(abs[0].length) || '/'
@@ -404,12 +439,10 @@ const urlPath = computed({
           d.request.params.push({ key, value: val, enabled: true, description: '' })
         }
       }
-      if (store.urlDomain.startsWith('{{')) {
-        void store.setEnvironmentBaseUrl(abs[0])
-      } else {
-        store.sessionBaseUrl = abs[0]
-      }
-      d.path = rest.startsWith('/') ? rest : `/${rest}`
+      const envPrefixed = store.urlDomain.startsWith('{{')
+      store.sessionBaseUrl = abs[0]
+      const rel = rest.startsWith('/') ? rest : `/${rest}`
+      d.path = envPrefixed ? `${abs[0]}${rel}` : rel
       return
     }
 
@@ -717,6 +750,14 @@ async function copyRequestUrl(): Promise<void> {
   toast.info(t('common.copied'))
 }
 
+/** 快捷按钮：复制当前 Base URL（解析后优先，未解析退回字面量）。 */
+async function copyBaseUrl(): Promise<void> {
+  const v = resolvedDomain.value || urlDomain.value
+  if (!v) return
+  await navigator.clipboard.writeText(v)
+  toast.info(t('editor.baseCopied'))
+}
+
 /**
  * 全局快捷键（集中注册表，见 useShortcuts；帮助面板自动收录）。
  * 默认键位来自 SHORTCUT_DEFAULTS，用户可在设置 → 快捷键中自定义。
@@ -799,19 +840,53 @@ onUnmounted(() => {
             <span :class="`m-select-${draft.method.toLowerCase()}`">{{ label }}</span>
           </template>
         </CustomSelect>
-        <span class="req-bar-divider"></span>
-        <Tooltip v-if="urlDomain && !isAbsPath" :content="envBadgeTooltip" placement="bottom">
-          <button
-            type="button"
-            class="env-badge"
-            :class="chipClass"
-            @click="showEnvManager = true"
+        <span v-if="!isAbsolutePath(draft.path)" class="req-bar-divider"></span>
+        <div v-if="!isAbsolutePath(draft.path)" class="base-url-wrap">
+          <Tooltip
+            :content="t('editor.baseUrlHint')"
+            placement="bottom"
+            :disabled="baseUrlMenuOpen"
+            class="base-url-tip"
           >
-            <Icon name="globe" :size="13" class="env-badge-icon" />
-            <span class="env-badge-text">{{ envBadgeLabel }}</span>
-            <Icon name="chevron-down" :size="11" class="env-badge-chevron" />
-          </button>
-        </Tooltip>
+            <CustomSelect
+              class="base-url-select"
+              :class="chipClass"
+              pop-class="base-url-pop"
+              :pop-min-width="360"
+              :model-value="store.activeEnvId ?? ''"
+              :options="baseUrlOptions"
+              :placeholder="t('envbar.noEnv')"
+              @change="onBaseUrlChange"
+              @open="baseUrlMenuOpen = true"
+              @close="baseUrlMenuOpen = false"
+            >
+              <template #display>
+                <Icon name="globe" :size="13" class="env-badge-icon" />
+                <span class="env-badge-text">{{ envBadgeLabel }}</span>
+              </template>
+              <template #option="{ option }">
+                <span v-if="option.value === BASE_URL_MANAGE" class="base-url-manage">
+                  {{ option.label }}
+                </span>
+                <template v-else>
+                  <span class="base-url-opt-url">{{ option.label }}</span>
+                  <span class="base-url-opt-name">{{ baseUrlSideLabel(String(option.value)) }}</span>
+                </template>
+              </template>
+            </CustomSelect>
+          </Tooltip>
+          <Tooltip
+            v-if="resolvedDomain || urlDomain"
+            :content="t('editor.copyBaseUrl')"
+            placement="bottom"
+            :disabled="baseUrlMenuOpen"
+            class="base-url-copy"
+          >
+            <button type="button" class="base-url-copy-btn" @click.stop="copyBaseUrl">
+              <Icon name="copy" :size="12" />
+            </button>
+          </Tooltip>
+        </div>
         <div class="url-input-wrap">
           <input
             ref="urlInputEl"
@@ -1168,59 +1243,53 @@ onUnmounted(() => {
   min-width: 0;
 }
 
-/* 基础 URL 标签：紧凑无背景，仅 图标 + 环境名/域名，点击打开环境管理 */
-.env-badge {
+/* Base URL 前置选择器（Apifox 式）：占满请求栏高度，点击展开环境基址列表 */
+.base-url-wrap {
+  position: relative;
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  max-width: 140px;
+  align-self: stretch;
+  min-width: 0;
+  max-width: 300px;
+}
+.base-url-tip {
+  display: inline-flex;
+  flex: 1;
+  min-width: 0;
+}
+.request-bar .base-url-select {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+}
+.request-bar .base-url-select :deep(.cs-trigger) {
   height: 100%;
-  padding: 0 4px 0 10px;
+  gap: 6px;
   border: none;
   background: transparent;
   border-radius: 0;
+  box-shadow: none;
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 600;
-  line-height: 1.4;
   color: var(--text-2);
-  cursor: pointer;
-  transition:
-    background var(--dur) var(--ease),
-    color var(--dur) var(--ease);
+  /* 右侧预留复制按钮 + caret 位，防域名文字钻入按钮下 */
+  padding: 0 44px 0 10px;
 }
-.env-badge:hover {
+.request-bar .base-url-select :deep(.cs-trigger:hover) {
   background: var(--bg-hover);
   color: var(--text-1);
 }
-.env-badge:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+.request-bar .base-url-select :deep(.cs.open .cs-trigger) {
+  box-shadow: none;
 }
-
-/* 环境 base_url 变量已解析：主题色文字 */
-.env-badge.env {
+.request-bar .base-url-select :deep(.cs-value) {
+  color: inherit;
+}
+.request-bar .base-url-select.env :deep(.cs-value) {
   color: var(--accent);
 }
-.env-badge.env:hover {
-  color: var(--accent);
-}
-
-/* 变量未定义（将按字面量发送）：警告色文字 */
-.env-badge.warn {
+.request-bar .base-url-select.warn :deep(.cs-value) {
   color: var(--warning);
-}
-.env-badge.warn:hover {
-  color: var(--warning);
-}
-
-/* 会话级 Base URL（未使用环境变量）：中性文字 */
-.env-badge.session {
-  color: var(--text-2);
-}
-.env-badge.session:hover {
-  color: var(--text-1);
 }
 
 .env-badge-icon {
@@ -1234,13 +1303,105 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.env-badge-chevron {
-  flex-shrink: 0;
-  opacity: 0.55;
-  transition: opacity var(--dur) var(--ease);
+/* Base URL 复制按钮：悬浮在触发器右侧（caret 左），不挤占域名展示宽度 */
+.base-url-copy {
+  position: absolute;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  z-index: 1;
 }
-.env-badge:hover .env-badge-chevron {
-  opacity: 1;
+.base-url-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 5px;
+  padding: 0;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.base-url-copy-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+
+/* 下拉选项：左前置 URL，右环境名（Apifox 样式） */
+:global(.cs-pop.base-url-pop) {
+  padding: 6px;
+  border-radius: var(--radius-lg);
+}
+:global(.cs-pop.base-url-pop .cs-opt) {
+  height: auto;
+  min-height: 34px;
+  padding: 6px 8px;
+  gap: 12px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  white-space: normal;
+}
+:global(.cs-pop.base-url-pop .cs-opt.hl) {
+  background: var(--bg-hover);
+}
+/* 选中：accent 轻底 + 对勾高亮，文字保持正文色（默认 .sel 会整行染 accent） */
+:global(.cs-pop.base-url-pop .cs-opt.sel) {
+  color: var(--text-1);
+  background: var(--accent-tint);
+}
+:global(.cs-pop.base-url-pop .cs-opt.sel .cs-opt-check) {
+  color: var(--accent);
+}
+:global(.cs-pop.base-url-pop .cs-opt-check) {
+  width: 16px;
+}
+:global(.cs-pop.base-url-pop .cs-opt-label) {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.base-url-opt-url {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-1);
+}
+.base-url-opt-name {
+  flex: 0 0 auto;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-3);
+  font-size: 11.5px;
+  text-align: right;
+}
+.base-url-manage {
+  font-size: 12px;
+  font-family: var(--font-ui);
+  color: var(--text-3);
+}
+:global(.cs-pop.base-url-pop .cs-opt:hover .base-url-manage),
+:global(.cs-pop.base-url-pop .cs-opt.hl .base-url-manage) {
+  color: var(--text-2);
+}
+:global(.cs-pop.base-url-pop .cs-opt:last-child) {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
 .request-bar .url-input-wrap {

@@ -306,6 +306,10 @@ export const en: Record<ZhKey, string> = {
   'editor.saveExampleTitle': 'Save response example',
   'editor.exampleNameHint': 'Enter an example name:',
   'editor.exampleNamePh': 'e.g. Success response',
+  'editor.baseUrlHint':
+    'When the request path does not start with http:// or https://, the selected base URL is prepended automatically; otherwise it is ignored.',
+  'editor.copyBaseUrl': 'Copy Base URL',
+  'editor.baseCopied': 'Base URL copied',
   'editor.badgeEnv': 'Environment: {env}',
   'editor.badgeUnresolved': '{v} is undefined, will be sent literally',
   'editor.badgeEnvBase': 'Environment: {env} | Base URL: {url}',
