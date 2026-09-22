@@ -77,7 +77,7 @@
 
 1. 顶栏「反馈」按钮 → Toast 显示报告路径：`{数据目录}/reports/rustfox_report_时间.md`。
 2. 打开文件核对：应包含 ① 环境信息（OS/架构/版本/数据目录）② 最近操作步骤列表 ③ 最近日志（最多 500 行）。
-3. 将报告内容粘贴到 GitHub Issue（https://github.com/weihubeats/ApiRust/issues）即可提交。
+3. 将报告内容粘贴到 GitHub Issue（https://github.com/weihubeats/RustFox/issues）即可提交。
 
 ## 7. 验收标准
 
