@@ -18,9 +18,9 @@ use tokio::sync::broadcast;
 
 use crate::import::endpoint_from_curl;
 
-/// 默认端口（4110~4129 探测；与 Mock 的 4010~4029 错开）。
+/// 默认端口（4110 起探测；与 Mock 的 4010~4029 错开）。用户可在设置中改起始端口。
 pub const DEFAULT_AGENT_PORT: u16 = 4110;
-/// 端口被占用时最多尝试的次数。
+/// 起始端口被占用时最多尝试的次数（自定义端口同样顺延）。
 pub const MAX_PORT_TRIES: u16 = 20;
 
 /// 导入成功后广播给 UI 层的事件。
@@ -315,9 +315,22 @@ impl AgentServer {
     }
 }
 
-/// 启动服务：端口从 4110 起依次尝试。
+/// 启动服务：默认从 4110 起依次尝试（测试与未配置端口时的入口）。
 pub async fn start(state: AgentState) -> Result<AgentServer, fox_core::AppError> {
-    for port in DEFAULT_AGENT_PORT..DEFAULT_AGENT_PORT + MAX_PORT_TRIES {
+    start_at(state, DEFAULT_AGENT_PORT).await
+}
+
+/// 启动服务：从 `preferred_port` 起依次尝试，最多 [`MAX_PORT_TRIES`] 个端口
+/// （贴近 `u16::MAX` 时提前截止）。绑定成功即返回，调用方应把**实际端口**
+/// 写入 `{data_dir}/agent-port` 供 `rustfox-mcp` 发现。
+pub async fn start_at(
+    state: AgentState,
+    preferred_port: u16,
+) -> Result<AgentServer, fox_core::AppError> {
+    let max_tries =
+        u32::from(MAX_PORT_TRIES).min(u32::from(u16::MAX) - u32::from(preferred_port) + 1) as u16;
+    for offset in 0..max_tries {
+        let port = preferred_port + offset;
         let addr: SocketAddr = ([127, 0, 0, 1], port).into();
         let Ok(listener) = tokio::net::TcpListener::bind(addr).await else {
             continue;
@@ -340,8 +353,8 @@ pub async fn start(state: AgentState) -> Result<AgentServer, fox_core::AppError>
     }
     Err(fox_core::AppError::Mock(format!(
         "端口 {}~{} 均被占用，无法启动 Agent 控制面",
-        DEFAULT_AGENT_PORT,
-        DEFAULT_AGENT_PORT + MAX_PORT_TRIES - 1
+        preferred_port,
+        preferred_port + (max_tries - 1)
     )))
 }
 

@@ -214,6 +214,13 @@ export interface ProxyTestResult {
   message: string
 }
 
+/** Agent 控制面状态（Rust `AgentStatusInfo`；字段 snake_case）。 */
+export interface AgentStatusInfo {
+  running: boolean
+  address: string | null
+  token_path: string
+}
+
 /** 项目（Rust `Project`）。 */
 export interface Project {
   id: string

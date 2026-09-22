@@ -1,12 +1,30 @@
-//! 日志查看 Command：日志文件列表 / 尾部读取 / 目录路径。
+//! 日志查看 Command：日志文件列表 / 尾部读取 / 目录路径 / 过期清理。
 //!
 //! 日志由 `init_tracing` 按天滚动（`{log_dir}/rustfox.log.YYYY-MM-DD`）。
 //! 原来只能靠顶栏「反馈」生成一次性诊断摘要；本模块给设置页"日志" Tab
 //! 提供查看面，排障不再需要用户翻文件系统。
+//!
+//! 过期清理：按 settings 中的保留天数（默认 [`DEFAULT_RETENTION_DAYS`]），
+//! 应用启动时与修改保留天数时各扫一遍，删除超过保留期的历史滚动文件；
+//! 当日活动文件 `rustfox.log`（无日期后缀）永不删除。
 
 use serde::Serialize;
+use tauri::State;
+
+use fox_storage::repository as repo;
 
 use crate::error::{CommandError, CommandResult};
+use crate::state::AppState;
+
+/// settings 表中的日志保留天数键；值为 JSON 数字。缺失时用默认值。
+const LOG_RETENTION_KEY: &str = "log_retention_days";
+
+/// 默认保留天数（「保留最近 14 天」：含今天在内共 14 个日历日）。
+pub const DEFAULT_RETENTION_DAYS: u32 = 14;
+
+/// 允许的保留天数范围。
+const MIN_RETENTION_DAYS: u32 = 1;
+const MAX_RETENTION_DAYS: u32 = 365;
 
 /// 日志文件元信息（按修改时间倒序）。
 #[derive(Debug, Clone, Serialize)]
@@ -89,4 +107,188 @@ fn is_utf8_boundary(bytes: &[u8], index: usize) -> bool {
 #[tauri::command(rename_all = "camelCase")]
 pub async fn log_dir_path() -> CommandResult<String> {
     Ok(fox_storage::db::log_dir().to_string_lossy().to_string())
+}
+
+/// 读取日志保留天数（缺键 / 越界 / 解析失败时回退默认值）。
+pub async fn read_log_retention_days(db: &sqlx::SqlitePool) -> u32 {
+    match repo::get_setting(db, LOG_RETENTION_KEY).await {
+        Ok(Some(json)) => serde_json::from_str::<u32>(&json)
+            .ok()
+            .filter(|d| (MIN_RETENTION_DAYS..=MAX_RETENTION_DAYS).contains(d))
+            .unwrap_or(DEFAULT_RETENTION_DAYS),
+        _ => DEFAULT_RETENTION_DAYS,
+    }
+}
+
+/// 读取日志保留天数（设置页展示）。
+#[tauri::command(rename_all = "camelCase")]
+pub async fn get_log_retention_days(state: State<'_, AppState>) -> CommandResult<u32> {
+    Ok(read_log_retention_days(&state.db).await)
+}
+
+/// 设置日志保留天数（1~365）并立即按新规则清理一次。
+#[tauri::command(rename_all = "camelCase")]
+pub async fn set_log_retention_days(state: State<'_, AppState>, days: u32) -> CommandResult<()> {
+    if !(MIN_RETENTION_DAYS..=MAX_RETENTION_DAYS).contains(&days) {
+        return Err(CommandError::validation("保留天数需在 1 ~ 365 之间"));
+    }
+    let json = serde_json::to_string(&days)
+        .map_err(|e| CommandError::with_code("INTERNAL", format!("序列化失败：{e}")))?;
+    repo::set_setting(&state.db, LOG_RETENTION_KEY, &json).await?;
+    let removed = cleanup_expired_logs(&fox_storage::db::log_dir(), days);
+    if removed > 0 {
+        tracing::info!("[log] 按保留 {days} 天清理，删除 {removed} 个过期日志文件");
+    }
+    Ok(())
+}
+
+/// 从滚动文件名解析日期：`rustfox.log.YYYY-MM-DD` → `YYYY-MM-DD`。
+/// 活动文件 `rustfox.log`（无后缀）返回 None。
+fn rolled_date_of(name: &str) -> Option<&str> {
+    let rest = name.strip_prefix("rustfox.log.")?;
+    let b = rest.as_bytes();
+    // 严格 YYYY-MM-DD：10 字节，第 5/8 位为 '-'，其余为数字。
+    if b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
+        return None;
+    }
+    if !b
+        .iter()
+        .enumerate()
+        .all(|(i, &c)| i == 4 || i == 7 || c.is_ascii_digit())
+    {
+        return None;
+    }
+    chrono::NaiveDate::parse_from_str(rest, "%Y-%m-%d").ok()?;
+    Some(rest)
+}
+
+/// 判断历史滚动文件是否应删除：日期早于 cutoff（cutoff = today - (retention - 1)
+/// 之前的那一天，即保留含今天在内的 `retention` 个日历日）。
+fn is_expired_rolled(name: &str, today: chrono::NaiveDate, retention_days: u32) -> bool {
+    let Some(date_str) = rolled_date_of(name) else {
+        return false; // 活动文件 / 非日期后缀：不删
+    };
+    let Ok(date) = chrono::NaiveDate::parse_from_str(date_str, "%Y-%m-%d") else {
+        return false;
+    };
+    // 保留 age ∈ [0, retention)：age = today - date
+    match today.signed_duration_since(date).num_days() {
+        age if age < 0 => false, // 文件日期在未来（时钟回拨等）：不删
+        age => age >= i64::from(retention_days),
+    }
+}
+
+/// 扫描日志目录，删除超过保留期的滚动文件。返回删除个数。
+///
+/// 只处理 `rustfox.log.YYYY-MM-DD`；活动文件 `rustfox.log` 与无法解析
+/// 日期的文件保留。目录不存在时返回 0。
+pub fn cleanup_expired_logs(dir: &std::path::Path, retention_days: u32) -> usize {
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return 0;
+    };
+    let today = chrono::Local::now().date_naive();
+    let mut removed = 0usize;
+    for entry in rd.filter_map(|e| e.ok()) {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if !name.starts_with("rustfox.log.") {
+            continue;
+        }
+        if is_expired_rolled(&name, today, retention_days) && entry.path().is_file() {
+            match std::fs::remove_file(entry.path()) {
+                Ok(()) => removed += 1,
+                Err(e) => tracing::warn!("[log] 删除过期日志失败 {name}：{e}"),
+            }
+        }
+    }
+    removed
+}
+
+/// 启动时按保留天数清理一次（失败仅记日志，不阻断启动）。
+pub fn cleanup_logs_on_startup(db: &sqlx::SqlitePool) {
+    let days = tauri::async_runtime::block_on(read_log_retention_days(db));
+    let removed = cleanup_expired_logs(&fox_storage::db::log_dir(), days);
+    if removed > 0 {
+        tracing::info!("[log] 启动清理：保留 {days} 天，删除 {removed} 个过期日志文件");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 纯日期规则：today=2026-09-23，保留 7 天 → 只删 age≥7。
+    #[test]
+    fn expired_roll_files_follow_retention_window() {
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 9, 23).unwrap();
+        // age 0（今天）~ age 6：保留
+        for age in 0..7 {
+            let d = today - chrono::Duration::days(age);
+            let name = format!("rustfox.log.{}", d.format("%Y-%m-%d"));
+            assert!(!is_expired_rolled(&name, today, 7), "应保留 {name}");
+        }
+        // age 7、30：删除
+        for age in [7, 30] {
+            let d = today - chrono::Duration::days(age);
+            let name = format!("rustfox.log.{}", d.format("%Y-%m-%d"));
+            assert!(is_expired_rolled(&name, today, 7), "应删除 {name}");
+        }
+    }
+
+    #[test]
+    fn active_and_malformed_names_never_expire() {
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 9, 23).unwrap();
+        assert!(!is_expired_rolled("rustfox.log", today, 1));
+        assert!(!is_expired_rolled("rustfox.log.not-a-date", today, 1));
+        assert!(!is_expired_rolled("rustfox.log.2020-01-01.bak", today, 1));
+        // 未来日期（时钟回拨）不删
+        assert!(!is_expired_rolled("rustfox.log.2099-01-01", today, 1));
+        // 活动文件的常见变体前缀匹配：日期段非法仍不删
+        assert!(!is_expired_rolled("rustfox.log.99-99-99", today, 1));
+    }
+
+    #[test]
+    fn rolled_date_parses_only_iso_suffix() {
+        assert_eq!(rolled_date_of("rustfox.log.2026-09-22"), Some("2026-09-22"));
+        assert_eq!(rolled_date_of("rustfox.log"), None);
+        assert_eq!(rolled_date_of("rustfox.log.2026-9-2"), None);
+        assert_eq!(rolled_date_of("other.log.2026-09-22"), None);
+    }
+
+    #[test]
+    fn cleanup_removes_only_expired_in_temp_dir() {
+        let dir = std::env::temp_dir().join(format!("rustfox-log-clean-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let today = chrono::Local::now().date_naive();
+        let keep = today - chrono::Duration::days(1);
+        let drop = today - chrono::Duration::days(30);
+        std::fs::write(dir.join("rustfox.log"), b"active").unwrap();
+        std::fs::write(
+            dir.join(format!("rustfox.log.{}", keep.format("%Y-%m-%d"))),
+            b"keep",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join(format!("rustfox.log.{}", drop.format("%Y-%m-%d"))),
+            b"old",
+        )
+        .unwrap();
+
+        let removed = cleanup_expired_logs(&dir, 7);
+        assert_eq!(removed, 1, "只删 30 天前那一份");
+        assert!(dir.join("rustfox.log").exists(), "活动文件保留");
+        assert!(
+            dir.join(format!("rustfox.log.{}", keep.format("%Y-%m-%d")))
+                .exists(),
+            "1 天前保留"
+        );
+        assert!(
+            !dir.join(format!("rustfox.log.{}", drop.format("%Y-%m-%d")))
+                .exists(),
+            "30 天前删除"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

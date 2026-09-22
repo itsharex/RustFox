@@ -23,6 +23,7 @@ import { useProgress } from './useProgress'
 import { tFallback } from '../stores/locale'
 import type {
   AuthSpec,
+  AgentStatusInfo,
   BackupSummary,
   BodySpec,
   CodeLang,
@@ -382,6 +383,23 @@ export function useFoxApi() {
   const testHttpProxy = (target?: string | null) =>
     run(() => call<ProxyTestResult>('test_http_proxy', { target: target ?? null }))
 
+  // ---------- MCP / Agent 控制面 ----------
+  /** 读取 MCP 启用开关（默认 true）。 */
+  const getMcpEnabled = () => quiet<boolean>('get_mcp_enabled')
+
+  /** 设置 MCP 启用：true 启动控制面，false 停止；成功后持久化。 */
+  const setMcpEnabled = (enabled: boolean) =>
+    run(() => call<void>('set_mcp_enabled', { enabled }))
+
+  /** 读取 MCP 监听起始端口（默认 4110）。 */
+  const getMcpPort = () => quiet<number>('get_mcp_port')
+
+  /** 设置 MCP 监听起始端口；运行中会按新端口重启控制面。 */
+  const setMcpPort = (port: number) => run(() => call<void>('set_mcp_port', { port }))
+
+  /** 查询控制面运行状态与令牌路径。 */
+  const agentStatus = () => quiet<AgentStatusInfo>('agent_status')
+
   // ---------- 备份/恢复 ----------
   const backupExport = (projectId: string) =>
     run(() => call<string>('backup_export', { projectId }))
@@ -473,6 +491,13 @@ export function useFoxApi() {
 
   /** 日志目录绝对路径（供「打开目录」）。 */
   const logDirPath = () => quiet<string>('log_dir_path')
+
+  /** 读取日志保留天数（默认 14）。 */
+  const getLogRetentionDays = () => quiet<number>('get_log_retention_days')
+
+  /** 设置日志保留天数（1~365），后端立即按新规则清理一次。 */
+  const setLogRetentionDays = (days: number) =>
+    quiet<void>('set_log_retention_days', { days })
 
   // ---------- 实时调试（WebSocket / SSE） ----------
   /** 建立 WS 连接：返回 connection_id，后续事件经 `fox:ws-event` 推送。 */
@@ -570,6 +595,11 @@ export function useFoxApi() {
     setSeqCounter,
     deleteSeqCounter,
     testHttpProxy,
+    getMcpEnabled,
+    setMcpEnabled,
+    getMcpPort,
+    setMcpPort,
+    agentStatus,
     backupExport,
     backupRestore,
     getDataDir,
@@ -591,6 +621,8 @@ export function useFoxApi() {
     logFiles,
     logTail,
     logDirPath,
+    getLogRetentionDays,
+    setLogRetentionDays,
     wsConnect,
     wsSend,
     wsDisconnect,

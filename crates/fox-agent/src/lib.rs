@@ -8,6 +8,8 @@
 //! - **只绑 `127.0.0.1`**：不对外网暴露；
 //! - **Bearer 令牌鉴权**：首次启动生成随机 token 写入 `{data_dir}/agent-token`
 //!   （权限 0600），请求需携带 `Authorization: Bearer <token>` 或 `X-Agent-Token`；
+//! - **可配置端口**：绑定端口持久化在 settings（起始端口可改），实际端口写入
+//!   `{data_dir}/agent-port` 供 [`client::ControlClient::discover_default`] 直连；
 //! - **单写入者**：HTTP 层只做解析 + 落库，全部写操作经由 App 持有的同一连接池，
 //!   不引入第二个 SQLite 写入进程；
 //! - **事件广播**：导入成功后通过 `broadcast` channel 发出 [`server::AgentEvent`]，
@@ -24,6 +26,7 @@
 
 pub mod client;
 pub mod import;
+pub mod portfile;
 pub mod server;
 pub mod token;
 

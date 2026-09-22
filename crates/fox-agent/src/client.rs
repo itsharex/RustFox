@@ -1,7 +1,8 @@
 //! 控制面 HTTP 客户端：`rustfox-mcp` 等外部工具的复用层。
 //!
 //! - [`ControlClient::discover_default`]：从 `{data_dir}/agent-token` 读令牌，
-//!   探测 `127.0.0.1:4110~4129` 的 `/agent/health`，命中即建立会话；
+//!   优先读 `{data_dir}/agent-port` 直连实际端口，再回退探测 `127.0.0.1:4110~4129`
+//!   的 `/agent/health`，命中即建立会话；
 //! - 全部方法对应服务端同名端点；非 2xx 统一转 [`AppError`]（携带 code + message）。
 
 use std::time::Duration;
@@ -40,9 +41,17 @@ impl ControlClient {
         }
     }
 
-    /// 自动发现本机运行中的控制面：读默认令牌文件并扫描端口段。
+    /// 自动发现本机运行中的控制面：优先读 `{data_dir}/agent-port`（用户自定义
+    /// 端口 / 自动顺延后的实际端口），再回退扫描默认段 4110~4129。
     pub async fn discover_default() -> Result<Self, AppError> {
-        let token = crate::load_or_create_token(&default_data_dir()).map_err(AppError::Io)?;
+        let data_dir = default_data_dir();
+        let token = crate::load_or_create_token(&data_dir).map_err(AppError::Io)?;
+        if let Some(port) = crate::portfile::read_port(&data_dir) {
+            let candidate = Self::new(format!("http://127.0.0.1:{port}"), &token);
+            if candidate.health().await.is_ok() {
+                return Ok(candidate);
+            }
+        }
         for port in DEFAULT_AGENT_PORT..DEFAULT_AGENT_PORT + MAX_PORT_TRIES {
             let candidate = Self::new(format!("http://127.0.0.1:{port}"), &token);
             if candidate.health().await.is_ok() {
@@ -50,7 +59,7 @@ impl ControlClient {
             }
         }
         Err(AppError::Connection(
-            "未发现运行中的 RustFox Agent 控制面（127.0.0.1:4110~4129）。请先启动 RustFox 桌面应用。"
+            "未发现运行中的 RustFox Agent 控制面（端口文件或 127.0.0.1:4110~4129）。请先启动 RustFox 桌面应用。"
                 .into(),
         ))
     }

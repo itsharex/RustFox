@@ -130,15 +130,23 @@ pub mod plugin {
                     tauri::async_runtime::block_on(commands::settings::apply_saved_proxy(&db));
                     // 恢复持久化的自增序列（{{$seq:key}}，失败静默默认从 1 开始）
                     tauri::async_runtime::block_on(commands::seq::apply_saved_seq_counters(&db));
-                    // 恢复持久化的激活项目 / 环境（settings 表，含归属校验）
+                    // 按保留天数清理过期日志（失败仅记日志）
+                    commands::log::cleanup_logs_on_startup(&db);
+                    // 恢复持久化的激活项目 / 环境（settings 表，含归属校验）；
+                    // MCP 开关需在 db 移交 AppState 前读出（控制面是否随应用自启）
+                    let mcp_enabled =
+                        tauri::async_runtime::block_on(commands::agent::read_mcp_enabled(&db));
                     let state = AppState::new(db);
                     let _ = tauri::async_runtime::block_on(state.restore_active());
                     app.manage(state);
-                    // Agent 控制面随应用自动拉起（幂等；失败仅记日志不阻断启动）
-                    if let Err(e) =
-                        tauri::async_runtime::block_on(commands::agent::ensure_started(app))
-                    {
-                        tracing::warn!("Agent 控制面启动失败（不影响应用使用）：{e}");
+                    // Agent 控制面随应用自动拉起（幂等；失败仅记日志不阻断启动）；
+                    // 用户在设置中关闭 MCP 后跳过自动拉起
+                    if mcp_enabled {
+                        if let Err(e) =
+                            tauri::async_runtime::block_on(commands::agent::ensure_started(app))
+                        {
+                            tracing::warn!("Agent 控制面启动失败（不影响应用使用）：{e}");
+                        }
                     }
                     Ok(())
                 },
@@ -194,6 +202,10 @@ pub mod plugin {
                 commands::agent_start,
                 commands::agent_stop,
                 commands::agent_status,
+                commands::get_mcp_enabled,
+                commands::set_mcp_enabled,
+                commands::get_mcp_port,
+                commands::set_mcp_port,
                 commands::backup_export,
                 commands::backup_restore,
                 commands::import_document,
@@ -207,6 +219,8 @@ pub mod plugin {
                 commands::log_files,
                 commands::log_tail,
                 commands::log_dir_path,
+                commands::get_log_retention_days,
+                commands::set_log_retention_days,
                 commands::cancel_load_test,
                 commands::test_collection,
                 commands::cancel_test_collection,

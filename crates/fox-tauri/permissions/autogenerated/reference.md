@@ -53,6 +53,10 @@ RustFox 核心插件的默认权限：允许前端调用全部 fox 命令
 - `allow-agent-start`
 - `allow-agent-stop`
 - `allow-agent-status`
+- `allow-get-mcp-enabled`
+- `allow-set-mcp-enabled`
+- `allow-get-mcp-port`
+- `allow-set-mcp-port`
 - `allow-backup-export`
 - `allow-backup-restore`
 - `allow-import-document`
@@ -69,6 +73,8 @@ RustFox 核心插件的默认权限：允许前端调用全部 fox 命令
 - `allow-log-files`
 - `allow-log-tail`
 - `allow-log-dir-path`
+- `allow-get-log-retention-days`
+- `allow-set-log-retention-days`
 - `allow-ws-connect`
 - `allow-ws-send`
 - `allow-ws-disconnect`
@@ -1066,6 +1072,84 @@ Enables the get_http_timeout_ms command without any pre-configured scope.
 <td>
 
 Denies the get_http_timeout_ms command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:allow-get-log-retention-days`
+
+</td>
+<td>
+
+Enables the get_log_retention_days command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:deny-get-log-retention-days`
+
+</td>
+<td>
+
+Denies the get_log_retention_days command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:allow-get-mcp-enabled`
+
+</td>
+<td>
+
+Enables the get_mcp_enabled command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:deny-get-mcp-enabled`
+
+</td>
+<td>
+
+Denies the get_mcp_enabled command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:allow-get-mcp-port`
+
+</td>
+<td>
+
+Enables the get_mcp_port command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:deny-get-mcp-port`
+
+</td>
+<td>
+
+Denies the get_mcp_port command without any pre-configured scope.
 
 </td>
 </tr>
@@ -2158,6 +2242,84 @@ Enables the set_http_timeout_ms command without any pre-configured scope.
 <td>
 
 Denies the set_http_timeout_ms command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:allow-set-log-retention-days`
+
+</td>
+<td>
+
+Enables the set_log_retention_days command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:deny-set-log-retention-days`
+
+</td>
+<td>
+
+Denies the set_log_retention_days command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:allow-set-mcp-enabled`
+
+</td>
+<td>
+
+Enables the set_mcp_enabled command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:deny-set-mcp-enabled`
+
+</td>
+<td>
+
+Denies the set_mcp_enabled command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:allow-set-mcp-port`
+
+</td>
+<td>
+
+Enables the set_mcp_port command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:deny-set-mcp-port`
+
+</td>
+<td>
+
+Denies the set_mcp_port command without any pre-configured scope.
 
 </td>
 </tr>

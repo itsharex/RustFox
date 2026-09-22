@@ -67,7 +67,7 @@ const LANG_OPTIONS = computed<{ value: LocaleMode; label: string }[]>(() => [
 ])
 
 // ---------- 分类导航 ----------
-type TabId = 'general' | 'network' | 'shortcuts' | 'sequences' | 'data' | 'environments' | 'logs'
+type TabId = 'general' | 'network' | 'mcp' | 'shortcuts' | 'sequences' | 'data' | 'environments' | 'logs'
 interface TabDef {
   id: TabId
   label: string
@@ -76,6 +76,7 @@ interface TabDef {
 const tabs = computed<TabDef[]>(() => [
   { id: 'general', label: t('settings.general'), icon: 'settings' },
   { id: 'network', label: t('settings.network'), icon: 'globe' },
+  { id: 'mcp', label: t('settings.mcp'), icon: 'plug' },
   { id: 'shortcuts', label: t('settings.shortcuts'), icon: 'keyboard' },
   { id: 'sequences', label: t('settings.sequences'), icon: 'list' },
   { id: 'data', label: t('settings.data'), icon: 'folder' },
@@ -253,6 +254,81 @@ async function testProxy(): Promise<void> {
     toast.error(t('settings.proxyTestFail'), { message: proxyTest.value.message })
   } finally {
     proxyTesting.value = false
+  }
+}
+
+// ---------- MCP 服务（Agent 控制面启停） ----------
+const mcpEnabled = ref(true)
+const mcpRunning = ref(false)
+const mcpAddress = ref<string | null>(null)
+const mcpPort = ref(4110)
+/** 已持久化的端口：change 重复触发（失焦同值）时跳过保存。 */
+const mcpPortSaved = ref(4110)
+const mcpBusy = ref(false)
+
+async function loadMcpStatus(): Promise<void> {
+  try {
+    mcpEnabled.value = await api.getMcpEnabled()
+  } catch {
+    mcpEnabled.value = true
+  }
+  try {
+    mcpPort.value = await api.getMcpPort()
+    mcpPortSaved.value = mcpPort.value
+  } catch {
+    mcpPort.value = 4110
+    mcpPortSaved.value = 4110
+  }
+  try {
+    const s = await api.agentStatus()
+    mcpRunning.value = s.running
+    mcpAddress.value = s.address
+  } catch {
+    mcpRunning.value = false
+    mcpAddress.value = null
+  }
+}
+
+/** 启停开关：先应用（启动失败不落盘）再刷新状态。 */
+async function toggleMcp(): Promise<void> {
+  const next = !mcpEnabled.value
+  mcpBusy.value = true
+  try {
+    await api.setMcpEnabled(next)
+    mcpEnabled.value = next
+    await loadMcpStatus()
+    toast.success(next ? t('settings.mcpEnabledToast') : t('settings.mcpDisabledToast'))
+  } catch (err) {
+    toast.error(t('settings.saveFail'), {
+      message: err instanceof Error ? err.message : String(err),
+    })
+    await loadMcpStatus()
+  } finally {
+    mcpBusy.value = false
+  }
+}
+
+/** 修改监听起始端口：校验 → 保存（运行中后端自动重启）→ 刷新状态。 */
+async function saveMcpPort(port: number): Promise<void> {
+  const v = Math.round(Number(port))
+  if (!Number.isFinite(v) || v < 1 || v > 65535) {
+    toast.error(t('settings.mcpPortInvalid'))
+    mcpPort.value = mcpPortSaved.value
+    return
+  }
+  if (v === mcpPortSaved.value) return
+  mcpBusy.value = true
+  try {
+    await api.setMcpPort(v)
+    await loadMcpStatus()
+    toast.success(t('settings.mcpPortSaved'))
+  } catch (err) {
+    toast.error(t('settings.saveFail'), {
+      message: err instanceof Error ? err.message : String(err),
+    })
+    await loadMcpStatus()
+  } finally {
+    mcpBusy.value = false
   }
 }
 
@@ -483,6 +559,49 @@ const logFiles = ref<LogFile[]>([])
 const logSelected = ref<string>('')
 const logContent = ref('')
 const logLoading = ref(false)
+/** 保留天数：已持久化值（change 同值跳过保存）。 */
+const logRetention = ref(14)
+const logRetentionSaved = ref(14)
+const logRetentionBusy = ref(false)
+
+async function loadLogRetention(): Promise<void> {
+  try {
+    logRetention.value = await api.getLogRetentionDays()
+    logRetentionSaved.value = logRetention.value
+  } catch {
+    logRetention.value = 14
+    logRetentionSaved.value = 14
+  }
+}
+
+/** 修改保留天数：校验 → 保存（后端立即清理）→ 刷新列表。 */
+async function saveLogRetention(days: number): Promise<void> {
+  const v = Math.round(Number(days))
+  if (!Number.isFinite(v) || v < 1 || v > 365) {
+    toast.error(t('settings.logRetentionInvalid'))
+    logRetention.value = logRetentionSaved.value
+    return
+  }
+  if (v === logRetentionSaved.value) return
+  logRetentionBusy.value = true
+  try {
+    await api.setLogRetentionDays(v)
+    logRetentionSaved.value = v
+    await loadLogFiles()
+    if (logSelected.value && !logFiles.value.some((f) => f.name === logSelected.value)) {
+      logSelected.value = logFiles.value[0]?.name ?? ''
+    }
+    await loadLogTail()
+    toast.success(t('settings.logRetentionSaved'))
+  } catch (err) {
+    toast.error(t('settings.saveFail'), {
+      message: err instanceof Error ? err.message : String(err),
+    })
+    await loadLogRetention()
+  } finally {
+    logRetentionBusy.value = false
+  }
+}
 
 async function loadLogFiles(): Promise<void> {
   try {
@@ -522,10 +641,13 @@ async function openLogDir(): Promise<void> {
 
 watch(activeTab, (tab) => {
   if (tab === 'logs') {
-    void loadLogFiles().then(() => void loadLogTail())
+    void loadLogRetention().then(() => void loadLogFiles().then(() => void loadLogTail()))
   }
   if (tab === 'general') {
     reloadSkipped()
+  }
+  if (tab === 'mcp') {
+    void loadMcpStatus()
   }
 })
 
@@ -998,6 +1120,81 @@ const projectSummary = computed(() => {
               </div>
             </section>
 
+            <!-- MCP 服务 -->
+            <section v-if="activeTab === 'mcp'">
+              <header>
+                <h2 class="text-base font-medium text-zinc-900 dark:text-zinc-100">{{ t('settings.mcp') }}</h2>
+                <p class="mt-1 mb-5 text-xs text-zinc-600 dark:text-zinc-500">{{ t('settings.mcpDesc') }}</p>
+              </header>
+
+              <div class="rounded-xl border border-zinc-200/70 bg-zinc-50/80 p-5 dark:border-white/[0.06] dark:bg-zinc-900/40">
+                <div class="flex items-center justify-between gap-4">
+                  <div class="max-w-md">
+                    <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ t('settings.mcpEnable') }}</div>
+                    <p class="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+                      {{ t('settings.mcpEnableDesc') }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    :aria-checked="mcpEnabled"
+                    :disabled="mcpBusy"
+                    class="relative h-[22px] w-[40px] shrink-0 rounded-full transition-colors duration-150"
+                    :class="mcpEnabled ? 'bg-purple-500' : 'border border-zinc-300 bg-zinc-200 dark:border-white/10 dark:bg-white/10'"
+                    @click="toggleMcp"
+                  >
+                    <span
+                      class="absolute top-1/2 h-[16px] w-[16px] -translate-y-1/2 rounded-full bg-white shadow transition-all duration-150"
+                      :class="mcpEnabled ? 'left-[21px]' : 'left-[2px]'"
+                    />
+                  </button>
+                </div>
+
+                <div class="mt-5 border-t border-zinc-200/70 pt-5 dark:border-white/[0.06]">
+                  <div class="flex items-center justify-between gap-4">
+                    <div class="max-w-md">
+                      <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ t('settings.mcpPort') }}</div>
+                      <p class="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+                        {{ t('settings.mcpPortDesc') }}
+                      </p>
+                    </div>
+                    <div class="w-32 shrink-0">
+                      <CustomNumberInput
+                        :model-value="mcpPort"
+                        :min="1"
+                        :max="65535"
+                        size="md"
+                        tone="inset"
+                        :disabled="mcpBusy"
+                        @change="saveMcpPort"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-5 border-t border-zinc-200/70 pt-5 dark:border-white/[0.06]">
+                  <div class="flex items-center justify-between gap-4">
+                    <div class="min-w-0 max-w-md">
+                      <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ t('settings.mcpStatus') }}</div>
+                      <p class="mt-0.5 truncate text-xs text-zinc-600 dark:text-zinc-400">
+                        <span
+                          class="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
+                          :class="mcpRunning ? 'bg-emerald-500' : 'bg-zinc-400 dark:bg-zinc-500'"
+                          aria-hidden="true"
+                        ></span>
+                        {{ mcpRunning ? t('settings.mcpRunning') : t('settings.mcpStopped') }}
+                        <template v-if="mcpRunning && mcpAddress">
+                          · {{ t('settings.mcpAddress') }}
+                          <code class="font-mono text-xxs">{{ mcpAddress }}</code>
+                        </template>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             <!-- 快捷键 -->
             <section v-if="activeTab === 'shortcuts'">
               <header class="mb-6 flex items-start justify-between gap-4">
@@ -1365,6 +1562,29 @@ const projectSummary = computed(() => {
                 <h2 class="text-base font-medium text-zinc-900 dark:text-zinc-100">{{ t('settings.logs') }}</h2>
                 <p class="mt-1 mb-5 text-xs text-zinc-600 dark:text-zinc-500">{{ t('settings.logsDesc') }}</p>
               </header>
+
+              <div class="mb-4 flex items-center justify-between gap-4 rounded-xl border border-zinc-200/70 bg-zinc-50/80 p-4 dark:border-white/[0.06] dark:bg-zinc-900/40">
+                <div class="max-w-md">
+                  <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ t('settings.logRetention') }}</div>
+                  <p class="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">{{ t('settings.logRetentionDesc') }}</p>
+                </div>
+                <div class="relative w-28 shrink-0">
+                  <CustomNumberInput
+                    :model-value="logRetention"
+                    :min="1"
+                    :max="365"
+                    size="md"
+                    tone="inset"
+                    :disabled="logRetentionBusy"
+                    @change="saveLogRetention"
+                  />
+                  <span
+                    class="pointer-events-none absolute right-[28px] top-1/2 -translate-y-1/2 text-xs text-zinc-500"
+                  >
+                    {{ t('settings.logRetentionUnit') }}
+                  </span>
+                </div>
+              </div>
 
               <div class="mb-3 flex items-center gap-2">
                 <select
