@@ -36,7 +36,7 @@ import type {
   ModuleUrlConfig,
 } from '../types/foxApi'
 
-const props = defineProps<{ open: boolean; initialEnvId?: string | null }>()
+const props = defineProps<{ open: boolean; initialEnvId?: string | null; createNew?: boolean }>()
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
 
 const store = useWorkspaceStore()
@@ -201,6 +201,8 @@ watch(
     globalDirty.value = false
     globalParams.value = clone(store.globalParams)
     paramsDirty.value = false
+    // 「新建环境」快捷入口：打开即建一条待保存的新环境（createNew 由调用方在关闭时复位）
+    if (props.createNew) addEnvironment()
   },
 )
 

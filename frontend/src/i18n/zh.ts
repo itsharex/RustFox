@@ -215,6 +215,10 @@ export const zh = {
   'envbar.placeholder': '环境：无',
   'envbar.viewVars': '查看当前环境变量',
   'envbar.noActiveEnv': '没有激活的环境',
+  'envbar.copyUrl': '复制 Base URL',
+  'envbar.editEnv': '编辑环境',
+  'envbar.search': '搜索环境名称或地址…',
+  'envbar.noMatch': '无匹配环境',
 
   'projectTabs.loadFail': '项目列表加载失败',
   'projectTabs.newProject': '新建项目',

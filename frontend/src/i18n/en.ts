@@ -219,6 +219,10 @@ export const en: Record<ZhKey, string> = {
   'envbar.placeholder': 'Environment: none',
   'envbar.viewVars': 'View current environment variables',
   'envbar.noActiveEnv': 'No active environment',
+  'envbar.copyUrl': 'Copy base URL',
+  'envbar.editEnv': 'Edit environment',
+  'envbar.search': 'Search name or URL…',
+  'envbar.noMatch': 'No matching environments',
 
   'projectTabs.loadFail': 'Failed to load projects',
   'projectTabs.newProject': 'New project',

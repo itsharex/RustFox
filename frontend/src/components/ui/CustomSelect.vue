@@ -4,9 +4,13 @@
  * - 触发按钮 + Teleport 到 body 的浮层（避免被 overflow 裁剪），滚动/尺寸变化自动收起；
  * - 键盘：↑/↓ 移动高亮（循环）、Enter 选中、Esc 关闭；外部点击关闭；
  * - 五态：default / hover / focus / active(open) / disabled × 深/浅主题；
- * - 作用域插槽 #display 定制触发区文案（如方法着色）、#option 定制选项行。
+ * - 作用域插槽 #display 定制触发区文案（如方法着色）、#option 定制选项行、
+ *   #search 顶部搜索区（列表上方，带淡分隔线；过滤由父组件改写 options 完成）、
+ *   #actions 定制选项右侧操作区（作为 .cs-opt 直接子项参与 flex 布局；
+ *   点击需自行 .stop 防误选中）、#footer 底部固定操作栏（分割线下方，
+ *   不参与列表滚动与键盘高亮循环）。
  */
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useLocaleStore } from '../../stores/locale'
 import Icon from './Icon.vue'
 
@@ -67,7 +71,9 @@ function measure(): void {
   const el = triggerEl.value
   if (!el) return
   const rect = el.getBoundingClientRect()
-  const height = Math.min(props.options.length * 30 + 8, 280)
+  // 挂载后优先用浮层真实高度（两行选项 / 底部栏会让按行数的估算偏小）；未挂载回退估算。
+  const estimated = Math.min(props.options.length * 30 + 8, 280)
+  const height = popupEl.value?.offsetHeight || estimated
   const spaceBelow = window.innerHeight - rect.bottom - 8
   const up = spaceBelow < height && rect.top > height
   pos.value = {
@@ -84,6 +90,10 @@ function openPopup(): void {
   open.value = true
   highlight.value = selectedIndex.value
   emit('open')
+  // 浮层挂载后按真实高度复测上下翻转（首测发生在 v-if 挂载前，只能用估算）。
+  void nextTick(() => {
+    if (open.value) measure()
+  })
 }
 
 function close(): void {
@@ -102,6 +112,7 @@ function onKeydown(event: KeyboardEvent): void {
   if (props.disabled) return
   if (event.key === 'ArrowDown') {
     event.preventDefault()
+    if (!props.options.length) return
     if (!open.value) {
       openPopup()
       return
@@ -110,6 +121,7 @@ function onKeydown(event: KeyboardEvent): void {
     scrollToHighlight()
   } else if (event.key === 'ArrowUp') {
     event.preventDefault()
+    if (!props.options.length) return
     if (!open.value) {
       openPopup()
       return
@@ -118,8 +130,9 @@ function onKeydown(event: KeyboardEvent): void {
     scrollToHighlight()
   } else if (event.key === 'Enter') {
     event.preventDefault()
-    if (open.value && highlight.value >= 0) {
-      pick(props.options[highlight.value])
+    const target = open.value ? props.options[highlight.value] : undefined
+    if (target) {
+      pick(target)
     } else {
       openPopup()
     }
@@ -160,11 +173,21 @@ watch(open, (isOpen) => {
   }
 })
 
+// 搜索过滤等导致选项收缩时钳住高亮，避免 Enter 命中越界空项。
+watch(
+  () => props.options,
+  (list) => {
+    if (highlight.value >= list.length) highlight.value = list.length - 1
+  },
+)
+
 onBeforeUnmount(() => {
   document.removeEventListener('mousedown', onDocMouseDown, true)
   window.removeEventListener('scroll', onReposition, true)
   window.removeEventListener('resize', onReposition)
 })
+
+defineExpose({ close })
 </script>
 
 <template>
@@ -196,24 +219,38 @@ onBeforeUnmount(() => {
         :style="{ left: `${pos.left}px`, top: `${pos.top}px`, width: `${pos.width}px` }"
         role="listbox"
       >
-        <div
-          v-for="(o, i) in options"
-          :key="String(o.value)"
-          class="cs-opt"
-          :class="{ hl: highlight === i, sel: String(o.value) === String(modelValue) }"
-          role="option"
-          :aria-selected="String(o.value) === String(modelValue)"
-          @click="pick(o)"
-          @mouseenter="highlight = i"
-        >
-          <span class="cs-opt-check">
-            <Icon v-if="String(o.value) === String(modelValue)" name="check" :size="12" />
-          </span>
-          <span class="cs-opt-label" :title="o.label">
-            <slot name="option" :option="o" :selected="String(o.value) === String(modelValue)">
-              {{ o.label }}
-            </slot>
-          </span>
+        <div v-if="$slots.search" class="cs-pop-search" role="search">
+          <slot name="search" />
+        </div>
+        <div class="cs-pop-list">
+          <div
+            v-for="(o, i) in options"
+            :key="String(o.value)"
+            class="cs-opt"
+            :class="{ hl: highlight === i, sel: String(o.value) === String(modelValue) }"
+            role="option"
+            :aria-selected="String(o.value) === String(modelValue)"
+            @click="pick(o)"
+            @mouseenter="highlight = i"
+          >
+            <span class="cs-opt-check">
+              <Icon v-if="String(o.value) === String(modelValue)" name="check" :size="12" />
+            </span>
+            <span class="cs-opt-label" :title="o.label">
+              <slot name="option" :option="o" :selected="String(o.value) === String(modelValue)">
+                {{ o.label }}
+              </slot>
+            </span>
+            <slot
+              v-if="$slots.actions"
+              name="actions"
+              :option="o"
+              :selected="String(o.value) === String(modelValue)"
+            />
+          </div>
+        </div>
+        <div v-if="$slots.footer" class="cs-pop-footer">
+          <slot name="footer" />
         </div>
       </div>
     </Teleport>
@@ -298,13 +335,27 @@ onBeforeUnmount(() => {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 4px;
-  max-height: 280px;
-  overflow-y: auto;
   transform-origin: top;
   animation: cs-in 120ms var(--ease);
 }
 .cs-pop.up {
   transform-origin: bottom;
+}
+/* 选项列表独立滚动：footer 固定在其下方，不随列表滚走 */
+.cs-pop-list {
+  max-height: 280px;
+  overflow-y: auto;
+}
+/* 顶部搜索区：mb-1 px-1.5 pt-1 外边距 + 与列表间极淡分隔线（主题变量调透明，浅色下不隐形） */
+.cs-pop-search {
+  padding: 4px 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+.cs-pop-footer {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
 }
 
 .cs-opt {
