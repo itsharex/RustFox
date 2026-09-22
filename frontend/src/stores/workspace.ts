@@ -455,12 +455,16 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   }
 
-  /** 把一次执行响应保存为示例（保存后刷新缓存）。 */
+  /** 把一次执行响应保存为示例（保存后刷新缓存）；草稿未落库时外键会拒写，先拦截。 */
   async function saveAsExample(
     endpointId: string,
     name: string,
     response: ExecuteResponse,
   ): Promise<void> {
+    if (!endpoints.value.some((e) => e.id === endpointId)) {
+      toast.warning(t('ws.saveEndpointFirst'))
+      return
+    }
     const now = new Date().toISOString()
     const example = await api.saveExample({
       id: crypto.randomUUID(),
@@ -928,7 +932,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       toast.warning(t('editor.nameRequired'))
       return false
     }
-    if (!draft.path.trim().startsWith('/')) {
+    const p = draft.path.trim()
+    if (!p.startsWith('/') && !/^(https?|wss?):\/\//i.test(p)) {
       toast.warning(t('ws.pathMustStartWithSlash'))
       return false
     }
@@ -1451,9 +1456,15 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   }
 
-  /** cURL 导入：打开为默认标题「未命名接口」的草稿（不落库），保存时生成 id；会话 Base URL 预填为 URL origin。 */
+  /**
+   * cURL 导入：打开为默认标题「未命名接口」的草稿（不落库），保存时生成 id。
+   * 会话 Base URL 预填为 URL origin；展示前缀为环境变量时（环境优先级更高，
+   * 会话值不可见），origin+path 整条存入 path——发送走 `isAbsolutePath` 分支
+   * 直达导入主机，且不覆写共享环境的 base_url。
+   */
   function openCurlDraft(parsed: CurlParsed, folderId: string | null): void {
     const { path, params, origin } = splitUrl(parsed.url)
+    const envPrefixed = urlDomain.value.startsWith('{{')
     const now = new Date().toISOString()
     const blank: Endpoint = {
       id: crypto.randomUUID(),
@@ -1461,7 +1472,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       folder_id: folderId,
       name: t('default.endpointName'),
       method: parsed.method,
-      path,
+      path: envPrefixed ? `${origin}${path}` : path,
       description: '',
       status: 'designing',
       sort_order: 0,
@@ -1486,24 +1497,22 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   /**
    * 地址栏粘贴 cURL：把解析结果回填到已有草稿（原地覆盖 method / path /
-   * params / headers / auth / body），origin 按地址栏粘贴完整 URL 同款规则
-   * 写入域名源（环境变量优先，否则会话 Base URL）。
+   * params / headers / auth / body）。origin 同 openCurlDraft 规则：展示前缀为
+   * 环境变量时 origin+path 整条存入 path（绝不覆写共享环境 base_url），
+   * 否则 origin 写入会话 Base URL、path 保持相对。
    */
   function applyCurlToDraft(draftId: string, parsed: CurlParsed): void {
     const d = drafts.value.get(draftId)
     if (!d) return
     const { path, params, origin } = splitUrl(parsed.url)
+    const envPrefixed = urlDomain.value.startsWith('{{')
     d.method = parsed.method
-    d.path = path
+    d.path = envPrefixed ? `${origin}${path}` : path
     d.request.params = params
     d.request.headers = parsed.headers
     d.request.auth = parsed.auth
     d.request.body = parsed.body ?? { mode: 'none' }
-    if (urlDomain.value.startsWith('{{')) {
-      void setEnvironmentBaseUrl(origin)
-    } else {
-      sessionBaseUrl.value = origin
-    }
+    sessionBaseUrl.value = origin
   }
 
   // ---------- 请求历史（侧栏「请求历史」页签；发送成功后由编辑器触发刷新） ----------
@@ -1546,7 +1555,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
    * 点击历史记录 → 恢复到主编辑器。
    * - 归属接口存在：打开其草稿标签页并回填；不存在（临时请求）：新建「未命名接口」草稿；
    * - 回填 method / path / params / headers / body（摘要值为变量渲染后的实际发送值）；
-   * - 认证保留接口自身配置（摘要入库时后端已置空）；URL origin 预填会话 Base URL。
+   * - 认证保留接口自身配置（摘要入库时后端已置空）；URL origin 预填会话 Base URL；
+   *   展示前缀为环境变量时 origin+path 整条存入 path（重发直达原主机，不覆写环境）。
    */
   function restoreFromHistory(h: RequestHistory): void {
     let summary: HistorySummary = {}
@@ -1557,6 +1567,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
     const url = summary.url ?? h.url
     const { path, params, origin } = splitUrl(url)
+    const envPrefixed = urlDomain.value.startsWith('{{')
+    const restoredPath = envPrefixed ? `${origin}${path}` : path
 
     const target = h.endpoint_id ? endpoints.value.find((e) => e.id === h.endpoint_id) : null
     let id: string
@@ -1572,7 +1584,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         folder_id: null,
         name: t('default.endpointName'),
         method: (summary.method ?? h.method) as HttpMethod,
-        path,
+        path: restoredPath,
         description: '',
         status: 'designing',
         sort_order: 0,
@@ -1587,7 +1599,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     if (!draft) return
 
     draft.method = (summary.method ?? h.method) as HttpMethod
-    draft.path = path
+    draft.path = restoredPath
     if (origin) sessionBaseUrl.value = origin
     const spec = summary.spec
     draft.request.params = spec?.params?.length ? spec.params : params

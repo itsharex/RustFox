@@ -1133,7 +1133,7 @@ export const zh = {
   'ws.caseUpdateFail': '更新用例失败',
   'ws.caseCloneFail': '克隆用例失败',
   'ws.caseDeleteFail': '删除用例失败',
-  'ws.pathMustStartWithSlash': '接口路径必须以 / 开头',
+  'ws.pathMustStartWithSlash': '接口路径需以 / 开头，或为完整 http(s) 地址',
   'ws.endpointSaved': '接口已保存：{name}',
   'ws.saveFail': '保存失败',
   'ws.undoDeleteDone': '已撤销删除：{name}',

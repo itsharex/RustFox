@@ -1137,7 +1137,7 @@ export const en: Record<ZhKey, string> = {
   'ws.caseUpdateFail': 'Failed to update case',
   'ws.caseCloneFail': 'Failed to clone case',
   'ws.caseDeleteFail': 'Failed to delete case',
-  'ws.pathMustStartWithSlash': 'Endpoint path must start with /',
+  'ws.pathMustStartWithSlash': 'Path must start with / or be a full http(s) URL',
   'ws.endpointSaved': 'Endpoint saved: {name}',
   'ws.saveFail': 'Save failed',
   'ws.undoDeleteDone': 'Delete undone: {name}',

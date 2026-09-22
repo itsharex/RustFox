@@ -6,7 +6,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
-import type { Endpoint, Environment, Project } from '../types/foxApi'
+import type { CurlParsed, Endpoint, Environment, Project } from '../types/foxApi'
 
 function makeProject(id: string, name: string): Project {
   const now = new Date().toISOString()
@@ -285,5 +285,89 @@ describe('moveEndpoint：移动后打开草稿的 folder_id / sort_order 同步'
       raw: '{"name":"fox","added":"s"}',
     })
     expect(store.isDirty('ep-a')).toBe(false)
+  })
+})
+
+describe('cURL 导入：环境前缀优先时不覆写环境，path 存完整 URL', () => {
+  const parsed: CurlParsed = {
+    url: 'https://httpbin.org/post?x=1',
+    method: 'POST',
+    headers: [{ key: 'Content-Type', value: 'application/json', enabled: true, description: '' }],
+    body: null,
+    auth: { type: 'none' },
+  }
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    useLocaleStore().setMode('zh')
+    backend.projects.length = 0
+    backend.endpointsByProject.clear()
+    backend.envsByProject.clear()
+    backend.projects.push(makeProject('p-a', '项目A'))
+    backend.endpointsByProject.set('p-a', [])
+    backend.envsByProject.set('p-a', [])
+    backend.setActive('p-a')
+  })
+
+  /** 注入「有 base_url 的激活环境」：urlDomain 应为 {{base_url}}。 */
+  function activateEnvWithBase(store: ReturnType<typeof useWorkspaceStore>): Environment {
+    const now = new Date().toISOString()
+    const env: Environment = {
+      id: 'env-1',
+      name: '测试',
+      modules: [{ id: 'm-1', module_name: '默认', base_url: 'https://env.example.com', is_default: true }],
+      variables: [],
+      created_at: now,
+      updated_at: now,
+    }
+    store.environments.push(env)
+    store.activeEnvId = 'env-1'
+    return env
+  }
+
+  it('激活环境导入 curl（弹窗路径 openCurlDraft）：path 为完整 URL，环境 base_url 原样', async () => {
+    const store = useWorkspaceStore()
+    await store.init()
+    const env = activateEnvWithBase(store)
+    expect(store.urlDomain).toBe('{{base_url}}')
+
+    store.openCurlDraft(parsed, null)
+    const id = store.activeTabId!
+
+    // 地址栏应直达 httpbin（完整 URL 存 path），而非显示环境前缀 + /post
+    expect(store.draftOf(id)!.path).toBe('https://httpbin.org/post')
+    expect(store.draftOf(id)!.request.params).toEqual([
+      { key: 'x', value: '1', enabled: true, description: '' },
+    ])
+    // 共享环境不被导入污染；展示前缀仍是环境变量
+    expect(env.modules[0]!.base_url).toBe('https://env.example.com')
+    expect(store.urlDomain).toBe('{{base_url}}')
+    expect(store.sessionBaseUrl).toBe('https://httpbin.org')
+  })
+
+  it('无环境 base 导入 curl：path 相对，会话 Base URL 预填 origin', async () => {
+    const store = useWorkspaceStore()
+    await store.init()
+
+    store.openCurlDraft(parsed, null)
+    const id = store.activeTabId!
+
+    expect(store.draftOf(id)!.path).toBe('/post')
+    expect(store.sessionBaseUrl).toBe('https://httpbin.org')
+    expect(store.urlDomain).toBe('https://httpbin.org')
+  })
+
+  it('地址栏粘贴回填已有草稿（环境激活）：同规则，path 为完整 URL、环境不被写', async () => {
+    const store = useWorkspaceStore()
+    await store.init()
+    const env = activateEnvWithBase(store)
+    store.openNewEndpoint(null)
+    const id = store.activeTabId!
+
+    store.applyCurlToDraft(id, parsed)
+
+    expect(store.draftOf(id)!.path).toBe('https://httpbin.org/post')
+    expect(store.draftOf(id)!.method).toBe('POST')
+    expect(env.modules[0]!.base_url).toBe('https://env.example.com')
   })
 })
