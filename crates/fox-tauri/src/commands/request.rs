@@ -122,6 +122,7 @@ pub async fn execute_request(
                 project_id,
                 args.endpoint_id,
                 args.method,
+                &url,
                 &args.url,
                 &spec,
                 &response,
@@ -176,14 +177,18 @@ pub fn cancel_request(state: State<'_, AppState>, request_id: String) -> Command
 
 /// 构建历史记录。
 ///
-/// `request_summary_json` 在 method/url 之外还存入完整请求规格（变量已渲染），
-/// 作为前端「点击历史恢复到编辑器」的数据源；认证字段统一置空——凭据
-/// 不落历史库，恢复时保留接口自身配置的认证。
+/// - `url`：变量渲染后的实际发送地址——历史列表展示与关键字搜索的数据源
+///   （存模板会让 `{{base_url}}/...` 字面量进入列表，且域名搜索失效）；
+/// - `url_template`：渲染前模板——写入 `request_summary_json`，供前端
+///   「恢复到编辑器」保留环境变量语义（换环境重发不锁死域名）；
+/// - `request_summary_json` 另存完整请求规格（变量已渲染），认证字段统一
+///   置空——凭据不落历史库，恢复时保留接口自身配置的认证。
 fn build_history(
     project_id: Uuid,
     endpoint_id: Option<Uuid>,
     method: HttpMethod,
     url: &str,
+    url_template: &str,
     spec: &RequestSpec,
     data: &ExecuteResponse,
 ) -> RequestHistory {
@@ -204,7 +209,7 @@ fn build_history(
         duration_ms: Some(data.duration_ms.round() as u64),
         request_summary_json: serde_json::json!({
             "method": method.to_string(),
-            "url": url,
+            "url": url_template,
             "spec": spec_value,
         })
         .to_string(),
@@ -494,8 +499,9 @@ mod tests {
         );
     }
 
-    /// 历史摘要必须包含完整请求规格（前端「恢复到编辑器」的数据源），
-    /// 且认证字段被置空（凭据不落历史库）。
+    /// 历史列表字段与恢复模板分离：`url` 为渲染后地址（展示/搜索），
+    /// `request_summary_json.url` 为渲染前模板（恢复保留环境变量），
+    /// 且认证字段不得入库。
     #[test]
     fn history_summary_contains_spec_with_auth_stripped() {
         let spec = RequestSpec {
@@ -529,13 +535,16 @@ mod tests {
             Some(Uuid::new_v4()),
             HttpMethod::POST,
             "https://api.example.com/users?page=1",
+            "{{base_url}}/users?page=1",
             &spec,
             &response,
         );
+        // 列表字段存渲染后真实地址；恢复编辑器走 summary 模板（保留环境语义）
+        assert_eq!(history.url, "https://api.example.com/users?page=1");
         let summary: serde_json::Value =
             serde_json::from_str(&history.request_summary_json).unwrap();
         assert_eq!(summary["method"], "POST");
-        assert_eq!(summary["url"], "https://api.example.com/users?page=1");
+        assert_eq!(summary["url"], "{{base_url}}/users?page=1");
         assert_eq!(summary["spec"]["headers"][0]["key"], "X-Token");
         assert_eq!(summary["spec"]["body"]["mode"], "json");
         assert_eq!(summary["spec"]["params"][0]["value"], "1");

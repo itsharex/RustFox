@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatBytes, formatDuration } from './format'
+import { formatBytes, formatDuration, formatDurationShort } from './format'
 
 describe('formatDuration', () => {
   it('空值与 NaN 显示占位符', () => {
@@ -13,6 +13,22 @@ describe('formatDuration', () => {
     expect(formatDuration(2000)).toBe('2.00 s')
     expect(formatDuration(0.04)).toBe('40 µs')
     expect(formatDuration(0)).toBe('<1 ms')
+  })
+})
+
+describe('formatDurationShort', () => {
+  it('空值与 NaN 显示占位符', () => {
+    expect(formatDurationShort(null)).toBe('-')
+    expect(formatDurationShort(Number.NaN)).toBe('-')
+  })
+
+  it('ms 取整、秒一位小数（列表紧凑格式）', () => {
+    expect(formatDurationShort(362)).toBe('362 ms')
+    expect(formatDurationShort(10)).toBe('10 ms')
+    expect(formatDurationShort(2830)).toBe('2.8 s')
+    expect(formatDurationShort(13_640)).toBe('13.6 s')
+    expect(formatDurationShort(0.04)).toBe('40 µs')
+    expect(formatDurationShort(0)).toBe('<1 ms')
   })
 })
 
