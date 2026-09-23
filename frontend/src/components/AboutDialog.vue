@@ -10,7 +10,7 @@
 import { relaunch } from '@tauri-apps/plugin-process'
 import { check, type Update } from '@tauri-apps/plugin-updater'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { version } from '../../package.json'
 import { useToast } from '../composables/useToast'
 import { useLocaleStore } from '../stores/locale'
@@ -43,11 +43,67 @@ const checking = ref(false)
 const downloading = ref(false)
 /** 下载进度（0-1）；null = 未在下载或总量未知。 */
 const progress = ref<number | null>(null)
+/** 验签/解压/拉起安装器阶段（Finished 之后、重启之前）。 */
+const installing = ref(false)
+/** 已下载 / 总量字节（Started 的 contentLength 可能为 0 = 未知）。 */
+const downloadedBytes = ref(0)
+const totalBytes = ref(0)
+/** 平滑下载速度（MB/s，>=0.1 才展示，避免抖动噪音）。 */
+const speedMBs = ref(0)
+/** 最近一次速度采样时间与字节数（非响应式，仅计算用）。 */
+let speedLastAt = 0
+let speedLastBytes = 0
+/** 就地失败信息（重试按钮由 downloading=false 自动恢复）。 */
+const failMsg = ref('')
 /** 待安装新版本的展示信息（Update 对象含 JS 私有字段，不能进响应式 ref——
  *  Vue 的 Proxy 会让私有字段访问抛 "Cannot read private member"，故只存字符串）。 */
 const pendingVersion = ref<string | null>(null)
 const pendingNotes = ref('')
 let pending: Update | null = null
+
+/** 下载状态行：安装中 → 阶段文案；否则 百分比 · 已下/总量 · 速度 组合。 */
+const downloadStatus = computed(() => {
+  if (installing.value) return t('about.installing')
+  const pct = progress.value != null ? `${Math.round(progress.value * 100)}%` : ''
+  const done = (downloadedBytes.value / 1_000_000).toFixed(1)
+  const size =
+    downloadedBytes.value > 0
+      ? totalBytes.value > 0
+        ? t('about.sizeOf', { done, total: (totalBytes.value / 1_000_000).toFixed(1) })
+        : t('about.sizeDone', { done })
+      : ''
+  const speed = speedMBs.value >= 0.1 ? t('about.speed', { v: speedMBs.value.toFixed(1) }) : ''
+  const parts = [pct, size, speed].filter(Boolean)
+  return parts.length ? parts.join(' · ') : t('about.downloading')
+})
+
+/** 滑动平均采样速度：≥300ms 采一次，避免逐 chunk 抖动。 */
+function sampleSpeed(): void {
+  const now = Date.now()
+  if (speedLastAt === 0) {
+    speedLastAt = now
+    speedLastBytes = downloadedBytes.value
+    return
+  }
+  const dt = now - speedLastAt
+  if (dt < 300) return
+  const sample = ((downloadedBytes.value - speedLastBytes) / dt) * 1000 / 1_000_000
+  speedLastAt = now
+  speedLastBytes = downloadedBytes.value
+  speedMBs.value = speedMBs.value > 0 ? speedMBs.value * 0.7 + sample * 0.3 : sample
+}
+
+/** 在系统浏览器打开当前待装版本的完整 Release Notes。 */
+async function openReleaseNotes(): Promise<void> {
+  if (!pendingVersion.value) return
+  try {
+    await openUrl(`${GITHUB_URL}/releases/tag/v${pendingVersion.value}`)
+  } catch (err) {
+    toast.error(t('about.notesFail'), {
+      message: err instanceof Error ? err.message : String(err),
+    })
+  }
+}
 
 /**
  * 承接定时检查发现的更新：弹窗打开时若有暂存，直接展示版本号与说明，
@@ -81,6 +137,7 @@ async function checkUpdates(): Promise<void> {
   if (checking.value) return
   checking.value = true
   pendingVersion.value = null
+  failMsg.value = ''
   pending?.close()
   pending = null
   try {
@@ -106,24 +163,35 @@ async function installUpdate(): Promise<void> {
   const update = pending
   if (!update || downloading.value) return
   downloading.value = true
+  failMsg.value = ''
   progress.value = null
+  installing.value = false
+  downloadedBytes.value = 0
+  totalBytes.value = 0
+  speedMBs.value = 0
+  speedLastAt = 0
+  speedLastBytes = 0
   try {
-    let total = 0
-    let downloaded = 0
     await update.downloadAndInstall((event) => {
       switch (event.event) {
         case 'Started':
-          total = event.data.contentLength ?? 0
-          downloaded = 0
-          progress.value = total > 0 ? 0 : null
+          totalBytes.value = event.data.contentLength ?? 0
+          downloadedBytes.value = 0
+          progress.value = totalBytes.value > 0 ? 0 : null
+          speedLastAt = 0
+          speedLastBytes = 0
+          speedMBs.value = 0
           break
         case 'Progress':
           // Progress 只带当前块长度（chunkLength），须自行累加才能表示真实进度
-          downloaded += event.data.chunkLength
-          progress.value = total > 0 ? Math.min(downloaded / total, 1) : null
+          downloadedBytes.value += event.data.chunkLength
+          sampleSpeed()
+          progress.value =
+            totalBytes.value > 0 ? Math.min(downloadedBytes.value / totalBytes.value, 1) : null
           break
         case 'Finished':
           progress.value = 1
+          installing.value = true
           break
       }
     })
@@ -133,8 +201,13 @@ async function installUpdate(): Promise<void> {
     toast.success(t('about.installed'))
     setTimeout(() => relaunch(), 800)
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    installing.value = false
+    progress.value = null
+    failMsg.value = t('about.downloadFailed', { msg })
     toast.error(t('about.downloadFail'), {
-      message: err instanceof Error ? err.message : String(err),
+      message: msg,
+      action: { label: t('common.retry'), run: () => void installUpdate() },
     })
   } finally {
     downloading.value = false
@@ -149,6 +222,7 @@ function skipVersion(): void {
   pending = null
   pendingVersion.value = null
   pendingNotes.value = ''
+  failMsg.value = ''
   skipUpdateVersion(v)
   toast.success(t('about.skipped', { v }), { message: t('about.skippedHint') })
   emit('update:open', false)
@@ -185,29 +259,38 @@ function skipVersion(): void {
         <div class="a-update-title">
           {{ t('about.newVersion') }} <span class="a-update-version">v{{ pendingVersion }}</span>
         </div>
+        <button class="a-notes-link" type="button" @click="openReleaseNotes">
+          {{ t('about.releaseNotes') }}
+        </button>
         <p v-if="pendingNotes" class="a-update-notes">{{ pendingNotes }}</p>
-        <div v-if="downloading" class="a-update-progress">
+        <template v-if="downloading">
           <div
-            class="a-update-progress-bar"
-            :style="{ width: progress == null ? '100%' : `${Math.round(progress * 100)}%` }"
-            :class="{ indeterminate: progress == null }"
-          ></div>
-        </div>
-        <span v-if="downloading" class="a-update-status">
-          {{ progress == null ? t('about.downloading') : `${Math.round(progress * 100)}%` }}
-        </span>
-        <template v-else>
-          <button
-            class="a-update-btn"
-            type="button"
-            @click="installUpdate"
+            class="a-update-progress"
+            role="progressbar"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            :aria-valuenow="progress == null ? undefined : Math.round(progress * 100)"
+            :aria-valuetext="downloadStatus"
           >
+            <div
+              class="a-update-progress-bar"
+              :style="{ width: progress == null ? '100%' : `${Math.round(progress * 100)}%` }"
+              :class="{ indeterminate: progress == null && !installing }"
+            ></div>
+          </div>
+          <span class="a-update-status">{{ downloadStatus }}</span>
+          <span v-if="!installing" class="a-update-hint">{{ t('about.bgDownload') }}</span>
+        </template>
+        <template v-else>
+          <p v-if="failMsg" class="a-update-error">{{ failMsg }}</p>
+          <button class="a-update-btn" type="button" @click="installUpdate">
             {{ t('about.install') }}
           </button>
           <button class="a-skip-btn" type="button" @click="skipVersion">
             {{ t('about.skip') }}
           </button>
         </template>
+        <span class="a-update-hint">{{ t('about.autoRestart') }}</span>
       </div>
 
       <div class="a-copyright">{{ t('about.copyright') }}</div>
@@ -375,6 +458,44 @@ function skipVersion(): void {
   font-family: var(--font-mono);
   font-size: 11.5px;
   color: var(--text-2);
+}
+
+.a-notes-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+  transition: color var(--dur) var(--ease);
+}
+.a-notes-link:hover {
+  color: var(--accent-hover, var(--accent));
+  text-decoration: underline;
+}
+.a-notes-link:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.a-update-hint {
+  font-size: var(--fs-xxs);
+  color: var(--text-3);
+}
+
+.a-update-error {
+  width: 100%;
+  max-height: 56px;
+  overflow-y: auto;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--danger, #f85149);
+  text-align: left;
+  word-break: break-all;
 }
 
 .a-update-btn {
