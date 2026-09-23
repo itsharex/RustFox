@@ -121,21 +121,23 @@ function pick(key: string): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 17px;
-  height: 17px;
+  min-width: 16px;
+  height: 16px;
   padding: 0 5px;
   border-radius: 999px;
-  font-size: 10.5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
   font-weight: 600;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
   color: var(--text-2);
-  background: var(--bg-hover);
+  background: color-mix(in srgb, var(--text-3) 30%, transparent);
   transition:
     background var(--dur) var(--ease),
     color var(--dur) var(--ease);
 }
 .tab-badge.on {
-  color: #fff;
-  background: var(--accent);
+  color: var(--text-1);
+  background: color-mix(in srgb, var(--text-3) 46%, transparent);
 }
 </style>

@@ -940,9 +940,10 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 .sidebar-tabs :deep(.tab.active) {
+  /* 微弱浅色底 + 微亮内描边（分段胶囊内的激活态，取代重阴影） */
   background: var(--bg-active);
   color: var(--text-1);
-  box-shadow: var(--shadow-sm);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 .sidebar-tabs :deep(.tab.active::after) {
   display: none;
