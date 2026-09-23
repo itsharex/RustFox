@@ -18,7 +18,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="RustFox — 轻量跨平台 API 调试工具">
 <meta name="twitter:description" content="约 10 MB 的轻量跨平台 API 调试工具，一个安装包开箱即用。">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦊</text></svg>">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"SoftwareApplication","name":"RustFox","applicationCategory":"DeveloperApplication","operatingSystem":"Windows, macOS, Linux","offers":{"@type":"Offer","price":"0"},"license":"https://github.com/weihubeats/RustFox/blob/main/LICENSE"}
 </script>
@@ -53,6 +53,7 @@ nav {
 }
 .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 60px; }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; color: var(--text); }
+.brand img { width: 22px; height: 22px; }
 .brand:hover { text-decoration: none; }
 .nav-links { display: flex; gap: 24px; font-size: 14px; }
 .nav-links a { color: var(--muted); }
@@ -160,7 +161,7 @@ footer a:hover { color: var(--text); }
 
 <nav>
   <div class="container nav-inner">
-    <a class="brand" href="#top">🦊 RustFox</a>
+    <a class="brand" href="#top"><img src="../assets/logo.png" alt=""> RustFox</a>
     <div class="nav-links">
       <a href="#features">功能</a>
       <a href="#compare">对比</a>
@@ -257,7 +258,7 @@ footer a:hover { color: var(--text); }
 <section id="agent">
   <div class="container">
     <h2>AI Agent 集成</h2>
-    <p class="section-sub">应用启动自动拉起本机控制面，一句话把 cURL 或后端代码存为接口。完整指南见 <a href="https://github.com/weihubeats/RustFox/blob/main/docs/AGENT.md">docs/AGENT.md</a>。</p>
+    <p class="section-sub">应用启动自动拉起本机控制面，一句话把 cURL 或后端代码存为接口。完整指南见 <a href="../docs/agent/">Agent 集成手册</a>。</p>
     <div class="features">
       <div class="feature"><div class="icon">🤖</div><h3>MCP Server（推荐）</h3><p>Claude Code / Cursor 配一次安装包内 <code>rustfox-mcp</code> 绝对路径，即得 save_curl / list_projects / list_endpoints / agent_info 四个工具。</p></div>
       <div class="feature"><div class="icon">🔌</div><h3>直接 HTTP</h3><p>任意能发 HTTP 的工具调 <code>127.0.0.1:4110</code> 控制面：POST /agent/curl 导入，GET /agent/projects、/agent/endpoints、/agent/health 查询。</p></div>
@@ -291,7 +292,7 @@ footer a:hover { color: var(--text); }
 <section id="faq">
   <div class="container">
     <h2>常见问题</h2>
-    <p class="section-sub">更多见 <a href="https://github.com/weihubeats/RustFox/blob/main/docs/USER_GUIDE.md">用户手册 FAQ</a>。</p>
+    <p class="section-sub">更多见 <a href="../docs/user-guide/#11-常见问题-faq">用户手册 FAQ</a>。</p>
     <div class="faq">
       <details open><summary>macOS 提示「已损坏，无法打开」？</summary><p>应用本身没有损坏，这是 Gatekeeper 对未公证应用的拦截。拖入「应用程序」后执行 <code>xattr -cr /Applications/RustFox.app</code>，再右键 → 打开。</p></details>
       <details><summary>Windows SmartScreen 警告？</summary><p>点击「更多信息 → 仍要运行」。安装包暂无代码签名证书，开源项目正常现象。</p></details>
@@ -318,7 +319,7 @@ footer a:hover { color: var(--text); }
         <div class="os">🐧</div><h3>Linux</h3><p>.deb / .rpm / .AppImage</p>
       </a>
     </div>
-    <p class="note">macOS 提示「已损坏」？执行 <code>xattr -cr /Applications/RustFox.app</code> 后右键打开。详见<a href="https://github.com/weihubeats/RustFox/blob/main/docs/USER_GUIDE.md">使用手册</a>。</p>
+    <p class="note">macOS 提示「已损坏」？执行 <code>xattr -cr /Applications/RustFox.app</code> 后右键打开。详见<a href="../docs/user-guide/#1-2-macos">使用手册</a>。</p>
   </div>
 </section>
 
@@ -327,19 +328,19 @@ footer a:hover { color: var(--text); }
     <h2>文档</h2>
     <p class="section-sub">中英双语，仓库内随版本同步更新。</p>
     <div class="download-cards">
-      <a class="dl-card" href="https://github.com/weihubeats/RustFox/blob/main/docs/USER_GUIDE.md">
+      <a class="dl-card" href="../docs/user-guide/">
         <div class="os">📖</div><h3>用户手册（中文）</h3><p>安装 / 请求 / Mock / 测试 / 偏好</p>
       </a>
-      <a class="dl-card" href="https://github.com/weihubeats/RustFox/blob/main/docs/en/USER_GUIDE.md">
+      <a class="dl-card" href="../docs/en/user-guide/">
         <div class="os">📘</div><h3>User Guide (English)</h3><p>Install / requests / mock / testing</p>
       </a>
-      <a class="dl-card" href="https://github.com/weihubeats/RustFox/blob/main/docs/AGENT.md">
+      <a class="dl-card" href="../docs/agent/">
         <div class="os">🤖</div><h3>Agent 集成</h3><p>MCP / HTTP 控制面</p>
       </a>
-      <a class="dl-card" href="https://github.com/weihubeats/RustFox/blob/main/docs/MIGRATION.md">
+      <a class="dl-card" href="../docs/migration/">
         <div class="os">🚚</div><h3>迁移手册</h3><p>从 Apifox / Postman 搬家</p>
       </a>
-      <a class="dl-card" href="https://github.com/weihubeats/RustFox/blob/main/CHANGELOG.md">
+      <a class="dl-card" href="../docs/changelog/">
         <div class="os">📗</div><h3>更新日志</h3><p>各版本变化速览</p>
       </a>
     </div>
@@ -348,7 +349,7 @@ footer a:hover { color: var(--text); }
 
 <footer>
   <div class="container">
-    <p><a href="https://github.com/weihubeats/RustFox">GitHub</a> · <a href="https://github.com/weihubeats/RustFox/releases">Releases</a> · <a href="https://github.com/weihubeats/RustFox/blob/main/docs/USER_GUIDE.md">用户手册</a> · <a href="https://github.com/weihubeats/RustFox/blob/main/docs/MIGRATION.md">迁移手册</a> · <a href="https://github.com/weihubeats/RustFox/blob/main/docs/AGENT.md">Agent 集成</a> · <a href="https://github.com/weihubeats/RustFox/blob/main/CHANGELOG.md">更新日志</a> · <a href="https://github.com/weihubeats/RustFox/blob/main/LICENSE">Apache-2.0 License</a></p>
+    <p><a href="https://github.com/weihubeats/RustFox">GitHub</a> · <a href="https://github.com/weihubeats/RustFox/releases">Releases</a> · <a href="../docs/user-guide/">用户手册</a> · <a href="../docs/migration/">迁移手册</a> · <a href="../docs/agent/">Agent 集成</a> · <a href="../docs/changelog/">更新日志</a> · <a href="https://github.com/weihubeats/RustFox/blob/main/LICENSE">Apache-2.0 License</a></p>
     <p>Built with 🦊 &amp; Rust</p>
   </div>
 </footer>

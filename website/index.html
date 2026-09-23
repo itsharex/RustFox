@@ -18,7 +18,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="RustFox — Lightweight cross-platform API client">
 <meta name="twitter:description" content="A ~10 MB lightweight cross-platform API client, one installer and ready to run.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦊</text></svg>">
+<link rel="icon" type="image/png" href="./assets/favicon.png">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"SoftwareApplication","name":"RustFox","applicationCategory":"DeveloperApplication","operatingSystem":"Windows, macOS, Linux","offers":{"@type":"Offer","price":"0"},"license":"https://github.com/weihubeats/RustFox/blob/main/LICENSE"}
 </script>
@@ -52,6 +52,7 @@ nav {
 }
 .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 60px; }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; color: var(--text); }
+.brand img { width: 22px; height: 22px; }
 .brand:hover { text-decoration: none; }
 .nav-links { display: flex; gap: 24px; font-size: 14px; }
 .nav-links a { color: var(--muted); }
@@ -148,7 +149,7 @@ footer a:hover { color: var(--text); }
 
 <nav>
   <div class="container nav-inner">
-    <a class="brand" href="#top">🦊 RustFox</a>
+    <a class="brand" href="#top"><img src="./assets/logo.png" alt=""> RustFox</a>
     <div class="nav-links">
       <a href="#features">Features</a>
       <a href="#compare">Compare</a>
@@ -245,7 +246,7 @@ footer a:hover { color: var(--text); }
 <section id="agent">
   <div class="container">
     <h2>AI Agent integration</h2>
-    <p class="section-sub">The app starts a loopback control plane on launch — save a cURL or backend snippet as an endpoint with one sentence. Full guide: <a href="https://github.com/weihubeats/RustFox/blob/main/docs/en/AGENT.md">docs/en/AGENT.md</a>.</p>
+    <p class="section-sub">The app starts a loopback control plane on launch — save a cURL or backend snippet as an endpoint with one sentence. Full guide: <a href="./docs/en/agent/">Agent integration</a>.</p>
     <div class="features">
       <div class="feature"><div class="icon">🤖</div><h3>MCP server (recommended)</h3><p>Configure the bundled <code>rustfox-mcp</code> absolute path once in Claude Code / Cursor and get four tools: save_curl / list_projects / list_endpoints / agent_info.</p></div>
       <div class="feature"><div class="icon">🔌</div><h3>Direct HTTP</h3><p>Any HTTP-capable tool can call the <code>127.0.0.1:4110</code> control plane: POST /agent/curl to import, GET /agent/projects, /agent/endpoints, /agent/health to query.</p></div>
@@ -279,7 +280,7 @@ footer a:hover { color: var(--text); }
 <section id="faq">
   <div class="container">
     <h2>FAQ</h2>
-    <p class="section-sub">More in the <a href="https://github.com/weihubeats/RustFox/blob/main/docs/en/USER_GUIDE.md">user guide FAQ</a>.</p>
+    <p class="section-sub">More in the <a href="./docs/en/user-guide/#11-faq">user guide FAQ</a>.</p>
     <div class="faq">
       <details open><summary>macOS says the app is "damaged"?</summary><p>It isn't — that's Gatekeeper blocking an un-notarized app. Move it to Applications, run <code>xattr -cr /Applications/RustFox.app</code>, then right-click → Open.</p></details>
       <details><summary>Windows SmartScreen warning?</summary><p>Click "More info → Run anyway". The installer has no code-signing certificate yet — normal for open-source apps.</p></details>
@@ -306,7 +307,7 @@ footer a:hover { color: var(--text); }
         <div class="os">🐧</div><h3>Linux</h3><p>.deb / .rpm / .AppImage</p>
       </a>
     </div>
-    <p class="note">macOS says "damaged"? Run <code>xattr -cr /Applications/RustFox.app</code> then right-click → Open. See the <a href="https://github.com/weihubeats/RustFox/blob/main/docs/en/USER_GUIDE.md">user guide</a>.</p>
+    <p class="note">macOS says "damaged"? Run <code>xattr -cr /Applications/RustFox.app</code> then right-click → Open. See the <a href="./docs/en/user-guide/#1-2-macos">user guide</a>.</p>
   </div>
 </section>
 
@@ -315,7 +316,7 @@ footer a:hover { color: var(--text); }
     <h2>Documentation</h2>
     <p class="section-sub">Bilingual docs, versioned with the repository.</p>
     <div class="download-cards">
-      <a class="dl-card" href="https://github.com/weihubeats/RustFox/blob/main/docs/en/USER_GUIDE.md">
+      <a class="dl-card" href="./docs/en/user-guide/">
         <div class="os">📖</div><h3>User Guide</h3><p>Install / requests / mock / testing / preferences</p>
       </a>
       <a class="dl-card" href="https://github.com/weihubeats/RustFox/blob/main/README.md">
@@ -324,13 +325,13 @@ footer a:hover { color: var(--text); }
       <a class="dl-card" href="https://github.com/weihubeats/RustFox/blob/main/README.zh-CN.md">
         <div class="os">📙</div><h3>README (中文)</h3><p>功能 / 下载 / 构建</p>
       </a>
-      <a class="dl-card" href="https://github.com/weihubeats/RustFox/blob/main/docs/en/AGENT.md">
+      <a class="dl-card" href="./docs/en/agent/">
         <div class="os">🤖</div><h3>Agent Integration</h3><p>MCP / HTTP control plane</p>
       </a>
-      <a class="dl-card" href="https://github.com/weihubeats/RustFox/blob/main/docs/en/MIGRATION.md">
+      <a class="dl-card" href="./docs/en/migration/">
         <div class="os">🚚</div><h3>Migration Guide</h3><p>Move from Apifox / Postman</p>
       </a>
-      <a class="dl-card" href="https://github.com/weihubeats/RustFox/blob/main/CHANGELOG.md">
+      <a class="dl-card" href="./docs/changelog/">
         <div class="os">📗</div><h3>Changelog</h3><p>What's new in each version</p>
       </a>
     </div>
@@ -339,7 +340,7 @@ footer a:hover { color: var(--text); }
 
 <footer>
   <div class="container">
-    <p><a href="https://github.com/weihubeats/RustFox">GitHub</a> · <a href="https://github.com/weihubeats/RustFox/releases">Releases</a> · <a href="https://github.com/weihubeats/RustFox/blob/main/docs/en/USER_GUIDE.md">User Guide</a> · <a href="https://github.com/weihubeats/RustFox/blob/main/docs/en/MIGRATION.md">Migration Guide</a> · <a href="https://github.com/weihubeats/RustFox/blob/main/docs/en/AGENT.md">Agent Integration</a> · <a href="https://github.com/weihubeats/RustFox/blob/main/CHANGELOG.md">Changelog</a> · <a href="https://github.com/weihubeats/RustFox/blob/main/LICENSE">Apache-2.0 License</a></p>
+    <p><a href="https://github.com/weihubeats/RustFox">GitHub</a> · <a href="https://github.com/weihubeats/RustFox/releases">Releases</a> · <a href="./docs/en/user-guide/">User Guide</a> · <a href="./docs/en/migration/">Migration Guide</a> · <a href="./docs/en/agent/">Agent Integration</a> · <a href="./docs/changelog/">Changelog</a> · <a href="https://github.com/weihubeats/RustFox/blob/main/LICENSE">Apache-2.0 License</a></p>
     <p>Built with 🦊 &amp; Rust</p>
   </div>
 </footer>
