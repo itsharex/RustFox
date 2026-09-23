@@ -10,6 +10,10 @@ __pycache__/
 # Node 依赖（图标生成脚本）
 node_modules/
 
+# 站点文档页（由 scripts/build_site_docs.mjs 生成，不入库）
+/website/docs/
+
+
 # Tauri 2 壳 + Vue 前端（frontend/）
 /frontend/node_modules/
 /frontend/dist/
