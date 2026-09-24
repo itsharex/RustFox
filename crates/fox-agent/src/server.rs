@@ -288,7 +288,7 @@ pub fn build_router(state: AgentState) -> Router {
     Router::new()
         .route("/agent/health", get(health))
         .route("/agent/projects", get(list_projects_handler))
-        .route("/agent/endpoints/:project_id", get(list_endpoints_handler))
+        .route("/agent/endpoints/{project_id}", get(list_endpoints_handler))
         .route("/agent/curl", post(import_curl_handler))
         .layer(middleware::from_fn_with_state(state.clone(), auth))
         .with_state(state)

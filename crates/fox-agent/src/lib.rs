@@ -22,7 +22,7 @@
 //! | GET  | `/agent/health` | 存活探针（同样需要 token） |
 //! | POST | `/agent/curl` | 导入 cURL 为接口 |
 //! | GET  | `/agent/projects` | 项目列表（供 Agent 选择目标项目） |
-//! | GET  | `/agent/endpoints/:project_id` | 项目下的接口列表 |
+//! | GET  | `/agent/endpoints/{project_id}` | 项目下的接口列表 |
 
 pub mod client;
 pub mod import;

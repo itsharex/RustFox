@@ -38,7 +38,7 @@ fn make_ep(name: &str, method: HttpMethod, path: &str, tests: serde_json::Value)
 async fn spawn_server() -> SocketAddr {
     let app = Router::new()
         .route(
-            "/users/:id",
+            "/users/{id}",
             get(
                 |axum::extract::Path(id): axum::extract::Path<String>| async move {
                     axum::Json(json!({"id": id, "name": "rustfox"}))
