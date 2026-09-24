@@ -1,0 +1,50 @@
+name: Bug report
+description: Report a bug in RustFox
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! Please fill in as much detail as possible so we can reproduce.
+  - type: input
+    id: version
+    attributes:
+      label: RustFox version
+      description: e.g. 0.0.25 (About → version, or installer name)
+      placeholder: "0.0.25"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Linux
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Clear description of the bug and steps to reproduce.
+      placeholder: Steps to reproduce…
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Settings → log viewer output, console errors, or screenshots (drag & drop).
+    validations:
+      required: false
