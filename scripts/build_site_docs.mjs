@@ -263,30 +263,82 @@ function buildPage(page, md) {
 
   const canonical = `${SITE_BASE}/${outRel.replace(/index\.html$/, '')}`
   const pairCanonical = pairPage ? `${SITE_BASE}/${outFileOf(pairPage).replace(/index\.html$/, '')}` : null
-  const hreflangs = pairCanonical
-    ? `\n<link rel="alternate" hreflang="${page.lang === 'zh' ? 'zh-Hans' : 'en'}" href="${canonical}">` +
-      `\n<link rel="alternate" hreflang="${page.lang === 'zh' ? 'en' : 'zh-Hans'}" href="${pairCanonical}">` +
-      `\n<link rel="alternate" hreflang="x-default" href="${SITE_BASE}/">`
-    : ''
+  // x-default 统一指向英文版（站点根为英文；与 sitemap 条目对齐）。
+  const xDefault = page.lang === 'zh' && pairCanonical ? pairCanonical : canonical
+  const selfLang = page.lang === 'zh' ? 'zh-Hans' : 'en'
+  const pairLang = page.lang === 'zh' ? 'en' : 'zh-Hans'
+  const hreflangs =
+    `\n<link rel="alternate" hreflang="${selfLang}" href="${canonical}">` +
+    (pairCanonical ? `\n<link rel="alternate" hreflang="${pairLang}" href="${pairCanonical}">` : '') +
+    `\n<link rel="alternate" hreflang="x-default" href="${xDefault}">`
 
   const desc = page.desc
+  const ogImage = `${SITE_BASE}/assets/home.png`
+  const ogLocale = page.lang === 'zh' ? 'zh_CN' : 'en_US'
+  const pageLangAttr = langLabel(page)
+
+  const homeUrl = page.lang === 'zh' ? `${SITE_BASE}/zh/` : `${SITE_BASE}/`
+  const docsUrl = page.lang === 'zh' ? `${SITE_BASE}/zh/#docs` : `${SITE_BASE}/#docs`
+  const jsonLd = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'TechArticle',
+        headline: `${page.title} — RustFox`,
+        description: desc,
+        image: ogImage,
+        inLanguage: pageLangAttr,
+        url: canonical,
+        dateModified: new Date().toISOString().slice(0, 10),
+        publisher: {
+          '@type': 'Organization',
+          name: 'RustFox',
+          url: 'https://github.com/weihubeats/RustFox',
+        },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: page.lang === 'zh' ? '首页' : 'Home', item: homeUrl },
+          { '@type': 'ListItem', position: 2, name: page.lang === 'zh' ? '文档' : 'Docs', item: docsUrl },
+          { '@type': 'ListItem', position: 3, name: page.title, item: canonical },
+        ],
+      },
+    ],
+  })
+
   const homeZh = `${siteRel(fromDir, 'zh')}/`
   const homeEn = `${siteRel(fromDir, '.')}/`
   const docsAnchor = `${homeHref}#docs`
 
   const htmlOut = `<!DOCTYPE html>
-<html lang="${langLabel(page)}">
+<html lang="${pageLangAttr}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(page.title)} — RustFox</title>
 <meta name="description" content="${escapeHtml(desc)}">
+<meta name="robots" content="index,follow">
 <link rel="canonical" href="${canonical}">${hreflangs}
 <link rel="icon" type="image/png" href="${assetRel}/favicon.png">
+<meta name="theme-color" content="#0d1117">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="RustFox">
+<meta property="og:locale" content="${ogLocale}">
+<meta property="og:url" content="${canonical}">
 <meta property="og:title" content="${escapeHtml(page.title)} — RustFox">
 <meta property="og:description" content="${escapeHtml(desc)}">
+<meta property="og:image" content="${ogImage}">
+<meta property="og:image:width" content="2880">
+<meta property="og:image:height" content="1600">
+<meta property="og:image:alt" content="RustFox — lightweight cross-platform API client">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${escapeHtml(page.title)} — RustFox">
+<meta name="twitter:description" content="${escapeHtml(desc)}">
+<meta name="twitter:image" content="${ogImage}">
+<script type="application/ld+json">
+${jsonLd}
+</script>
 <style>
 ${CSS}
 </style>
