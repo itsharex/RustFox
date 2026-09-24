@@ -1,6 +1,12 @@
 # RustFox
 
+[![Release](https://img.shields.io/github/v/release/weihubeats/RustFox?include_prereleases&sort=semver)](https://github.com/weihubeats/RustFox/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/weihubeats/RustFox/ci.yml?branch=main)](https://github.com/weihubeats/RustFox/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
 > 约 10 MB 的轻量跨平台 API 调试工具。一个安装包，开箱即用。
+
+**官网**：[https://weihubeats.github.io/RustFox/](https://weihubeats.github.io/RustFox/zh/)
 
 **语言 / Language**：[English](README.md) · 简体中文
 
@@ -174,12 +180,15 @@ scripts/package-tauri.sh                # 一键打包分发包
 
 ## 文档
 
+**官网**：[https://weihubeats.github.io/RustFox/zh/](https://weihubeats.github.io/RustFox/zh/) —— 用户手册、迁移手册、Agent 集成与更新日志在线阅读。
+
 | 文档 | 说明 |
 | --- | --- |
 | [docs/README.md](docs/README.md) | 文档索引（用户 / 开发者 / 运维分流） |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架构总览（Tauri 2 + Vue 3，含架构图与界面布局图） |
 | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | 用户手册 |
 | [docs/AGENT.md](docs/AGENT.md) | AI Agent 集成（MCP / HTTP 控制面） |
+| [docs/MIGRATION.md](docs/MIGRATION.md) | 从 Apifox / Postman 迁移 |
 | [CHANGELOG.md](CHANGELOG.md) | 版本变化速览 |
 | [docs/SPEC.md](docs/SPEC.md) | 历史规范（已冻结，仅追溯用） |
 | [docs/SMOKE_TEST.md](docs/SMOKE_TEST.md) | 手动验收清单 |

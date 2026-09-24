@@ -4,7 +4,7 @@ RustFox 发版分两步：把版本号从 `X.Y.Z` 升到 `X.Y.(Z+1)`，再用 `v
 
 > **推荐用发版助手脚本**（零依赖，Node ≥ 20）：`scripts/release.mjs`。
 
-## ⭐ 一条命令发版
+## 一、一条命令发版
 
 ```bash
 node scripts/release.mjs release patch          # 或 minor / major / X.Y.Z
@@ -25,7 +25,7 @@ node scripts/release.mjs release minor --publish
 
 安全防护：工作区不干净直接拒绝执行；CI 侧另有「tag 与版本一致」门禁双保险。
 
-## 分步执行（等价手动流）
+## 二、分步执行（等价手动流）
 
 <details>
 <summary>展开：bump / check / tag 子命令与手工等价操作</summary>

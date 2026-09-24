@@ -4,7 +4,7 @@
 
 For end users. **No Rust, no command-line knowledge required** — download, install, double-click.
 
-- Applies to: RustFox 0.0.x (verified on v0.0.12; per-version changes in [CHANGELOG.md](../../CHANGELOG.md))
+- Applies to: RustFox 0.0.x (verified on 0.0.25; per-version changes in [CHANGELOG.md](../../CHANGELOG.md))
 - Platforms: Windows 10/11, macOS 11+, Linux (common desktop environments)
 
 ---

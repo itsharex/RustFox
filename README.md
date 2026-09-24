@@ -1,6 +1,12 @@
 # RustFox
 
+[![Release](https://img.shields.io/github/v/release/weihubeats/RustFox?include_prereleases&sort=semver)](https://github.com/weihubeats/RustFox/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/weihubeats/RustFox/ci.yml?branch=main)](https://github.com/weihubeats/RustFox/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
 > A lightweight cross-platform API debugging client in ~10 MB. One installer, ready to run.
+
+**Website**: [https://weihubeats.github.io/RustFox/](https://weihubeats.github.io/RustFox/)
 
 **Language / 语言**：English · [简体中文](README.zh-CN.md)
 
@@ -169,6 +175,8 @@ scripts/package-tauri.sh                # package distributables in one step
 > Architecture, crate layout, IPC and data flow: **[docs/en/ARCHITECTURE.md](docs/en/ARCHITECTURE.md)** (Tauri 2 + Vue 3, with diagrams).
 
 ## Documentation
+
+**Website**: [https://weihubeats.github.io/RustFox/](https://weihubeats.github.io/RustFox/) — user guide, migration guide, agent integration and changelog, rendered online.
 
 | Document | Description |
 | --- | --- |

@@ -4,7 +4,7 @@
 
 面向最终用户。**不需要安装 Rust、不需要任何命令行知识**，下载、解压、双击即可使用。
 
-- 适用版本：RustFox 0.0.x（v0.0.12 验证，版本差异见 [CHANGELOG.md](../CHANGELOG.md)）
+- 适用版本：RustFox 0.0.x（最新验证 0.0.25，版本差异见 [CHANGELOG.md](../CHANGELOG.md)）
 - 支持平台：Windows 10/11、macOS 11+、Linux（常用桌面环境）
 
 ---
