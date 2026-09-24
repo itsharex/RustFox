@@ -32,6 +32,7 @@ type HmacSha256 = Hmac<Sha256>;
 
 /// HMAC-SHA256。
 pub fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
+    use hmac::digest::KeyInit as _;
     let mut mac = HmacSha256::new_from_slice(key).expect("HMAC 接受任意长度密钥，不应失败");
     mac.update(message);
     mac.finalize().into_bytes().into()
@@ -55,9 +56,9 @@ pub fn utc_timestamp_secs() -> String {
 
 /// 随机 nonce（`n` 字节 → `2n` 位小写 hex）。
 pub fn random_nonce_hex(n_bytes: usize) -> String {
-    use rand::RngCore as _;
+    use rand::Rng as _;
     let mut buf = vec![0u8; n_bytes.max(1)];
-    rand::thread_rng().fill_bytes(&mut buf);
+    rand::rng().fill_bytes(&mut buf);
     hex::encode(buf)
 }
 

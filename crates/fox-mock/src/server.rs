@@ -15,7 +15,6 @@ use axum::response::IntoResponse;
 use axum::Router;
 use fox_core::model::{MockMatchItem, MockRule, ResponseExample};
 use fox_core::AppError;
-use rand::Rng;
 use uuid::Uuid;
 
 /// 默认 Mock 端口。
@@ -411,7 +410,7 @@ fn mock_value(kind: &str) -> String {
         "name" => simple_word(),
         "word" => simple_word(),
         "timestamp" => chrono::Utc::now().timestamp().to_string(),
-        "int" => rand::thread_rng().gen_range(0..1000).to_string(),
+        "int" => rand::random_range(0..1000).to_string(),
         _ => String::new(),
     }
 }
@@ -420,7 +419,7 @@ fn simple_word() -> String {
     let words = [
         "alpha", "beta", "gamma", "delta", "nova", "fox", "mock", "demo",
     ];
-    let i = rand::thread_rng().gen_range(0..words.len());
+    let i = rand::random_range(0..words.len());
     words[i].to_string()
 }
 
@@ -458,7 +457,7 @@ async fn mock_handler(
     }
 
     // 故障注入：按命中比例返回故障状态码（延迟之后判定，模拟"慢且失败"）。
-    if def.fault_rate_pct > 0 && rand::thread_rng().gen_range(0..100) < def.fault_rate_pct as u32 {
+    if def.fault_rate_pct > 0 && rand::random_range(0..100) < def.fault_rate_pct as u32 {
         tracing::info!(
             "[mock] {} {} → 故障注入 {}（{}% 比例）",
             method,

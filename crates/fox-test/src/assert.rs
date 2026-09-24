@@ -1,6 +1,7 @@
 //! 断言执行（SPEC §17.4 / §17.5）。
 
 use fox_http::client::HttpResponseData;
+use jsonpath_rust::JsonPath;
 use serde_json::Value;
 
 use crate::config::AssertionSpec;
@@ -110,12 +111,8 @@ fn actual(a: &AssertionSpec, resp: &HttpResponseData, body_value: Option<&Value>
             let len = match a.path.as_deref() {
                 Some(path) => {
                     let json = body_value?;
-                    let inst: jsonpath_rust::JsonPathInst = path.parse().ok()?;
-                    let matched = inst
-                        .find_slice(json, jsonpath_rust::path::config::JsonPathConfig::default())
-                        .into_iter()
-                        .next()?;
-                    json_len(&matched)
+                    let matched = json.query(path).ok().and_then(|v| v.into_iter().next())?;
+                    json_len(matched)
                 }
                 None => body_value
                     .map(|v| match v {

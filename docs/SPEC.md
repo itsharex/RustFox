@@ -144,7 +144,7 @@ channel = "stable"
 最低要求：
 
 ```text
-Rust 1.79+
+Rust 1.85+
 ```
 
 ### 2.3 UI 技术约束
@@ -370,7 +370,7 @@ members = [
 [workspace.package]
 version = "0.0.1"
 edition = "2021"
-rust-version = "1.79"
+rust-version = "1.85"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -415,12 +415,12 @@ tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "trace"] }
 
 openapiv3 = "2.0"
-jsonpath-rust = "0.5"
+jsonpath-rust = "1.0"
 fake = "2.9"
-rand = "0.8"
+rand = "0.10"
 rfd = "0.14"
-aes-gcm = "0.10"
-base64 = "0.22"
+aes-gcm = "0.11"
+base64 = "0.23"
 ```
 
 `crates/fox-tauri` 不在根 workspace 中（`[workspace]` 置空、独立解析），依赖以路径引用

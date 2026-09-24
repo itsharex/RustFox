@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
 use chrono::{SecondsFormat, Utc};
-use rand::Rng;
 use uuid::Uuid;
 
 /// 变量表。
@@ -30,7 +29,7 @@ fn seq_dirty() -> &'static std::sync::atomic::AtomicBool {
     SEQ_DIRTY.get_or_init(|| std::sync::atomic::AtomicBool::new(false))
 }
 
-/// 惰性初始化计数器表（MSRV 1.79，`LazyLock` 需 1.80，故用 `OnceLock`）。
+/// 惰性初始化计数器表（OnceLock 稳定于 1.70，不依赖较新的 `LazyLock`）。
 fn seq_counters() -> &'static Mutex<HashMap<String, u64>> {
     SEQ_COUNTERS.get_or_init(|| Mutex::new(HashMap::new()))
 }
@@ -55,7 +54,7 @@ pub fn builtin_value(name: &str) -> Option<String> {
         BUILTIN_UUID => Some(Uuid::new_v4().to_string()),
         BUILTIN_TIMESTAMP => Some(Utc::now().timestamp().to_string()),
         BUILTIN_ISO_TIMESTAMP => Some(Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)),
-        BUILTIN_RANDOM_INT => Some(rand::thread_rng().gen_range(0..=1000).to_string()),
+        BUILTIN_RANDOM_INT => Some(rand::random_range(0..=1000).to_string()),
         _ => {
             if let Some(rest) = name.strip_prefix(BUILTIN_SEQ) {
                 let key = rest.strip_prefix(':').unwrap_or("");

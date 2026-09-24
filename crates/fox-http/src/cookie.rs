@@ -71,7 +71,7 @@ impl ManagedJar {
             if !domain_matches(&host, domain) {
                 continue;
             }
-            list.retain(|c| c.expires_at.map_or(true, |t| t > now));
+            list.retain(|c| c.expires_at.is_none_or(|t| t > now));
             for c in list.iter() {
                 if !c.value.is_empty() {
                     pairs.push(format!("{}={}", c.name, c.value));
@@ -97,7 +97,7 @@ impl ManagedJar {
                     continue;
                 }
             }
-            list.retain(|c| c.expires_at.map_or(true, |t| t > now));
+            list.retain(|c| c.expires_at.is_none_or(|t| t > now));
             out.extend(list.iter().cloned());
         }
         out.sort_by(|a, b| a.domain.cmp(&b.domain).then(a.name.cmp(&b.name)));

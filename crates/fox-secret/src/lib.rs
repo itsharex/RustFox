@@ -8,10 +8,10 @@
 //! `SecretError::DecryptionFailed`，由上层提示用户，避免把 base64 密文当
 //! 明文继续解析导致环境变量静默丢失。
 
-use aes_gcm::aead::{Aead, KeyInit, OsRng};
+use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
 use base64::Engine;
-use rand::RngCore;
+use rand::Rng as _;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
@@ -113,7 +113,7 @@ fn load_or_create_key() -> Result<MasterKey> {
     }
 
     let mut key = [0u8; 32];
-    OsRng.fill_bytes(&mut key);
+    rand::rng().fill_bytes(&mut key);
     let encoded = base64::engine::general_purpose::STANDARD.encode(key);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(SecretError::IoError)?;
@@ -137,15 +137,15 @@ fn read_key_file(path: &PathBuf) -> Result<MasterKey> {
 }
 
 fn cipher(key: &MasterKey) -> Aes256Gcm {
-    Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key.0))
+    Aes256Gcm::new(&Key::<Aes256Gcm>::from(key.0))
 }
 
 /// 加密明文，返回 `base64(nonce):base64(ciphertext||tag)`。
 pub fn encrypt(key: &MasterKey, plain: &str) -> Result<String> {
     let mut nonce_bytes = [0u8; 12];
-    OsRng.fill_bytes(&mut nonce_bytes);
+    rand::rng().fill_bytes(&mut nonce_bytes);
     let ciphertext = cipher(key)
-        .encrypt(Nonce::from_slice(&nonce_bytes), plain.as_bytes())
+        .encrypt(&Nonce::from(nonce_bytes), plain.as_bytes())
         .map_err(|_| SecretError::InvalidCiphertext)?;
     let b64 = |b: &[u8]| base64::engine::general_purpose::STANDARD.encode(b);
     Ok(format!("{}:{}", b64(&nonce_bytes), b64(&ciphertext)))
@@ -170,9 +170,13 @@ pub fn decrypt(key: &MasterKey, text: &str) -> Result<String> {
     let Ok(ciphertext) = engine.decode(cipher_b64) else {
         return Err(SecretError::DecryptionFailed);
     };
-    let plain = cipher(key)
-        .decrypt(Nonce::from_slice(&nonce), ciphertext.as_ref())
-        .map_err(|_| SecretError::DecryptionFailed)?;
+    let plain = {
+        // nonce 已在上方校验为 12 字节；TryFrom 按长度校验构造。
+        let n = Nonce::try_from(nonce.as_slice()).map_err(|_| SecretError::DecryptionFailed)?;
+        cipher(key)
+            .decrypt(&n, ciphertext.as_ref())
+            .map_err(|_| SecretError::DecryptionFailed)?
+    };
     String::from_utf8(plain).map_err(|_| SecretError::DecryptionFailed)
 }
 

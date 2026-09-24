@@ -20,7 +20,7 @@ members = [
 [workspace.package]
 version = "0.0.1"
 edition = "2021"
-rust-version = "1.79"
+rust-version = "1.85"
 license = "Apache-2.0"
 repository = "https://github.com/weihubeats/RustFox"
 homepage = "https://weihubeats.github.io/RustFox/"
@@ -54,15 +54,15 @@ url = "2"
 bytes = "1"
 indexmap = { version = "2", features = ["serde"] }
 dirs = "5"
-aes-gcm = "0.10"
+aes-gcm = "0.11"
 base64 = "0.23"
 # 签名类认证（Digest / Hawk / AWS SigV4 / HMAC AK-SK）：fox-sign 专用
-hmac = "0.12"
-sha2 = "0.10"
+hmac = "0.13"
+sha2 = "0.11"
 md5 = "0.8"
 hex = "0.4"
-# 动态签名（App-Key/Secret/Timestamp/Sig）：fox-http signature.rs 用（md-5 v0.10）
-md-5 = "0.10"
+# 动态签名（App-Key/Secret/Timestamp/Sig）：fox-http signature.rs 用（md-5 与 sha2/hmac 同步 digest 0.11）
+md-5 = "0.11"
 
 sqlx = { version = "0.7", features = [
     "runtime-tokio-rustls",
@@ -88,9 +88,9 @@ tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "trace"] }
 
 openapiv3 = "2.0"
-jsonpath-rust = "0.5"
+jsonpath-rust = "1.0"
 fake = "2.9"
-rand = "0.8"
+rand = "0.10"
 
 serde_urlencoded = "0.7"
 rquickjs = "0.12"

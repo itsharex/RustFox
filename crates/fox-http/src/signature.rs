@@ -92,6 +92,7 @@ fn digest(algorithm: SignatureAlgorithm, secret: &str, payload: &str) -> Vec<u8>
         SignatureAlgorithm::HmacSHA256 => {
             use hmac::{Hmac, Mac};
             // RFC 2104：HMAC 密钥为 app_secret，载荷为被签消息。
+            use hmac::digest::KeyInit as _;
             let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes())
                 .expect("HMAC 接受任意长度密钥，构造不会失败");
             mac.update(payload.as_bytes());
