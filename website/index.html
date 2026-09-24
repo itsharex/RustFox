@@ -12,15 +12,25 @@
 <meta name="theme-color" content="#0d1117">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="RustFox">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://weihubeats.github.io/RustFox/">
 <meta property="og:title" content="RustFox — Lightweight cross-platform API client">
 <meta property="og:description" content="A ~10 MB lightweight cross-platform API debugging client. Requests, mock, testing and load testing in one installer.">
 <meta property="og:image" content="https://weihubeats.github.io/RustFox/assets/home.png">
+<meta property="og:image:width" content="2880">
+<meta property="og:image:height" content="1600">
+<meta property="og:image:alt" content="RustFox — lightweight cross-platform API client">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="RustFox — Lightweight cross-platform API client">
 <meta name="twitter:description" content="A ~10 MB lightweight cross-platform API client, one installer and ready to run.">
+<meta name="twitter:image" content="https://weihubeats.github.io/RustFox/assets/home.png">
 <link rel="icon" type="image/png" href="./assets/favicon.png">
+<link rel="manifest" href="./manifest.json">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"RustFox","applicationCategory":"DeveloperApplication","operatingSystem":"Windows, macOS, Linux","offers":{"@type":"Offer","price":"0"},"license":"https://github.com/weihubeats/RustFox/blob/main/LICENSE"}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"RustFox","softwareVersion":"0.0.25","applicationCategory":"DeveloperApplication","operatingSystem":"Windows, macOS, Linux","inLanguage":"en","url":"https://weihubeats.github.io/RustFox/","screenshot":"https://weihubeats.github.io/RustFox/assets/home.png","featureList":["~10 MB installer","Requests & mock server","Automated testing & load testing","Local-first AES-256-GCM encrypted storage","AI Agent / MCP integration"],"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"license":"https://github.com/weihubeats/RustFox/blob/main/LICENSE"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"macOS says the app is damaged?","acceptedAnswer":{"@type":"Answer","text":"Not damaged — Gatekeeper blocks un-notarized apps. Run xattr -cr /Applications/RustFox.app then right-click → Open."}},{"@type":"Question","name":"Windows SmartScreen warning?","acceptedAnswer":{"@type":"Answer","text":"Click More info → Run anyway. The installer has no code-signing certificate yet — normal for open-source projects."}},{"@type":"Question","name":"Environment variables show garbled text?","acceptedAnswer":{"@type":"Answer","text":"The master.key in the data directory was lost, so values cannot be decrypted. Restore from a backup JSON (Settings → Restore)."}},{"@type":"Question","name":"MCP reports spawn ENOENT?","acceptedAnswer":{"@type":"Answer","text":"The binary is not on PATH. Since v0.0.10 use the absolute path bundled inside the installer (macOS: /Applications/RustFox.app/Contents/MacOS/rustfox-mcp)."}},{"@type":"Question","name":"dev build cannot see release data?","acceptedAnswer":{"@type":"Answer","text":"Expected — dev uses the RustFox-dev data directory. Export/import a backup JSON to move data between them."}},{"@type":"Question","name":"How do I report a bug?","acceptedAnswer":{"@type":"Answer","text":"Use the Feedback button in the top bar to generate a local diagnostic report and attach it to a GitHub Issue."}}]}
 </script>
 <style>
 :root {

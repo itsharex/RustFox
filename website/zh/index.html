@@ -12,15 +12,25 @@
 <meta name="theme-color" content="#0d1117">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="RustFox">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:url" content="https://weihubeats.github.io/RustFox/zh/">
 <meta property="og:title" content="RustFox — 轻量跨平台 API 调试工具">
 <meta property="og:description" content="约 10 MB 的轻量跨平台 API 调试工具。请求、Mock、自动化测试、压测，一个安装包开箱即用。">
 <meta property="og:image" content="https://weihubeats.github.io/RustFox/assets/home.png">
+<meta property="og:image:width" content="2880">
+<meta property="og:image:height" content="1600">
+<meta property="og:image:alt" content="RustFox — 轻量跨平台 API 调试工具">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="RustFox — 轻量跨平台 API 调试工具">
 <meta name="twitter:description" content="约 10 MB 的轻量跨平台 API 调试工具，一个安装包开箱即用。">
+<meta name="twitter:image" content="https://weihubeats.github.io/RustFox/assets/home.png">
 <link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="manifest" href="../manifest.json">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"RustFox","applicationCategory":"DeveloperApplication","operatingSystem":"Windows, macOS, Linux","offers":{"@type":"Offer","price":"0"},"license":"https://github.com/weihubeats/RustFox/blob/main/LICENSE"}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"RustFox","softwareVersion":"0.0.25","applicationCategory":"DeveloperApplication","operatingSystem":"Windows, macOS, Linux","inLanguage":"zh-CN","url":"https://weihubeats.github.io/RustFox/zh/","screenshot":"https://weihubeats.github.io/RustFox/assets/home.png","featureList":["约 10 MB 安装包","请求与 Mock Server","自动化测试与压测","本地优先 AES-256-GCM 加密存储","AI Agent / MCP 集成"],"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"license":"https://github.com/weihubeats/RustFox/blob/main/LICENSE"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"macOS 提示「已损坏，无法打开」？","acceptedAnswer":{"@type":"Answer","text":"应用本身没有损坏，这是 Gatekeeper 对未公证应用的拦截。拖入「应用程序」后执行 xattr -cr /Applications/RustFox.app，再右键 → 打开。"}},{"@type":"Question","name":"Windows SmartScreen 警告？","acceptedAnswer":{"@type":"Answer","text":"点击「更多信息 → 仍要运行」。安装包暂无代码签名证书，开源项目正常现象。"}},{"@type":"Question","name":"环境变量显示乱码？","acceptedAnswer":{"@type":"Answer","text":"数据目录的 master.key 丢失导致无法解密。用备份 JSON 恢复（设置页 → 恢复）。"}},{"@type":"Question","name":"MCP 报 spawn ENOENT？","acceptedAnswer":{"@type":"Answer","text":"二进制不在 PATH。v0.0.10+ 安装包填写包内绝对路径（macOS 如上 agent 章节），不要写裸 rustfox-mcp。"}},{"@type":"Question","name":"dev 构建看不到正式版数据？","acceptedAnswer":{"@type":"Answer","text":"符合预期：dev 使用 RustFox-dev 目录隔离。用备份 JSON 在两侧互导。"}},{"@type":"Question","name":"如何反馈问题？","acceptedAnswer":{"@type":"Answer","text":"顶栏「反馈」按钮生成本机诊断报告，附到 GitHub Issues 即可。"}}]}
 </script>
 <style>
 :root {
@@ -350,7 +360,7 @@ footer a:hover { color: var(--text); }
 <footer>
   <div class="container">
     <p><a href="https://github.com/weihubeats/RustFox">GitHub</a> · <a href="https://github.com/weihubeats/RustFox/releases">Releases</a> · <a href="../docs/user-guide/">用户手册</a> · <a href="../docs/migration/">迁移手册</a> · <a href="../docs/agent/">Agent 集成</a> · <a href="../docs/changelog/">更新日志</a> · <a href="https://github.com/weihubeats/RustFox/blob/main/LICENSE">Apache-2.0 License</a></p>
-    <p>Built with 🦊 &amp; Rust</p>
+    <p>用 🦊 与 Rust 打造</p>
   </div>
 </footer>
 

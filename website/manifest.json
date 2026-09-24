@@ -1,0 +1,13 @@
+{
+  "name": "RustFox — Lightweight cross-platform API client",
+  "short_name": "RustFox",
+  "description": "A ~10 MB lightweight cross-platform API debugging client. Requests, mock server, automated testing and load testing in one installer.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "icons": [
+    { "src": "./assets/logo.png", "sizes": "256x256", "type": "image/png" },
+    { "src": "./assets/favicon.png", "sizes": "any", "type": "image/png" }
+  ]
+}
