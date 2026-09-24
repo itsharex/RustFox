@@ -29,15 +29,15 @@ domain crates call each other through **path dependencies** (plain Rust), never 
 |---|---|
 | Desktop shell | Tauri 2 (`tauri` crate + `@tauri-apps/api` v2) |
 | Frontend | Vue 3.5 (`<script setup>` composition API) + TypeScript 5.6 |
-| Build | Vite 6 + `@vitejs/plugin-vue` + Tailwind CSS 4 (`@tailwindcss/vite`) |
-| State | Pinia 2.2 (single store: `stores/workspace.ts`) |
-| Router | vue-router 4 (web history, single-window SPA) |
+| Build | Vite 7 + `@vitejs/plugin-vue` 6 + Tailwind CSS 4 (`@tailwindcss/vite`) |
+| State | Pinia 3 (setup stores: `workspace` / `locale` / `theme`) |
+| Router | vue-router 5 (web history, single-window SPA) |
 | Charts | chart.js + vue-chartjs (load-test results) |
 | IPC wrapper | `composables/useFoxApi.ts` (type safety + error mapping) |
 | Async runtime | Tokio (workspace-wide `tokio = "1"`) |
 | Local database | SQLite + SQLx (`runtime-tokio-rustls` / `sqlite` / `migrate`) |
 | HTTP client | reqwest 0.12 (rustls-tls / cookies / multipart / stream) |
-| Mock server | axum 0.7 + tower / tower-http |
+| Mock server | axum 0.8 (path syntax `{param}`) |
 | OpenAPI | openapiv3 2.0 (import/export) |
 | Crypto | aes-gcm (fox-secret, AES-256-GCM env vars, `master.key`) |
 | Assertions/mock | jsonpath-rust, fake, rand (tests & mock template variables) |

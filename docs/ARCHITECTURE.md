@@ -28,15 +28,15 @@
 |---|---|
 | 桌面壳 | Tauri 2（`tauri` crate + `@tauri-apps/api` v2） |
 | 前端框架 | Vue 3.5（`<script setup>` 组合式 API）+ TypeScript 5.6 |
-| 构建 | Vite 6 + `@vitejs/plugin-vue` + Tailwind CSS 4（`@tailwindcss/vite`） |
-| 状态 | Pinia 2.2（单 store：`stores/workspace.ts`） |
-| 路由 | vue-router 4（web history，单窗口 SPA） |
+| 构建 | Vite 7 + `@vitejs/plugin-vue` 6 + Tailwind CSS 4（`@tailwindcss/vite`） |
+| 状态 | Pinia 3（setup stores：`workspace` / `locale` / `theme`） |
+| 路由 | vue-router 5（web history，单窗口 SPA） |
 | 图表 | chart.js + vue-chartjs（压测结果图） |
 | IPC 封装 | `composables/useFoxApi.ts`（类型安全 + 错误映射） |
 | 异步运行时 | Tokio（Cargo workspace 统一 `tokio = "1"`） |
 | 本地数据库 | SQLite + SQLx（`runtime-tokio-rustls` / `sqlite` / `migrate`） |
 | HTTP 客户端 | reqwest 0.12（rustls-tls / cookies / multipart / stream） |
-| Mock Server | axum 0.7 + tower / tower-http |
+| Mock Server | axum 0.8（路径语法 `{param}`） |
 | OpenAPI | openapiv3 2.0（导入导出） |
 | 加密 | aes-gcm（fox-secret，环境变量 AES-256-GCM，`master.key`） |
 | 断言/模拟 | jsonpath-rust、fake、rand（测试与 Mock 模板变量） |
