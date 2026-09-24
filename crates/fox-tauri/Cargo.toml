@@ -3,6 +3,9 @@ name = "fox-tauri"
 version = "0.0.2"
 edition = "2021"
 description = "fox-core / fox-storage 的 Tauri 2 插件封装：Vue 3 前端通过 IPC 调用的 Command 层"
+license = "Apache-2.0"
+repository = "https://github.com/weihubeats/RustFox"
+homepage = "https://weihubeats.github.io/RustFox/"
 # links 决定权限命名空间前缀（与 lib.rs 中 Builder::new("fox") 一致），
 # 否则生成 fox-tauri:allow-* 与运行时 plugin:fox|* 不匹配导致「not allowed」。
 links = "fox"

@@ -3,6 +3,10 @@ name = "fox-sign"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+description = "请求签名认证：Digest / Hawk / AWS SigV4 / HMAC AK-SK"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 
 [dependencies]
 serde = { workspace = true }

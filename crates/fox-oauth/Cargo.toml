@@ -3,6 +3,10 @@ name = "fox-oauth"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+description = "OAuth2 授权码 / 客户端凭据 / 密码 / 隐式四种模式"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 
 [dependencies]
 fox-core = { path = "../fox-core" }

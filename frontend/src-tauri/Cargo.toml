@@ -3,6 +3,9 @@ name = "rustfox"
 version = "0.0.25"
 edition = "2021"
 description = "RustFox Tauri 2 应用壳：装配 fox-tauri 插件与窗口生命周期"
+license = "Apache-2.0"
+repository = "https://github.com/weihubeats/RustFox"
+homepage = "https://weihubeats.github.io/RustFox/"
 
 # 独立工作区：不加入仓库根 workspace，避免 tauri/wry 依赖拖慢主仓构建。
 [workspace]

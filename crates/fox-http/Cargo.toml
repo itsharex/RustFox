@@ -3,6 +3,10 @@ name = "fox-http"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+description = "HTTP 客户端核心：请求执行、认证注入、变量替换与流式响应"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 
 [dependencies]
 fox-core = { path = "../fox-core" }

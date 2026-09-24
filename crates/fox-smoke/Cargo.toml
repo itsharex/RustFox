@@ -3,6 +3,10 @@ name = "fox-smoke"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+description = "测试用例冒烟文档导出（内部工具，不发布）"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 publish = false
 
 [dependencies]

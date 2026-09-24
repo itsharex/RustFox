@@ -3,6 +3,10 @@ name = "fox-test"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+description = "测试脚本执行器：pre_request / extract / assertions 与用例运行"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 
 [dependencies]
 fox-core = { path = "../fox-core" }
