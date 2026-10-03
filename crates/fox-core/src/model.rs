@@ -474,6 +474,10 @@ pub enum BodySpec {
     Multipart {
         fields: Vec<MultipartField>,
     },
+    /// 显式对齐前端的 `mode: "graphql"`：serde 对 `GraphQL` 的 snake_case
+    /// 转换产物是 `graph_q_l`，会导致独立 GraphQL 视图 execute_request 报
+    /// unknown variant（v0.0.26 起可复现）。
+    #[serde(rename = "graphql")]
     GraphQL {
         spec: GraphQLSpec,
     },
