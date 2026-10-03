@@ -58,7 +58,7 @@ Everything lives in a local `rustfox.db`; environment variable values are **AES-
 ### Response experience
 
 - Pretty JSON tree / raw / response headers / status / duration / size
-- Streaming downloads to disk; request history can be re-sent or deleted
+- Streaming downloads to disk; request history supports keyword + status search, re-send or delete
 
 ### Mock server
 
@@ -87,6 +87,7 @@ Everything lives in a local `rustfox.db`; environment variable values are **AES-
 - Cookie management (inspect/clear per domain, per-request disable), Mock hot-reload & fault injection
 - Undo delete, tree multi-select batch ops, shortcut help (Ctrl+/), in-app log viewer
 - Backup (JSON) & restore (full ID remapping, never overwrites existing data)
+- Configurable data directory (in-app picker or `RUSTFOX_DATA_DIR`, applied on restart)
 - Dark / light / follow-system theme
 
 ## AI Agent integration

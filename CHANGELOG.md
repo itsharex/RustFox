@@ -35,6 +35,18 @@
 - 地址栏直粘 cURL 自动解析回填当前接口 + 测试用例列表关键字搜索（含 Body）+ 用例 Drawer 请求 Body 实时查找高亮
 - 数据目录可配置（设置页更改/恢复默认/打开目录 + `RUSTFOX_DATA_DIR` 环境变量覆盖，重启生效）
 
+修复：
+
+- GraphQL 请求体 `mode` 序列化对齐前端：serde 对 `GraphQL` 变体的 snake_case 产物是 `graph_q_l`，
+  与前端发送的 `graphql` 不一致，导致独立 GraphQL 视图 `execute_request` 直接报 unknown variant
+
+## v0.0.26（2026-10-01）
+
+- 实时调试视图补全：WebSocket 收发 / Ping / 自动重连，SSE 订阅与帧解析，独立窗口弹出
+- 工作区功能缺口修复 + 核心导航可访问性、首屏骨架与定时器卫生
+- 首屏性能：分包优化（vue / codemirror / chart 独立 chunk）与渲染热路径瘦身
+- 发版链路：对齐 @tauri-apps/plugin-updater 2.12，消除 Tauri 构建版本校验失败
+
 ## v0.0.25（2026-09-24）
 
 - 历史列表卡片化重构：方法 Tag、状态胶囊、慢请求耗时分级；恢复历史保留环境语义 URL
