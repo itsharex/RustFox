@@ -51,6 +51,8 @@ const envs = ref<Environment[]>([])
 const selected = ref<Environment | null>(null)
 const busy = ref(false)
 const dirty = ref(false)
+/** 新建环境是否仍未被编辑：仅创建本身不计入「未保存修改」，关闭时直接丢弃不弹确认。 */
+let newEnvPristine = false
 
 /** 右侧详情面板作用域：'env' = 环境详情；'global' = 全局变量；'params' = 全局参数。 */
 const scope = ref<'env' | 'global' | 'params'>('env')
@@ -152,7 +154,8 @@ const confirmLeave = ref(false)
 let pendingAction: (() => void) | null = null
 
 function hasPending(): boolean {
-  return dirty.value || globalDirty.value || paramsDirty.value
+  // 新建环境尚未被编辑时，创建本身不算修改：关闭/切换直接丢弃，不弹确认
+  return (dirty.value && !newEnvPristine) || globalDirty.value || paramsDirty.value
 }
 
 function guardClose(): boolean {
@@ -219,6 +222,7 @@ function addEnvironment(): void {
   envs.value.push(env)
   select(env)
   dirty.value = true
+  newEnvPristine = true
 }
 
 // ---------- 环境导入导出（RustFox 原生 JSON / Postman Environment） ----------
@@ -333,6 +337,12 @@ async function confirmImport(): Promise<void> {
 }
 
 // ---------- 模块（Module Base URLs） ----------
+/** 实际编辑标记：清除「新建未编辑」状态，此后关闭/切换恢复未保存确认流程。 */
+function markDirty(): void {
+  dirty.value = true
+  newEnvPristine = false
+}
+
 function addModule(): void {
   const env = selected.value
   if (!env) return
@@ -344,7 +354,7 @@ function addModule(): void {
     base_url: '',
     is_default: isFirst,
   })
-  dirty.value = true
+  markDirty()
 }
 
 function removeModule(index: number): void {
@@ -352,7 +362,7 @@ function removeModule(index: number): void {
   if (!env) return
   env.modules.splice(index, 1)
   ensureDefaultModule(env)
-  dirty.value = true
+  markDirty()
 }
 
 // ---------- 环境变量 ----------
@@ -366,18 +376,18 @@ function addVariable(): void {
     enabled: true,
     description: null,
   })
-  dirty.value = true
+  markDirty()
 }
 
 function removeVariable(index: number): void {
   const env = selected.value
   if (!env) return
   env.variables.splice(index, 1)
-  dirty.value = true
+  markDirty()
 }
 
 function onAnyChange(): void {
-  dirty.value = true
+  markDirty()
 }
 
 function variablesCount(): number {
@@ -452,6 +462,7 @@ async function save(): Promise<void> {
     selected.value = deepClone(saved)
     envs.value = [...store.environments]
     dirty.value = false
+    newEnvPristine = false
     confirmLeave.value = false
     toast.success(t('envmgr.saved', { name: saved.name }))
   } catch (err) {
