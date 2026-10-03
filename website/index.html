@@ -67,6 +67,13 @@ nav {
 .nav-links { display: flex; gap: 24px; font-size: 14px; }
 .nav-links a { color: var(--muted); }
 .nav-links a:hover { color: var(--text); text-decoration: none; }
+.nav-right { display: flex; align-items: center; gap: 20px; }
+.btn-nav {
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #fff; padding: 8px 18px; border-radius: 8px;
+  font-size: 14px; font-weight: 600; white-space: nowrap;
+}
+.btn-nav:hover { text-decoration: none; filter: brightness(1.08); }
 
 .hero { padding: 88px 0 56px; text-align: center; }
 .hero h1 { font-size: clamp(32px, 6vw, 52px); line-height: 1.2; letter-spacing: -.5px; }
@@ -82,6 +89,12 @@ nav {
 .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-strong)); color: #fff; border: none; box-shadow: 0 4px 20px rgba(247,129,102,.35); }
 .btn-ghost { color: var(--text); background: var(--bg-soft); }
 .hero .meta { margin-top: 24px; font-size: 13px; color: var(--muted); }
+.hero-shot {
+  margin: 48px auto 0; max-width: 980px;
+  border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(247,129,102,.07), 0 12px 48px rgba(247,129,102,.12);
+}
+.hero-shot img { width: 100%; display: block; }
 
 .badges { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
 .badges img { height: 20px; }
@@ -116,7 +129,8 @@ td.hl { color: var(--green); font-weight: 700; }
 .feature h3 { font-size: 17px; margin: 12px 0 8px; }
 .feature p { font-size: 14px; color: var(--muted); }
 
-.screenshots { display: flex; flex-direction: column; gap: 32px; }
+.screenshots { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 24px; }
+.screenshots .shot { align-self: start; }
 .shot { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-soft); }
 .shot img { width: 100%; display: block; }
 .shot figcaption { padding: 12px 18px; font-size: 14px; color: var(--muted); border-top: 1px solid var(--border); }
@@ -160,31 +174,33 @@ footer a:hover { color: var(--text); }
 <nav>
   <div class="container nav-inner">
     <a class="brand" href="#top"><img src="./assets/logo.png" alt=""> RustFox</a>
-    <div class="nav-links">
-      <a href="#features">Features</a>
-      <a href="#compare">Compare</a>
-      <a href="#agent">AI integration</a>
-      <a href="#screenshots">Screenshots</a>
-      <a href="#faq">FAQ</a>
-      <a href="#download">Download</a>
-      <a href="#docs">Docs</a>
-      <a href="./zh/index.html">中文</a>
-      <a href="https://github.com/weihubeats/RustFox">GitHub</a>
-    </div>
-    <details class="mobile-menu">
-      <summary aria-label="Open navigation menu">Menu ☰</summary>
-      <div class="menu">
+    <div class="nav-right">
+      <div class="nav-links">
         <a href="#features">Features</a>
         <a href="#compare">Compare</a>
         <a href="#agent">AI integration</a>
         <a href="#screenshots">Screenshots</a>
         <a href="#faq">FAQ</a>
-        <a href="#download">Download</a>
         <a href="#docs">Docs</a>
         <a href="./zh/index.html">中文</a>
         <a href="https://github.com/weihubeats/RustFox">GitHub</a>
       </div>
-    </details>
+      <a class="btn-nav" href="#download">Download</a>
+      <details class="mobile-menu">
+        <summary aria-label="Open navigation menu">Menu ☰</summary>
+        <div class="menu">
+          <a href="#features">Features</a>
+          <a href="#compare">Compare</a>
+          <a href="#agent">AI integration</a>
+          <a href="#screenshots">Screenshots</a>
+          <a href="#faq">FAQ</a>
+          <a href="#download">Download</a>
+          <a href="#docs">Docs</a>
+          <a href="./zh/index.html">中文</a>
+          <a href="https://github.com/weihubeats/RustFox">GitHub</a>
+        </div>
+      </details>
+    </div>
   </div>
 </nav>
 
@@ -201,6 +217,12 @@ footer a:hover { color: var(--text); }
     <a class="btn btn-ghost" href="https://github.com/weihubeats/RustFox">View source</a>
   </div>
   <p class="meta">Rust + Tauri 2 + system WebView · Windows / macOS / Linux · Apache-2.0</p>
+  <figure class="hero-shot">
+    <picture>
+      <source type="image/webp" srcset="./assets/api-home.webp">
+      <img src="./assets/api-home.png" alt="RustFox workspace — request editor with a mock 200 response" width="2880" height="1600">
+    </picture>
+  </figure>
 </header>
 
 <section id="stats">
@@ -276,19 +298,31 @@ footer a:hover { color: var(--text); }
     <p class="section-sub">Dark / light / follow-system themes.</p>
     <div class="screenshots">
       <figure class="shot">
-        <img src="./assets/home.png" alt="RustFox dashboard" loading="lazy">
+        <picture>
+          <source type="image/webp" srcset="./assets/home.webp">
+          <img src="./assets/home.png" alt="RustFox dashboard" loading="lazy" width="2880" height="1600">
+        </picture>
         <figcaption>Dashboard — welcome stats, recent activity, project cards, drag-and-drop import</figcaption>
       </figure>
       <figure class="shot">
-        <img src="./assets/api-home.png" alt="RustFox workspace" loading="lazy">
+        <picture>
+          <source type="image/webp" srcset="./assets/api-home.webp">
+          <img src="./assets/api-home.png" alt="RustFox workspace" loading="lazy" width="2880" height="1600">
+        </picture>
         <figcaption>Workspace — request editing / syntax highlighting / mock / testing / load testing</figcaption>
       </figure>
       <figure class="shot">
-        <img src="./assets/graphql.png" alt="RustFox GraphQL workbench" loading="lazy">
+        <picture>
+          <source type="image/webp" srcset="./assets/graphql.webp">
+          <img src="./assets/graphql.png" alt="RustFox GraphQL workbench" loading="lazy" width="2880" height="1600">
+        </picture>
         <figcaption>GraphQL workbench — Query / Variables / OperationName with data vs errors rendered per GraphQL semantics</figcaption>
       </figure>
       <figure class="shot">
-        <img src="./assets/realtime.png" alt="RustFox realtime debugging" loading="lazy">
+        <picture>
+          <source type="image/webp" srcset="./assets/realtime.webp">
+          <img src="./assets/realtime.png" alt="RustFox realtime debugging" loading="lazy" width="2880" height="1600">
+        </picture>
         <figcaption>Realtime debugging — WebSocket / SSE frame log with Ping, auto-reconnect and pop-out window</figcaption>
       </figure>
     </div>

@@ -68,6 +68,13 @@ nav {
 .nav-links { display: flex; gap: 24px; font-size: 14px; }
 .nav-links a { color: var(--muted); }
 .nav-links a:hover { color: var(--text); text-decoration: none; }
+.nav-right { display: flex; align-items: center; gap: 20px; }
+.btn-nav {
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #fff; padding: 8px 18px; border-radius: 8px;
+  font-size: 14px; font-weight: 600; white-space: nowrap;
+}
+.btn-nav:hover { text-decoration: none; filter: brightness(1.08); }
 
 /* hero */
 .hero { padding: 88px 0 56px; text-align: center; }
@@ -84,6 +91,12 @@ nav {
 .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-strong)); color: #fff; border: none; box-shadow: 0 4px 20px rgba(247,129,102,.35); }
 .btn-ghost { color: var(--text); background: var(--bg-soft); }
 .hero .meta { margin-top: 24px; font-size: 13px; color: var(--muted); }
+.hero-shot {
+  margin: 48px auto 0; max-width: 980px;
+  border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(247,129,102,.07), 0 12px 48px rgba(247,129,102,.12);
+}
+.hero-shot img { width: 100%; display: block; }
 
 /* badges */
 .badges { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
@@ -124,7 +137,8 @@ td.hl { color: var(--green); font-weight: 700; }
 .feature p { font-size: 14px; color: var(--muted); }
 
 /* screenshots */
-.screenshots { display: flex; flex-direction: column; gap: 32px; }
+.screenshots { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 24px; }
+.screenshots .shot { align-self: start; }
 .shot { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-soft); }
 .shot img { width: 100%; display: block; }
 .shot figcaption { padding: 12px 18px; font-size: 14px; color: var(--muted); border-top: 1px solid var(--border); }
@@ -172,36 +186,38 @@ footer a:hover { color: var(--text); }
 <nav>
   <div class="container nav-inner">
     <a class="brand" href="#top"><img src="../assets/logo.png" alt=""> RustFox</a>
-    <div class="nav-links">
-      <a href="#features">功能</a>
-      <a href="#compare">对比</a>
-      <a href="#agent">AI 集成</a>
-      <a href="#screenshots">截图</a>
-      <a href="#faq">FAQ</a>
-      <a href="#download">下载</a>
-      <a href="#docs">文档</a>
-      <a href="../index.html">English</a>
-      <a href="https://github.com/weihubeats/RustFox">GitHub</a>
-    </div>
-    <details class="mobile-menu">
-      <summary aria-label="打开导航菜单">菜单 ☰</summary>
-      <div class="menu">
+    <div class="nav-right">
+      <div class="nav-links">
         <a href="#features">功能</a>
         <a href="#compare">对比</a>
         <a href="#agent">AI 集成</a>
         <a href="#screenshots">截图</a>
         <a href="#faq">FAQ</a>
-        <a href="#download">下载</a>
         <a href="#docs">文档</a>
         <a href="../index.html">English</a>
         <a href="https://github.com/weihubeats/RustFox">GitHub</a>
       </div>
-    </details>
+      <a class="btn-nav" href="#download">下载</a>
+      <details class="mobile-menu">
+        <summary aria-label="打开导航菜单">菜单 ☰</summary>
+        <div class="menu">
+          <a href="#features">功能</a>
+          <a href="#compare">对比</a>
+          <a href="#agent">AI 集成</a>
+          <a href="#screenshots">截图</a>
+          <a href="#faq">FAQ</a>
+          <a href="#download">下载</a>
+          <a href="#docs">文档</a>
+          <a href="../index.html">English</a>
+          <a href="https://github.com/weihubeats/RustFox">GitHub</a>
+        </div>
+      </details>
+    </div>
   </div>
 </nav>
 
 <header class="hero container" id="top">
-  <h1>约 10 MB 的<br><span class="accent">跨平台 API 调试工具</span></h1>
+  <h1>跨平台 API 调试工具<br><span class="accent">只有约 10 MB</span></h1>
   <p class="sub">一个安装包，开箱即用。请求、Mock、自动化测试、压测全部内置——不内置浏览器内核，无 Node 沙箱，无 JRE。</p>
   <div class="badges">
     <img src="https://github.com/weihubeats/RustFox/actions/workflows/ci.yml/badge.svg" alt="CI">
@@ -213,6 +229,12 @@ footer a:hover { color: var(--text); }
     <a class="btn btn-ghost" href="https://github.com/weihubeats/RustFox">查看源码</a>
   </div>
   <p class="meta">Rust + Tauri 2 + 系统 WebView · Windows / macOS / Linux · Apache-2.0</p>
+  <figure class="hero-shot">
+    <picture>
+      <source type="image/webp" srcset="../assets/api-home.webp">
+      <img src="../assets/api-home.png" alt="RustFox 工作区 — 请求编辑与 Mock 200 响应" width="2880" height="1600">
+    </picture>
+  </figure>
 </header>
 
 <section id="stats">
@@ -288,19 +310,31 @@ footer a:hover { color: var(--text); }
     <p class="section-sub">深色 / 浅色 / 跟随系统主题。</p>
     <div class="screenshots">
       <figure class="shot">
-        <img src="../assets/home.png" alt="RustFox 仪表板" loading="lazy">
+        <picture>
+          <source type="image/webp" srcset="../assets/home.webp">
+          <img src="../assets/home.png" alt="RustFox 仪表板" loading="lazy" width="2880" height="1600">
+        </picture>
         <figcaption>仪表板 — 欢迎统计、最近活动、项目卡片与拖拽导入</figcaption>
       </figure>
       <figure class="shot">
-        <img src="../assets/api-home.png" alt="RustFox 工作区" loading="lazy">
+        <picture>
+          <source type="image/webp" srcset="../assets/api-home.webp">
+          <img src="../assets/api-home.png" alt="RustFox 工作区" loading="lazy" width="2880" height="1600">
+        </picture>
         <figcaption>工作区 — 请求编辑 / 语法高亮 / Mock / 测试 / 压测</figcaption>
       </figure>
       <figure class="shot">
-        <img src="../assets/graphql.png" alt="RustFox GraphQL 工作台" loading="lazy">
+        <picture>
+          <source type="image/webp" srcset="../assets/graphql.webp">
+          <img src="../assets/graphql.png" alt="RustFox GraphQL 工作台" loading="lazy" width="2880" height="1600">
+        </picture>
         <figcaption>GraphQL 工作台 — Query / Variables / OperationName，data 与 errors 按语义区分展示</figcaption>
       </figure>
       <figure class="shot">
-        <img src="../assets/realtime.png" alt="RustFox 实时调试" loading="lazy">
+        <picture>
+          <source type="image/webp" srcset="../assets/realtime.webp">
+          <img src="../assets/realtime.png" alt="RustFox 实时调试" loading="lazy" width="2880" height="1600">
+        </picture>
         <figcaption>实时调试 — WebSocket / SSE 帧日志，支持 Ping、自动重连与独立窗口弹出</figcaption>
       </figure>
     </div>
