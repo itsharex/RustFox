@@ -14,25 +14,30 @@ export default defineConfig({
   clearScreen: false,
   envPrefix: ['VITE_', 'TAURI_ENV_'],
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         /**
          * 首屏分包：CodeMirror 全家桶 + chart.js 原来全进主 chunk。
          * vue / codemirror / chart 拆独立 chunk，配合路由懒加载，
          * 首屏只下发框架 + 当前路由代码。
+         * Vite 8（rolldown）弃用 manualChunks 对象形式，改用 codeSplitting.groups，
+         * test 按包路径匹配，包清单与原 manualChunks 保持一致。
          */
-        manualChunks: {
-          vendor_vue: ['vue', 'vue-router', 'pinia'],
-          vendor_codemirror: [
-            '@codemirror/state',
-            '@codemirror/view',
-            '@codemirror/commands',
-            '@codemirror/language',
-            '@codemirror/lint',
-            '@codemirror/autocomplete',
-            '@codemirror/lang-json',
+        codeSplitting: {
+          groups: [
+            {
+              name: 'vendor_vue',
+              test: /[\\/]node_modules[\\/](vue|vue-router|pinia)[\\/]/,
+            },
+            {
+              name: 'vendor_codemirror',
+              test: /[\\/]node_modules[\\/]@codemirror[\\/](state|view|commands|language|lint|autocomplete|lang-json)[\\/]/,
+            },
+            {
+              name: 'vendor_chart',
+              test: /[\\/]node_modules[\\/](chart\.js|vue-chartjs)[\\/]/,
+            },
           ],
-          vendor_chart: ['chart.js', 'vue-chartjs'],
         },
       },
     },
