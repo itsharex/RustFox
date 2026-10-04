@@ -6,7 +6,7 @@
  * - 项带 confirm 文案时先进入行内确认视图，确认后 emit('confirm')；
  * - 外部点击 / Esc / 滚动 / 窗口缩放自动关闭。
  */
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useLocaleStore } from '../../stores/locale'
 import Icon from './Icon.vue'
 import type { IconName } from './Icon.vue'
@@ -47,21 +47,45 @@ const t = locale.t
 
 const menuStyle = computed(() => ({ left: `${pos.value.left}px`, top: `${pos.value.top}px` }))
 
-function openAt(el: HTMLElement, menuItems: MenuItem[], side: 'right' | 'left' = 'right'): void {
-  items.value = menuItems
-  const rect = el.getBoundingClientRect()
-  const width = 176
-  const height = 220
-  let left = side === 'right' ? rect.right - width : rect.left
+/** 触发元素矩形与弹出方向：openAt 记录，渲染后按实测尺寸校正定位时复用。 */
+let triggerRect: DOMRect | null = null
+let triggerSide: 'right' | 'left' = 'right'
+
+/** 按实测宽高定位：默认贴按钮下方，底部放不下且上方放得下时紧贴按钮上翻。
+ *  原实现用写死 220px 估高，两三项的小菜单上翻后与按钮间留出大片空隙（悬在半空）。 */
+function applyPosition(): void {
+  const rect = triggerRect
+  const menu = menuEl.value
+  if (!rect || !menu) return
+  const width = menu.offsetWidth || 176
+  const height = menu.offsetHeight || 220
+  let left = triggerSide === 'right' ? rect.right - width : rect.left
   left = Math.max(8, Math.min(left, window.innerWidth - width - 8))
   let top = rect.bottom + 4
   if (top + height > window.innerHeight - 8 && rect.top - height - 4 > 8) {
     top = rect.top - height - 4
   }
   pos.value = { left, top }
+}
+
+function openAt(el: HTMLElement, menuItems: MenuItem[], side: 'right' | 'left' = 'right'): void {
+  items.value = menuItems
+  triggerRect = el.getBoundingClientRect()
+  triggerSide = side
+  // 首帧先用估算位置渲染，nextTick 拿到实测尺寸后立即校正（微任务先于绘制，无跳动）
+  const width = 176
+  const height = 220
+  let left = side === 'right' ? triggerRect.right - width : triggerRect.left
+  left = Math.max(8, Math.min(left, window.innerWidth - width - 8))
+  let top = triggerRect.bottom + 4
+  if (top + height > window.innerHeight - 8 && triggerRect.top - height - 4 > 8) {
+    top = triggerRect.top - height - 4
+  }
+  pos.value = { left, top }
   view.value = { kind: 'list' }
   open.value = true
   emit('open')
+  void nextTick(applyPosition)
 }
 
 function close(): void {
@@ -75,6 +99,7 @@ function onItemClick(item: MenuItem): void {
   if (item.disabled) return
   if (item.confirm) {
     view.value = { kind: 'confirm', item }
+    void nextTick(applyPosition)
     return
   }
   close()
@@ -83,6 +108,7 @@ function onItemClick(item: MenuItem): void {
 
 function backToList(): void {
   view.value = { kind: 'list' }
+  void nextTick(applyPosition)
 }
 
 function onConfirm(): void {
