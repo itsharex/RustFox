@@ -3,20 +3,24 @@
  * Popconfirm：危险操作确认气泡（替代原生 confirm）。
  * - 触发区为默认插槽；点击展开气泡，外部点击 / Esc 关闭；
  * - Teleport + 定位测量，底部空间不足自动向上翻转；
- * - 确认按钮支持 danger 样式。
+ * - 视觉：危险图标徽章 + 标题（可选补充说明 description）+ 实心危险确认键；
+ *   danger=false 时为普通确认（accent 徽章 + 主色确认键）。
  */
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useLocaleStore } from '../../stores/locale'
+import Icon from './Icon.vue'
 
 const props = withDefaults(
   defineProps<{
     title?: string
+    /** 补充说明（如「删除后不可恢复」），与标题分层展示；不传则只显示标题。 */
+    description?: string
     confirmText?: string
     cancelText?: string
     danger?: boolean
     disabled?: boolean
   }>(),
-  { title: '', confirmText: '', cancelText: '', danger: true, disabled: false },
+  { title: '', description: '', confirmText: '', cancelText: '', danger: true, disabled: false },
 )
 
 const locale = useLocaleStore()
@@ -46,10 +50,11 @@ function measure(): void {
   const el = triggerEl.value
   if (!el) return
   const rect = el.getBoundingClientRect()
-  const height = 96
+  // 气泡高度随 description 增减，翻转判定按最大形态估算
+  const height = props.description ? 130 : 104
   const up = window.innerHeight - rect.bottom - 8 < height && rect.top > height
   pos.value = {
-    left: Math.min(rect.left, window.innerWidth - 260),
+    left: Math.min(rect.left, window.innerWidth - 296),
     top: up ? rect.top - height - 8 : rect.bottom + 8,
     up,
   }
@@ -117,12 +122,18 @@ onBeforeUnmount(() => {
         role="alertdialog"
         @click.stop
       >
-        <p class="pc-title">{{ effectiveTitle }}</p>
+        <div class="pc-head">
+          <span class="pc-icon" :class="{ accent: !danger }">
+            <Icon name="alert-triangle" :size="15" :stroke-width="1.75" />
+          </span>
+          <p class="pc-title">{{ effectiveTitle }}</p>
+        </div>
+        <p v-if="description" class="pc-desc">{{ description }}</p>
         <div class="pc-actions">
           <button class="rf-btn rf-btn-sm" type="button" @click="onCancel">{{ effectiveCancel }}</button>
           <button
             class="rf-btn rf-btn-sm"
-            :class="danger ? 'rf-btn-danger' : 'rf-btn-primary'"
+            :class="danger ? 'rf-btn-danger-solid' : 'rf-btn-primary'"
             type="button"
             autofocus
             @click="onConfirm"
@@ -143,12 +154,12 @@ onBeforeUnmount(() => {
 .pc-pop {
   position: fixed;
   z-index: 200;
-  width: 252px;
+  width: 288px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  padding: 10px 12px;
+  padding: 12px 14px;
   animation: pc-in 120ms var(--ease);
   transform-origin: top center;
 }
@@ -156,17 +167,52 @@ onBeforeUnmount(() => {
   transform-origin: bottom center;
 }
 
+.pc-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 危险图标徽章：danger-tint 圆角底 + 危险色图标 */
+.pc-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+
+.pc-icon.accent {
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
 .pc-title {
-  margin: 0 0 10px;
-  font-size: 12.5px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
   color: var(--text-1);
   word-break: break-all;
+}
+
+/* 补充说明：与标题文字对齐（28px 徽章 + 10px 间距） */
+.pc-desc {
+  margin: 6px 0 0 38px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-2);
 }
 
 .pc-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 @keyframes pc-in {

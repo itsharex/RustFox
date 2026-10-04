@@ -114,7 +114,8 @@ function shortTime(iso: string): string {
           <IconButton name="download" :size="12" :title="t('examples.applyBack')" @click="apply(ex)" />
           <IconButton name="copy" :size="12" :title="t('examples.duplicate')" @click="duplicate(ex)" />
           <Popconfirm
-            :title="t('examples.deleteConfirm', { name: ex.name })"
+            :title="t('examples.deleteConfirmTitle', { name: ex.name })"
+            :description="t('confirm.undone')"
             :confirm-text="t('common.delete')"
             danger
             @confirm="remove(ex)"
