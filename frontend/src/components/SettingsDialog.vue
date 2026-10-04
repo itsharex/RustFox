@@ -43,6 +43,7 @@ import {
 import Modal from './ui/Modal.vue'
 import Icon, { type IconName } from './ui/Icon.vue'
 import CustomNumberInput from './ui/CustomNumberInput.vue'
+import CustomSelect from './ui/CustomSelect.vue'
 import { envBaseUrl } from '../utils/environment'
 import type { Environment, LogFile, Project, ProjectStat, SeqCounter } from '../types/foxApi'
 
@@ -101,12 +102,40 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const environments = ref<Environment[]>([])
 const activeEnvId = ref<string | null>(null)
 const envLoading = ref(false)
+/** 环境页签可选项目列表 + 当前选中项（默认后端激活项目；首页可切换管理任意项目）。 */
+const envProjects = ref<Project[]>([])
+const envProjectId = ref('')
+
+async function loadEnvProjects(): Promise<void> {
+  try {
+    envProjects.value = await api.getProjects()
+  } catch {
+    envProjects.value = []
+  }
+  // 默认选中后端激活项目；无效则回退第一个
+  if (!envProjects.value.some((p) => p.id === envProjectId.value)) {
+    envProjectId.value = project.value?.id ?? envProjects.value[0]?.id ?? ''
+  }
+}
+
+const envProjectName = computed(
+  () => envProjects.value.find((p) => p.id === envProjectId.value)?.name ?? '',
+)
+
+const envProjectOptions = computed(() =>
+  envProjects.value.map((p) => ({ value: p.id, label: p.name })),
+)
+
+function onEnvProjectChange(value: string | number): void {
+  envProjectId.value = String(value)
+  void loadEnvironments()
+}
 
 async function loadEnvironments(): Promise<void> {
   envLoading.value = true
   try {
     const [envs, active] = await Promise.all([
-      api.listEnvironments(),
+      api.listEnvironments(envProjectId.value),
       api.getActiveEnvironment(),
     ])
     environments.value = envs
@@ -125,9 +154,9 @@ function openEnvironmentManager(envId: string | null = null): void {
   showManager.value = true
 }
 
-/** 环境概览辅助：本项目视角的默认模块基址。 */
+/** 环境概览辅助：环境声明的 Base URL。 */
 function envBase(env: Environment): string {
-  return envBaseUrl(env, project.value?.id)
+  return envBaseUrl(env)
 }
 
 /** 环境概览辅助：启用中的变量数量。 */
@@ -167,6 +196,7 @@ onMounted(async () => {
   } catch {
     timeoutSec.value = DEFAULT_TIMEOUT_SEC
   }
+  await loadEnvProjects()
   await loadEnvironments()
   await loadCounters()
   reloadSkipped()
@@ -1497,10 +1527,26 @@ const projectSummary = computed(() => {
             <section v-if="activeTab === 'environments'">
               <header>
                 <h2 class="text-base font-medium text-zinc-900 dark:text-zinc-100">{{ t('settings.environments') }}</h2>
-                <p class="mt-1 mb-5 text-xs text-zinc-600 dark:text-zinc-500">{{ t('settings.environmentsDesc') }}</p>
+                <p class="mt-1 mb-4 text-xs text-zinc-600 dark:text-zinc-500">{{ t('settings.environmentsDesc') }}</p>
+                <div class="mb-4 flex items-center gap-2">
+                  <span class="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">{{ t('settings.envProject') }}</span>
+                  <CustomSelect
+                    :model-value="envProjectId"
+                    :options="envProjectOptions"
+                    size="sm"
+                    class="w-64"
+                    @update:model-value="onEnvProjectChange"
+                  />
+                </div>
               </header>
 
               <div class="space-y-2">
+                <div
+                  v-if="!envProjectId && !envLoading"
+                  class="rounded-lg border border-zinc-200/70 bg-zinc-50/80 p-6 text-center text-xs text-zinc-600 dark:border-white/[0.06] dark:bg-zinc-900/40 dark:text-zinc-500"
+                >
+                  {{ t('settings.envNoProject') }}
+                </div>
                 <div
                   v-for="env in environments"
                   :key="env.id"
@@ -1544,7 +1590,7 @@ const projectSummary = computed(() => {
                 </div>
 
                 <div
-                  v-if="!environments.length && !envLoading"
+                  v-if="envProjectId && !environments.length && !envLoading"
                   class="rounded-lg border border-zinc-200/70 bg-zinc-50/80 p-6 text-center text-xs text-zinc-600 dark:border-white/[0.06] dark:bg-zinc-900/40 dark:text-zinc-500"
                 >
                   {{ t('settings.envEmpty') }}
@@ -1555,6 +1601,7 @@ const projectSummary = computed(() => {
                 <button
                   class="rf-btn w-full"
                   type="button"
+                  :disabled="!envProjectId"
                   @click="openEnvironmentManager()"
                 >
                   <Icon name="settings" :size="13" />
@@ -1618,7 +1665,12 @@ const projectSummary = computed(() => {
       </div>
     </div>
 
-    <EnvironmentManager v-model:open="showManager" :initial-env-id="managerEnvId" />
+    <EnvironmentManager
+      v-model:open="showManager"
+      :initial-env-id="managerEnvId"
+      :project-id="envProjectId || null"
+      :project-name="envProjectName || null"
+    />
   </Modal>
 </template>
 
