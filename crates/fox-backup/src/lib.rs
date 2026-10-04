@@ -42,8 +42,8 @@ pub struct BackupFile {
 
 /// 备份格式标识。
 pub const FORMAT: &str = "rustfox-project-backup";
-/// 当前 schema 版本（v2：环境多模块 modules + 结构化变量数组）。
-pub const SCHEMA_VERSION: u32 = 2;
+/// 当前 schema 版本（v3：环境回归项目维度 project_id + 单一 Base URL）。
+pub const SCHEMA_VERSION: u32 = 3;
 
 impl BackupFile {
     pub fn serialize(&self) -> Result<String, AppError> {
@@ -58,7 +58,7 @@ impl BackupFile {
             .and_then(serde_json::Value::as_u64)
             .unwrap_or(0);
         if (1..=SCHEMA_VERSION as u64).contains(&version) && version < SCHEMA_VERSION as u64 {
-            upgrade_v1(&mut value);
+            upgrade_legacy_environments(&mut value);
             value["schema_version"] = serde_json::json!(SCHEMA_VERSION);
         }
         let file: BackupFile = serde_json::from_value(value)
@@ -76,11 +76,19 @@ impl BackupFile {
     }
 }
 
-/// v1 → v2：环境变量从 `{key:value}` map 升级为结构化数组。
+/// 旧版备份升级到当前环境形状：
 ///
-/// - `base_url` 键抽出为「默认」模块（modules 空时写入）；
-/// - 其余键转为 `EnvironmentVariable { remote_value = value, enabled: true }`。
-fn upgrade_v1(value: &mut serde_json::Value) {
+/// - v1：环境变量为 `{key:value}` map —— 全部键转结构化数组，
+///   `base_url` 键提升为环境 Base URL；
+/// - v2：环境为全局维度多模块 `modules` —— 取默认 / 首个模块的
+///   base_url 提升为环境 Base URL；
+/// - `project_id` 占位为文件内项目 id（恢复时整体重映射到新项目）。
+fn upgrade_legacy_environments(value: &mut serde_json::Value) {
+    let project_id = value
+        .get("project")
+        .and_then(|p| p.get("id"))
+        .and_then(|i| i.as_str())
+        .map(str::to_string);
     let Some(envs) = value
         .get_mut("environments")
         .and_then(serde_json::Value::as_array_mut)
@@ -88,57 +96,71 @@ fn upgrade_v1(value: &mut serde_json::Value) {
         return;
     };
     for env in envs {
-        let object = match env.as_object_mut() {
-            Some(o) => o,
-            None => continue,
-        };
-        // 已是结构化数组则无需升级。
-        if object
-            .get("variables")
-            .and_then(serde_json::Value::as_array)
-            .is_some()
-        {
-            continue;
-        }
-        let Some(vars_obj) = object.get_mut("variables").and_then(|v| v.as_object_mut()) else {
+        let Some(object) = env.as_object_mut() else {
             continue;
         };
-        let mut list: Vec<serde_json::Value> = Vec::new();
-        let mut base_url: Option<String> = None;
-        for (k, v) in vars_obj.iter() {
-            if k == "base_url" {
-                base_url = Some(
-                    v.as_str()
-                        .map(|s| s.to_string())
-                        .unwrap_or_else(|| v.to_string()),
-                );
-                continue;
-            }
-            if k.trim().is_empty() || k.starts_with("{{") || k.starts_with('$') {
-                continue;
-            }
-            list.push(serde_json::json!({
-                "key": k,
-                "remote_value": v.as_str().map(String::from).unwrap_or_else(|| v.to_string()),
-                "local_value": "",
-                "enabled": true,
-                "description": null,
-            }));
+        // 已是当前形状（base_url）则无需升级。
+        if object.contains_key("base_url") {
+            continue;
         }
-        if let Some(base) = base_url {
-            object.insert(
-                "modules".into(),
-                serde_json::json!([{
-                    "id": Uuid::new_v4().to_string(),
-                    "module_name": "默认",
-                    "base_url": base,
-                    "is_default": true,
-                }]),
-            );
-        } else {
-            object.insert("modules".into(), serde_json::json!([]));
+        // 先算出升级结果（避免与 object 的可变借用冲突）。
+        let (new_variables, base_url) =
+            if let Some(map) = object.get("variables").and_then(|v| v.as_object()) {
+                // v1：map 变量 → 结构化数组（base_url 键提升为基址）。
+                let mut list: Vec<serde_json::Value> = Vec::new();
+                let mut legacy_base_url: Option<String> = None;
+                for (k, v) in map {
+                    if k == "base_url" {
+                        legacy_base_url = Some(
+                            v.as_str()
+                                .map(String::from)
+                                .unwrap_or_else(|| v.to_string()),
+                        );
+                        continue;
+                    }
+                    if k.trim().is_empty() || k.starts_with("{{") || k.starts_with('$') {
+                        continue;
+                    }
+                    list.push(serde_json::json!({
+                    "key": k,
+                    "remote_value": v.as_str().map(String::from).unwrap_or_else(|| v.to_string()),
+                    "local_value": "",
+                    "enabled": true,
+                    "description": null,
+                }));
+                }
+                (
+                    Some(serde_json::Value::Array(list)),
+                    legacy_base_url.unwrap_or_default(),
+                )
+            } else {
+                // v2：多模块取默认 / 首个模块的基址。
+                let base_url = object
+                    .get("modules")
+                    .and_then(|m| m.as_array())
+                    .and_then(|ms| {
+                        ms.iter()
+                            .find(|m| {
+                                m.get("is_default")
+                                    .and_then(|d| d.as_bool())
+                                    .unwrap_or(false)
+                            })
+                            .or_else(|| ms.first())
+                    })
+                    .and_then(|m| m.get("base_url"))
+                    .and_then(|b| b.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                (None, base_url)
+            };
+        if let Some(vars) = new_variables {
+            object.insert("variables".into(), vars);
         }
-        object.insert("variables".into(), serde_json::Value::Array(list));
+        object.remove("modules");
+        object.insert("base_url".into(), serde_json::json!(base_url));
+        if let Some(pid) = &project_id {
+            object.insert("project_id".into(), serde_json::json!(pid));
+        }
     }
 }
 
@@ -222,6 +244,7 @@ pub fn restore_backup(file: &BackupFile) -> Restored {
     for e in &file.environments {
         environments.push(Environment {
             id: Uuid::new_v4(),
+            project_id: new_project_id,
             ..e.clone()
         });
     }
@@ -272,8 +295,7 @@ pub fn restore_backup(file: &BackupFile) -> Restored {
 mod tests {
     use super::*;
     use fox_core::model::{
-        BodySpec, EndpointStatus, EnvironmentVariable, HttpMethod, KeyValue, ModuleUrlConfig,
-        RequestSpec,
+        BodySpec, EndpointStatus, EnvironmentVariable, HttpMethod, KeyValue, RequestSpec,
     };
     fn sample_data() -> BackupFile {
         let project = Project {
@@ -314,14 +336,9 @@ mod tests {
         };
         let env = Environment {
             id: Uuid::new_v4(),
+            project_id: project.id,
             name: "测试".into(),
-            modules: vec![ModuleUrlConfig {
-                id: Uuid::new_v4(),
-                project_id: None,
-                module_name: "默认".into(),
-                base_url: "https://backup.example.com".into(),
-                is_default: true,
-            }],
+            base_url: "https://backup.example.com".into(),
             variables: vec![EnvironmentVariable {
                 key: "token".into(),
                 remote_value: "t1".into(),
@@ -434,12 +451,13 @@ mod tests {
 
     #[test]
     fn parse_v1_backup_upgrades_env_variables() {
-        // 构造 v2 备份 → 还原为 v1 形状（map 变量、无 modules）。
+        // 构造 v3 备份 → 还原为 v1 形状（map 变量、无 base_url / project_id）。
         let data = sample_data();
         let mut v1 = serde_json::json!(data);
         v1["schema_version"] = serde_json::json!(1);
         let env0 = &mut v1["environments"][0];
-        env0.as_object_mut().unwrap().remove("modules");
+        env0.as_object_mut().unwrap().remove("base_url");
+        env0.as_object_mut().unwrap().remove("project_id");
         env0["variables"] = serde_json::json!({
             "base_url": "https://legacy.example.com",
             "token": "t1",
@@ -447,15 +465,33 @@ mod tests {
         let parsed = BackupFile::parse(&v1.to_string()).unwrap();
         assert_eq!(parsed.schema_version, SCHEMA_VERSION);
         let env = &parsed.environments[0];
-        // base_url → 默认模块
-        assert_eq!(env.modules.len(), 1);
-        assert!(env.modules[0].is_default);
-        assert_eq!(env.modules[0].base_url, "https://legacy.example.com");
+        // base_url 键 → 环境 Base URL
+        assert_eq!(env.base_url, "https://legacy.example.com");
+        // project_id 占位为文件内项目
+        assert_eq!(env.project_id, data.project.id);
         // 其余键 → 结构化变量
         assert_eq!(env.variables.len(), 1);
         assert_eq!(env.variables[0].key, "token");
         assert_eq!(env.variables[0].remote_value, "t1");
         assert!(env.variables[0].enabled);
+    }
+
+    /// v2（多模块）备份升级：默认模块的基址提升为环境 Base URL。
+    #[test]
+    fn parse_v2_backup_upgrades_modules_to_base_url() {
+        let data = sample_data();
+        let mut v2 = serde_json::json!(data);
+        v2["schema_version"] = serde_json::json!(2);
+        let env0 = &mut v2["environments"][0];
+        env0.as_object_mut().unwrap().remove("base_url");
+        env0["modules"] = serde_json::json!([
+            { "id": Uuid::new_v4().to_string(), "module_name": "支付", "base_url": "https://pay.example.com", "is_default": true },
+            { "id": Uuid::new_v4().to_string(), "module_name": "收单", "base_url": "https://acq.example.com", "is_default": false },
+        ]);
+        let parsed = BackupFile::parse(&v2.to_string()).unwrap();
+        let env = &parsed.environments[0];
+        assert_eq!(env.base_url, "https://pay.example.com");
+        assert_eq!(env.project_id, data.project.id);
     }
 
     #[test]
@@ -480,9 +516,12 @@ mod tests {
         // MockRule 与 ResponseExample 引用新的 endpoint id
         assert_eq!(restored.mock_rules[0].endpoint_id, Some(ep.id));
         assert_eq!(restored.response_examples[0].endpoint_id, ep.id);
-        // 环境为全局维度：恢复后保留模块配置（与项目无归属关系）。
-        assert_eq!(restored.environments[0].modules.len(), 1);
-        assert!(restored.environments[0].modules[0].is_default);
+        // 环境重映射归属到新项目，基址保留
+        assert_eq!(restored.environments[0].project_id, restored.project.id);
+        assert_eq!(
+            restored.environments[0].base_url,
+            "https://backup.example.com"
+        );
         // 请求用例：引用新 endpoint id、请求快照保持、名称一致
         let req_ex = &restored.request_examples[0];
         assert_eq!(req_ex.endpoint_id, ep.id);

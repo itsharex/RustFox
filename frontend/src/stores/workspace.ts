@@ -76,7 +76,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const activeTabId = ref<string | null>(null)
   const drafts = ref<Map<string, Endpoint>>(new Map())
 
-  /** 环境：列表 + 当前选中（execute_request 的 environment_id 来源）。 */
+  /** 环境：当前项目的列表 + 当前选中（execute_request 的 environment_id 来源）。 */
   const environments = ref<Environment[]>([])
   const activeEnvId = ref<string | null>(null)
 
@@ -89,33 +89,20 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   /** 会话级 Base URL（仅本次会话，不落库）；cURL 导入时自动预填为 URL 的 origin。 */
   const sessionBaseUrl = ref('http://localhost')
 
-  /** 地址栏域名前缀（唯一真实数据源）：选中环境声明默认模块 base_url 或 base_url 变量时优先，否则回退会话 Base URL。
-   *  默认模块随当前项目走（项目绑定的模块优先），多项目共用环境时各自落在自己的基址上。 */
+  /** 地址栏域名前缀（唯一真实数据源）：选中环境声明 Base URL 时优先，否则回退会话 Base URL。 */
   const urlDomain = computed(() => {
     const env = environments.value.find((e) => e.id === activeEnvId.value)
-    const base = envBaseUrl(env, project.value?.id)
+    const base = envBaseUrl(env)
     if (base) return '{{base_url}}'
     return sessionBaseUrl.value || ''
   })
 
-  /** 把当前选中环境的默认模块 base_url 更新为 url（地址栏粘贴完整 URL 时同步环境）。 */
+  /** 把当前选中环境的 Base URL 更新为 url（地址栏粘贴完整 URL 时同步环境）。 */
   async function setEnvironmentBaseUrl(url: string): Promise<void> {
     const env = environments.value.find((e) => e.id === activeEnvId.value)
     if (!env) return
-    const modules = [...env.modules]
-    if (modules.length === 0) {
-      modules.push({ id: crypto.randomUUID(), module_name: '默认', base_url: url, is_default: true })
-    } else {
-      // 优先写当前项目绑定的模块，其次 is_default，最后第一个
-      const pid = project.value?.id
-      let idx = pid ? modules.findIndex((m) => m.project_id === pid) : -1
-      if (idx === -1) idx = modules.findIndex((m) => m.is_default)
-      if (idx === -1) idx = 0
-      modules[idx] = { ...modules[idx], base_url: url }
-    }
-    const updated: Environment = { ...env, modules }
     try {
-      const saved = await api.saveEnvironment(updated)
+      const saved = await saveEnvironmentVerified({ ...env, base_url: url })
       const idx = environments.value.findIndex((e) => e.id === env.id)
       if (idx !== -1) environments.value[idx] = saved
     } catch (err) {
@@ -1067,10 +1054,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     toast.info(t('ws.duplicated', { name: dup.name }))
   }
 
-  /** 加载环境列表（全局）+ 当前激活环境 + 全局变量 + 全局参数。 */
+  /** 加载当前项目的环境列表 + 激活环境 + 全局变量 + 全局参数。 */
   async function loadEnvironments(): Promise<void> {
+    const pid = project.value?.id
+    if (!pid) return
     const [envs, active, global, params] = await Promise.all([
-      api.listEnvironments(),
+      api.listEnvironments(pid),
       api.getActiveEnvironment(),
       api.getGlobalVariables(),
       api.getGlobalParams(),
@@ -1099,13 +1088,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     activeEnvId.value = env?.id ?? null
   }
 
-  /** 新建环境（全局维度；模块随项目自动同步）。 */
+  /** 新建环境（项目维度：归属当前项目）。 */
   async function createEnvironment(name: string): Promise<void> {
     const now = new Date().toISOString()
     const env = await api.saveEnvironment({
       id: crypto.randomUUID(),
+      project_id: project.value?.id ?? '',
       name,
-      modules: [],
+      base_url: '',
       variables: [],
       created_at: now,
       updated_at: now,
@@ -1114,12 +1104,26 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     toast.success(t('ws.envCreated', { name: env.name }))
   }
 
+  /**
+   * 保存环境并做回显校验。
+   * 后端若为旧版本（Environment 还没有 base_url 字段）会静默丢弃提交内容——
+   * 保存"成功"却没落库（用户报过「输入 Base URL 点保存没效果」）。
+   * 回显与提交不一致时抛错：调用方按失败处理，本地列表不同步。
+   */
+  async function saveEnvironmentVerified(payload: Environment): Promise<Environment> {
+    const saved = await api.saveEnvironment({ ...payload, updated_at: new Date().toISOString() })
+    if (payload.base_url && saved.base_url !== payload.base_url) {
+      throw new Error(t('ws.envSaveEchoMismatch'))
+    }
+    return saved
+  }
+
   /** 保存（upsert）环境并同步本地列表。 */
   async function updateEnvironment(
     env: Environment,
     opts?: { silent?: boolean },
   ): Promise<Environment> {
-    const saved = await api.saveEnvironment({ ...env, updated_at: new Date().toISOString() })
+    const saved = await saveEnvironmentVerified(env)
     const idx = environments.value.findIndex((e) => e.id === saved.id)
     if (idx === -1) environments.value.push(saved)
     else environments.value[idx] = saved
@@ -1127,12 +1131,24 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     return saved
   }
 
-  /** 删除环境；若删除的是当前激活环境则清空选中。 */
-  async function deleteEnvironment(environmentId: string): Promise<void> {
+  /**
+   * 远程保存环境但不触碰本地列表：供「非当前工作区项目」的管理弹窗使用
+   * （首页设置里跨项目管理环境），避免把其他项目的环境写进当前项目列表。
+   * 回显校验与 updateEnvironment 相同。
+   */
+  async function saveEnvironmentRemote(env: Environment): Promise<Environment> {
+    return saveEnvironmentVerified(env)
+  }
+
+  /** 删除环境；若删除的是当前激活环境则清空选中。silent 供调用方自带更具体提示时免双弹。 */
+  async function deleteEnvironment(
+    environmentId: string,
+    opts?: { silent?: boolean },
+  ): Promise<void> {
     await api.deleteEnvironment(environmentId)
     environments.value = environments.value.filter((e) => e.id !== environmentId)
     if (activeEnvId.value === environmentId) activeEnvId.value = null
-    toast.success(t('ws.envDeleted'))
+    if (!opts?.silent) toast.success(t('ws.envDeleted'))
   }
 
   /**
@@ -1719,6 +1735,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     setEnvironment,
     createEnvironment,
     updateEnvironment,
+    saveEnvironmentRemote,
     deleteEnvironment,
     saveGlobalVariables,
     saveGlobalParams,

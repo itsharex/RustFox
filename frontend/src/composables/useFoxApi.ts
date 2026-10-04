@@ -211,8 +211,9 @@ export function useFoxApi() {
   const parseCurlCommand = (command: string) =>
     run(() => call<CurlParsed>('parse_curl_command', { command }))
 
-  // ---------- 环境 ----------
-  const listEnvironments = () => run(() => call<Environment[]>('list_environments'))
+  // ---------- 环境（项目维度） ----------
+  const listEnvironments = (projectId: string) =>
+    run(() => call<Environment[]>('list_environments', { projectId }))
 
   const saveEnvironment = (environment: Environment) =>
     run(() => call<Environment>('save_environment', { environment }))
@@ -234,9 +235,9 @@ export function useFoxApi() {
   const exportEnvironment = (environmentId: string, format: EnvExchangeFormat) =>
     run(() => call<ExportedEnv>('export_environment', { environmentId, format }))
 
-  /** 导入环境预览（不落库；自动识别 RustFox / Postman 格式）。 */
-  const importEnvironment = (text: string) =>
-    run(() => call<ImportedEnv>('import_environment', { text }))
+  /** 导入环境预览（不落库；自动识别 RustFox / Postman 格式，归属当前项目）。 */
+  const importEnvironment = (text: string, projectId: string) =>
+    run(() => call<ImportedEnv>('import_environment', { text, projectId }))
 
   // ---------- 全局变量 ----------
   const getGlobalVariables = () => run(() => call<EnvironmentVariable[]>('get_global_variables'))

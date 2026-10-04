@@ -21,7 +21,7 @@ pub async fn get_global_variables(db: &SqlitePool) -> Result<Vec<EnvironmentVari
     };
     match decrypt_env_json(&blob) {
         Ok(value) => {
-            let (vars, _) = variables_from_value(value)?;
+            let vars = variables_from_value(value)?;
             Ok(vars)
         }
         Err(e) => {

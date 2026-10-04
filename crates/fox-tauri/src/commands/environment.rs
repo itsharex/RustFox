@@ -1,5 +1,8 @@
 //! 环境 Command：列表 / 保存 / 激活切换 / 导入导出。
 //!
+//! 环境为项目维度：哪个项目就编辑哪个项目的环境（`list_environments`
+//! 按项目列出，`save_environment` 校验归属当前激活项目）。
+//!
 //! 导入导出对标 Postman/Bruno：原来环境只能随整项目备份 JSON 迁移，
 //! 无单环境文件互通。本模块提供 RustFox 原生 JSON 与 Postman Environment
 //! v1 双格式（自动识别导入）。注意：导出含变量明文（与备份 JSON 一致），
@@ -9,19 +12,27 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 use uuid::Uuid;
 
-use fox_core::model::{Environment, EnvironmentVariable, ModuleUrlConfig};
+use fox_core::model::{Environment, EnvironmentVariable};
 use fox_storage::repository as repo;
 
 use crate::error::{CommandError, CommandResult};
 use crate::state::AppState;
 
-/// 列出全部环境（全局维度，跨项目共享；模块已按当前项目自动同步）。
+/// 列出项目的全部环境（项目维度）。
 #[tauri::command(rename_all = "camelCase")]
-pub async fn list_environments(state: State<'_, AppState>) -> CommandResult<Vec<Environment>> {
-    repo::list_environments(&state.db).await.map_err(Into::into)
+pub async fn list_environments(
+    state: State<'_, AppState>,
+    project_id: Uuid,
+) -> CommandResult<Vec<Environment>> {
+    repo::list_environments(&state.db, project_id)
+        .await
+        .map_err(Into::into)
 }
 
-/// 保存环境（upsert）。名称必填。返回同步项目模块后的完整环境。
+/// 保存环境（upsert）。名称必填；所属项目必须存在。
+/// 不要求等于激活项目：设置里可跨项目管理环境（首页无工作区上下文）；
+/// 激活环境的切换另有归属校验（`set_active_environment`）。
+/// 返回完整环境，激活环境被编辑时同步覆盖缓存。
 #[tauri::command(rename_all = "camelCase")]
 pub async fn save_environment(
     state: State<'_, AppState>,
@@ -30,6 +41,9 @@ pub async fn save_environment(
     if environment.name.trim().is_empty() {
         return Err(CommandError::validation("环境名称不能为空"));
     }
+    repo::get_project(&state.db, environment.project_id)
+        .await
+        .map_err(|_| CommandError::validation("环境所属项目不存在"))?;
     let saved = repo::save_environment(&state.db, &environment).await?;
     // 激活环境被编辑：同步覆盖缓存，否则发请求仍用旧环境变量
     state.refresh_active_environment(saved.clone()).await;
@@ -37,6 +51,7 @@ pub async fn save_environment(
 }
 
 /// 切换激活环境（`null` 表示不使用环境变量）。返回切换后的环境缓存。
+/// 环境必须属于当前激活项目（后端校验）。
 #[tauri::command(rename_all = "camelCase")]
 pub async fn set_active_environment(
     state: State<'_, AppState>,
@@ -46,7 +61,7 @@ pub async fn set_active_environment(
     state.active_environment().await
 }
 
-/// 读取当前激活环境。
+/// 读取当前激活环境（当前激活项目记忆的激活环境）。
 #[tauri::command(rename_all = "camelCase")]
 pub async fn get_active_environment(
     state: State<'_, AppState>,
@@ -54,17 +69,33 @@ pub async fn get_active_environment(
     state.active_environment().await
 }
 
-/// 删除环境；若删除的是当前激活环境，则同时清空激活状态。
+/// 删除环境；若删除的是当前激活环境，则同时清空激活状态（含持久化键）。
 #[tauri::command(rename_all = "camelCase")]
 pub async fn delete_environment(
     state: State<'_, AppState>,
     environment_id: Uuid,
 ) -> CommandResult<()> {
     repo::delete_environment(&state.db, environment_id).await?;
-    let mut active = state.active.write().await;
-    if active.environment_id == Some(environment_id) {
+    let (project_id, is_active) = {
+        let active = state.active.read().await;
+        (
+            active.project_id,
+            active.environment_id == Some(environment_id),
+        )
+    };
+    if is_active {
+        let mut active = state.active.write().await;
         active.environment_id = None;
         active.environment = None;
+        drop(active);
+        if let Some(pid) = project_id {
+            repo::set_setting(
+                &state.db,
+                &crate::state::active_environment_key(pid),
+                "null",
+            )
+            .await?;
+        }
     }
     Ok(())
 }
@@ -73,9 +104,9 @@ pub async fn delete_environment(
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EnvExchangeFormat {
-    /// RustFox 原生 JSON（变量 + 多模块 Base URL 全量）。
+    /// RustFox 原生 JSON（变量 + Base URL 全量）。
     RustfoxJson,
-    /// Postman Environment v1（`{name, values:[{key,value,enabled}]}`；模块信息丢弃）。
+    /// Postman Environment v1（`{name, values:[{key,value,enabled}]}`；Base URL 丢弃）。
     PostmanJson,
 }
 
@@ -153,32 +184,31 @@ pub struct ImportedEnv {
     pub format: &'static str,
     pub name: String,
     pub variables: Vec<EnvironmentVariable>,
-    pub modules: Vec<ModuleUrlConfig>,
+    /// 环境 Base URL（Postman 格式无此信息，导入后为空）。
+    pub base_url: String,
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn import_environment(text: String) -> CommandResult<ImportedEnv> {
+pub async fn import_environment(text: String, project_id: Uuid) -> CommandResult<ImportedEnv> {
     let value: serde_json::Value = serde_json::from_str(&text)
         .map_err(|e| CommandError::validation(format!("不是合法 JSON：{e}")))?;
-    // RustFox 原生：含 variables 数组（modules 可选）。
+    // RustFox 原生：含 variables 数组（兼容旧版多模块导出：modules → 首个基址）。
     if value.get("variables").is_some_and(|v| v.is_array()) {
-        let mut env: Environment = serde_json::from_value(value)
+        let mut env: Environment = serde_json::from_value(normalize_legacy_env(value))
             .map_err(|e| CommandError::validation(format!("RustFox 环境格式解析失败：{e}")))?;
         if env.name.trim().is_empty() {
             return Err(CommandError::validation("环境名称为空"));
         }
         env.id = Uuid::new_v4();
+        env.project_id = project_id;
         let now = chrono::Utc::now();
         env.created_at = now;
         env.updated_at = now;
-        for m in &mut env.modules {
-            m.id = Uuid::new_v4();
-        }
         return Ok(ImportedEnv {
             format: "rustfox",
             name: env.name,
             variables: env.variables,
-            modules: env.modules,
+            base_url: env.base_url,
         });
     }
     // Postman：values 数组。
@@ -213,12 +243,46 @@ pub async fn import_environment(text: String) -> CommandResult<ImportedEnv> {
             format: "postman",
             name,
             variables,
-            modules: Vec::new(),
+            base_url: String::new(),
         });
     }
     Err(CommandError::validation(
         "无法识别的环境格式（支持 RustFox 环境 JSON / Postman Environment）",
     ))
+}
+
+/// 旧版（RustFox 多模块）导出兼容：`modules` 数组取默认 / 首个模块的
+/// base_url 提升为环境 Base URL，并补 `project_id` 占位（由调用方覆盖）。
+fn normalize_legacy_env(mut value: serde_json::Value) -> serde_json::Value {
+    let Some(object) = value.as_object_mut() else {
+        return value;
+    };
+    if object.contains_key("base_url") && object.contains_key("project_id") {
+        return value;
+    }
+    let base_url = object
+        .get("modules")
+        .and_then(|m| m.as_array())
+        .and_then(|ms| {
+            ms.iter()
+                .find(|m| {
+                    m.get("is_default")
+                        .and_then(|d| d.as_bool())
+                        .unwrap_or(false)
+                })
+                .or_else(|| ms.first())
+        })
+        .and_then(|m| m.get("base_url"))
+        .and_then(|b| b.as_str())
+        .unwrap_or("")
+        .to_string();
+    object.remove("modules");
+    object.insert("base_url".into(), serde_json::json!(base_url));
+    object.insert(
+        "project_id".into(),
+        serde_json::json!(Uuid::nil().to_string()),
+    );
+    value
 }
 
 /// 读取全局变量（跨项目共享，优先级最低的兜底变量表）。

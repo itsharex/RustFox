@@ -20,20 +20,18 @@ const setEnvironment = vi.fn()
 const ENVS: Environment[] = [
   {
     id: 'e-dev',
+    project_id: 'p1',
     name: '开发环境',
-    modules: [
-      { id: 'm1', module_name: '默认', base_url: 'https://jsonplaceholder.typicode.com', is_default: true },
-    ],
+    base_url: 'https://jsonplaceholder.typicode.com',
     variables: [],
     created_at: '',
     updated_at: '',
   },
   {
     id: 'e-test',
+    project_id: 'p1',
     name: '测试环境',
-    modules: [
-      { id: 'm2', module_name: '默认', base_url: 'https://api.test.example.com', is_default: true },
-    ],
+    base_url: 'https://api.test.example.com',
     variables: [],
     created_at: '',
     updated_at: '',

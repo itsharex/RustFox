@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | 接口 + 分组目录 | 接口 + 文件夹 | OpenAPI / Postman Collection 导入，自动建目录 |
 | 接口描述、参数、Body、响应示例 | 同名内容 | 导入自动带入 |
-| 前置 URL / 环境域名 | 环境 base_url（多模块为各模块基址） | 手动填一行 |
+| 前置 URL / 环境域名 | 环境 base_url（每个环境一个基址） | 手动填一行 |
 | 环境变量 / 全局变量 | 环境变量 / 项目变量 / 全局变量（`{{name}}` 通用） | 手动对照填；Postman Environment 文件可直接导入 |
 | Bearer / Basic / API Key | 同名认证 | 手动照抄（密钥不随文档走） |
 | OAuth2 登录态 | OAuth2 四模式 | 需重新走授权拿 token |
@@ -39,7 +39,7 @@
 
 ## 4. 环境与变量：对照填一行
 
-1. 新建环境，把 Apifox 的前置 URL 填入 base_url（多服务项目按模块分别填基址）；
+1. 新建环境，把 Apifox 的前置 URL 填入 base_url；
 2. 把 Apifox 环境变量逐个填入 RustFox 环境变量，写法不变（两边都是 `{{name}}`，
    优先级：环境 > 项目 > 全局）；
 3. 手头有 Postman Environment 文件可直接导入（环境管理弹窗底部），重名自动加后缀；

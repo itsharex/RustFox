@@ -75,7 +75,7 @@ const activeEnv = computed(() => store.environments.find((e) => e.id === store.a
 const envVars = computed(() => ({
   ...variableListToMap(store.globalVariables),
   ...(store.project?.variables ?? {}),
-  ...environmentVariableMap(activeEnv.value, store.project?.id),
+  ...environmentVariableMap(activeEnv.value),
 }))
 
 /** 路径 → 绝对地址（镜像 EndpointEditor.buildUrl：绝对地址直用，否则拼基址并解析变量）。 */
@@ -84,7 +84,7 @@ function absoluteUrl(path: string): string {
   if (!p) return ''
   if (p.startsWith('http://') || p.startsWith('https://')) return p
   if (activeEnv.value && envBaseUrl(activeEnv.value)) {
-    return resolveRequestUrl(activeEnv.value, null, p, envVars.value, store.project?.id ?? null).url
+    return resolveRequestUrl(activeEnv.value, p, envVars.value).url
   }
   const rel = p.startsWith('/') ? p : `/${p}`
   return `${store.urlDomain}${rel}`

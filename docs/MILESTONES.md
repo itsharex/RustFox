@@ -29,6 +29,7 @@
 | M20 | 环境全局化（多模块 Base URL + 全局变量/参数，默认模块随项目走） | ✅ 完成 |
 | M21 | 工作区体验（多项目标签快照 / GraphQL 调试视图 / 测试用例 Drawer / 设计态 Schema / Cookie 回放 + 全局代理） | ✅ 完成 |
 | M22 | 偏好与外观（主题 跟随系统/深色/浅色 / 请求超时可配置 / 自增序列管理 / 备份导出目录选择） | ✅ 完成 |
+| M23 | 环境按项目归属（移除模块概念：单一 Base URL + 激活环境按项目记忆） | ✅ 完成 |
 
 > M17 起为 Tauri 时代里程碑，Dioxus 相关行（M0–M2 的桌面描述、M2.5/M16 的 styles.rs）为历史记录，
 > 当前实现以 [ARCHITECTURE.md](ARCHITECTURE.md) 与 [TAURI_MIGRATION.md](TAURI_MIGRATION.md) 为准。

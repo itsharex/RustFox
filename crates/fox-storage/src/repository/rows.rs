@@ -145,9 +145,10 @@ impl EndpointRow {
 #[derive(sqlx::FromRow)]
 pub(crate) struct EnvironmentRow {
     pub(crate) id: String,
+    pub(crate) project_id: String,
     pub(crate) name: String,
+    pub(crate) base_url: String,
     pub(crate) variables_json: String,
-    pub(crate) modules_json: String,
     pub(crate) created_at: String,
     pub(crate) updated_at: String,
 }
@@ -156,10 +157,12 @@ impl EnvironmentRow {
     pub(crate) fn from_model(model: &Environment) -> EnvironmentRow {
         EnvironmentRow {
             id: model.id.to_string(),
+            project_id: model.project_id.to_string(),
             name: model.name.clone(),
+            // 基址非敏感信息，明文落库。
+            base_url: model.base_url.clone(),
             // M11：变量整体加密后落库（密钥不可用时降级明文，保证可用性）。
             variables_json: encrypt_env_json(&model.variables),
-            modules_json: serde_json::to_string(&model.modules).unwrap_or_else(|_| "[]".into()),
             created_at: model.created_at.to_rfc3339(),
             updated_at: model.updated_at.to_rfc3339(),
         }
@@ -167,19 +170,12 @@ impl EnvironmentRow {
 
     pub(crate) fn into_model(self) -> Result<Environment> {
         let value = decrypt_env_json(&self.variables_json)?;
-        let (variables, legacy_module) = variables_from_value(value)?;
-        // 旧数据：modules_json 恒为 `[]`，若旧 map 里带 base_url 则回填为默认模块。
-        let mut modules: Vec<ModuleUrlConfig> =
-            serde_json::from_str(&self.modules_json).unwrap_or_default();
-        if modules.is_empty() {
-            if let Some(module) = legacy_module {
-                modules.push(module);
-            }
-        }
+        let variables = variables_from_value(value)?;
         Ok(Environment {
             id: parse_uuid(&self.id)?,
+            project_id: parse_uuid(&self.project_id)?,
             name: self.name,
-            modules,
+            base_url: self.base_url,
             variables,
             created_at: parse_time(&self.created_at)?,
             updated_at: parse_time(&self.updated_at)?,
@@ -450,13 +446,9 @@ pub(crate) fn decrypt_env_json(json: &str) -> Result<serde_json::Value> {
 
 /// 从解密后的 JSON 解析结构化变量。
 ///
-/// 新格式为数组 `[EnvironmentVariable]`；旧格式为 `{key:value}` map，按
-/// 下列规则兼容转换：
-/// - `base_url` 键抽出作为默认模块（回填到空 modules）；
-/// - 其余键转为 `EnvironmentVariable { remote_value = value, enabled: true }`。
-pub(crate) fn variables_from_value(
-    value: serde_json::Value,
-) -> Result<(Vec<EnvironmentVariable>, Option<ModuleUrlConfig>)> {
+/// 新格式为数组 `[EnvironmentVariable]`；旧格式为 `{key:value}` map，
+/// 全部键转为 `EnvironmentVariable { remote_value = value, enabled: true }`。
+pub(crate) fn variables_from_value(value: serde_json::Value) -> Result<Vec<EnvironmentVariable>> {
     match value {
         serde_json::Value::Array(items) => {
             let mut vars = Vec::with_capacity(items.len());
@@ -465,20 +457,15 @@ pub(crate) fn variables_from_value(
                     AppError::Decryption("环境变量密文已损坏，无法解析".to_string())
                 })?);
             }
-            Ok((vars, None))
+            Ok(vars)
         }
         serde_json::Value::Object(map) => {
             let mut vars = Vec::with_capacity(map.len());
-            let mut legacy_base_url: Option<String> = None;
             for (key, value) in map {
                 let raw = match value {
                     serde_json::Value::String(s) => s,
                     other => other.to_string(),
                 };
-                if key == "base_url" {
-                    legacy_base_url = Some(raw);
-                    continue;
-                }
                 if key.trim().is_empty() || key.starts_with("{{") || key.starts_with('$') {
                     continue;
                 }
@@ -490,14 +477,7 @@ pub(crate) fn variables_from_value(
                     description: None,
                 });
             }
-            let module = legacy_base_url.map(|base_url| ModuleUrlConfig {
-                id: Uuid::new_v4(),
-                project_id: None,
-                module_name: "默认".into(),
-                base_url,
-                is_default: true,
-            });
-            Ok((vars, module))
+            Ok(vars)
         }
         _ => Err(AppError::Decryption(
             "环境变量密文已损坏，无法解析".to_string(),

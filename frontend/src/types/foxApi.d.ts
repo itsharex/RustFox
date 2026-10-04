@@ -266,19 +266,6 @@ export interface Endpoint {
   updated_at: string
 }
 
-/** 模块 / 服务的前置 URL 配置（环境内一个可命中目标，Rust `ModuleUrlConfig`）。 */
-export interface ModuleUrlConfig {
-  id: string
-  /** 关联的项目 id：模块自动同步项目时绑定；手工临时模块为 null。 */
-  project_id?: string | null
-  /** 模块名，如「支付」「收单」「api」（项目模块随项目名自动刷新）。 */
-  module_name: string
-  /** 前置 URL，如 `http://dev-test01.redotpay.inet:8092`（可含 `{{变量}}`）。 */
-  base_url: string
-  /** 是否为默认模块（请求未显式绑定模块时使用）。 */
-  is_default: boolean
-}
-
 /** 环境变量（Rust `EnvironmentVariable`）：本地值优先覆盖远程值。 */
 export interface EnvironmentVariable {
   key: string
@@ -303,12 +290,14 @@ export interface GlobalParam {
   location: GlobalParamLocation
 }
 
-/** 环境（Rust `Environment`，全局维度，跨项目共享）。 */
+/** 环境（Rust `Environment`，项目维度：哪个项目就编辑哪个项目的环境）。 */
 export interface Environment {
   id: string
+  /** 归属项目 id。 */
+  project_id: string
   name: string
-  /** 多模块前置 URL 列表（项目模块自动同步全部项目）。 */
-  modules: ModuleUrlConfig[]
+  /** 前置 Base URL（如 `http://dev-test01.redotpay.inet:8092`，可含 `{{变量}}`）。 */
+  base_url: string
   /** 结构化环境变量列表。 */
   variables: EnvironmentVariable[]
   created_at: string
@@ -569,7 +558,8 @@ export interface ImportedEnv {
   format: string
   name: string
   variables: EnvironmentVariable[]
-  modules: ModuleUrlConfig[]
+  /** 环境 Base URL（Postman 格式无此信息，为空串）。 */
+  base_url: string
 }
 
 /** WS 事件（事件 `fox:ws-event` 载荷）。 */

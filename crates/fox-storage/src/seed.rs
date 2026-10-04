@@ -10,7 +10,8 @@
 //!   （启动 Mock 后基址 http://127.0.0.1:4010 可直接调试）；
 //! - 项目 2「小奏技术 · 开放演示」：公网真实 API（JSONPlaceholder），无需 Mock 即可直接发送；
 //! - 项目 3「小奏技术 · GraphQL 网关」：公共 GraphQL 服务，测试 GraphQL 工作台；
-//! - 环境「开发环境 / 测试环境」（多模块 Base URL + 变量）、全局参数、激活项 settings。
+//! - 环境：每个项目各自的「开发环境 / 测试环境」（单一 Base URL + 变量）、
+//!   全局参数、激活项 settings。
 
 use std::collections::HashMap;
 
@@ -20,17 +21,18 @@ use uuid::Uuid;
 
 use fox_core::model::{
     BodySpec, Endpoint, EndpointStatus, Environment, EnvironmentVariable, Folder, GlobalParam,
-    GlobalParamLocation, GraphQLSpec, HttpMethod, KeyValue, MockMatchItem, MockRule,
-    ModuleUrlConfig, Project, RequestSpec,
+    GlobalParamLocation, GraphQLSpec, HttpMethod, KeyValue, MockMatchItem, MockRule, Project,
+    RequestSpec,
 };
 use fox_core::Result;
 
 use crate::repository as repo;
 
-/// 与 fox-tauri/src/state.rs 的 KEY_ACTIVE_PROJECT / KEY_ACTIVE_ENVIRONMENT 一致；
+/// 与 fox-tauri/src/state.rs 的 KEY_ACTIVE_PROJECT 一致；
 /// state.rs 未导出常量，此处保持字面量同步。
+/// 激活环境按项目记忆：键为 `active_environment_id:{project_id}`。
 const KEY_ACTIVE_PROJECT: &str = "active_project_id";
-const KEY_ACTIVE_ENVIRONMENT: &str = "active_environment_id";
+const KEY_ACTIVE_ENVIRONMENT_PREFIX: &str = "active_environment_id:";
 
 /// 开发启动时清库后的种子写入入口。
 pub async fn seed_dev_data(db: &SqlitePool) -> Result<()> {
@@ -369,16 +371,12 @@ pub async fn seed_dev_data(db: &SqlitePool) -> Result<()> {
         .await?;
     }
 
-    // ---- 环境（全局维度，多模块 Base URL + 变量） ----
-    let dev_env = Environment {
-        id: Uuid::new_v4(),
-        name: "开发环境".to_string(),
-        modules: vec![
-            module(&users, "http://127.0.0.1:4010", true),
-            module(&open_demo, "https://jsonplaceholder.typicode.com", false),
-            module(&graphql, "https://countries.trevorblades.com", false),
-        ],
-        variables: vec![
+    // ---- 环境（项目维度：每个项目各自的开发 / 测试环境 + 单一 Base URL） ----
+    let users_dev = environment(
+        &users,
+        "开发环境",
+        "http://127.0.0.1:4010",
+        vec![
             env_var(
                 "token",
                 "xz-dev-token-123",
@@ -387,18 +385,12 @@ pub async fn seed_dev_data(db: &SqlitePool) -> Result<()> {
             env_var("env_name", "development", "当前环境标识"),
             env_var("trace_id", "xz-trace-dev-001", "链路追踪 ID 示例"),
         ],
-        created_at: Utc::now(),
-        updated_at: Utc::now(),
-    };
-    let staging_env = Environment {
-        id: Uuid::new_v4(),
-        name: "测试环境".to_string(),
-        modules: vec![
-            module(&users, "http://127.0.0.1:4010", true),
-            module(&open_demo, "https://jsonplaceholder.typicode.com", false),
-            module(&graphql, "https://countries.trevorblades.com", false),
-        ],
-        variables: vec![
+    );
+    let users_test = environment(
+        &users,
+        "测试环境",
+        "http://127.0.0.1:4010",
+        vec![
             env_var(
                 "token",
                 "xz-test-token-456",
@@ -407,11 +399,73 @@ pub async fn seed_dev_data(db: &SqlitePool) -> Result<()> {
             env_var("env_name", "staging", "当前环境标识"),
             env_var("trace_id", "xz-trace-stg-001", "链路追踪 ID 示例"),
         ],
-        created_at: Utc::now(),
-        updated_at: Utc::now(),
-    };
-    repo::save_environment(db, &dev_env).await?;
-    repo::save_environment(db, &staging_env).await?;
+    );
+    let open_dev = environment(
+        &open_demo,
+        "开发环境",
+        "https://jsonplaceholder.typicode.com",
+        vec![
+            env_var(
+                "token",
+                "xz-dev-token-123",
+                "小奏技术登录接口返回的 Bearer Token 示例",
+            ),
+            env_var("env_name", "development", "当前环境标识"),
+            env_var("trace_id", "xz-trace-dev-001", "链路追踪 ID 示例"),
+        ],
+    );
+    let open_test = environment(
+        &open_demo,
+        "测试环境",
+        "https://jsonplaceholder.typicode.com",
+        vec![
+            env_var(
+                "token",
+                "xz-test-token-456",
+                "小奏技术登录接口返回的 Bearer Token 示例",
+            ),
+            env_var("env_name", "staging", "当前环境标识"),
+            env_var("trace_id", "xz-trace-stg-001", "链路追踪 ID 示例"),
+        ],
+    );
+    let gql_dev = environment(
+        &graphql,
+        "开发环境",
+        "https://countries.trevorblades.com",
+        vec![
+            env_var(
+                "token",
+                "xz-dev-token-123",
+                "小奏技术登录接口返回的 Bearer Token 示例",
+            ),
+            env_var("env_name", "development", "当前环境标识"),
+            env_var("trace_id", "xz-trace-dev-001", "链路追踪 ID 示例"),
+        ],
+    );
+    let gql_test = environment(
+        &graphql,
+        "测试环境",
+        "https://countries.trevorblades.com",
+        vec![
+            env_var(
+                "token",
+                "xz-test-token-456",
+                "小奏技术登录接口返回的 Bearer Token 示例",
+            ),
+            env_var("env_name", "staging", "当前环境标识"),
+            env_var("trace_id", "xz-trace-stg-001", "链路追踪 ID 示例"),
+        ],
+    );
+    for env in [
+        &users_dev,
+        &users_test,
+        &open_dev,
+        &open_test,
+        &gql_dev,
+        &gql_test,
+    ] {
+        repo::save_environment(db, env).await?;
+    }
 
     // ---- 全局参数（注入制演示） ----
     repo::save_global_params(
@@ -433,11 +487,16 @@ pub async fn seed_dev_data(db: &SqlitePool) -> Result<()> {
     )
     .await?;
 
-    // ---- 激活项：启动即落在「小奏技术 · 开放演示」（jsonplaceholder 公网接口）+ 开发环境 ----
+    // ---- 激活项：启动即落在「小奏技术 · 开放演示」（jsonplaceholder 公网接口）+ 其开发环境 ----
     // 默认激活公网项目而非本地 Mock（127.0.0.1:4010），保证 dev 开箱即可直接发送请求；
     // 需要本地 Mock 演示时切到「小奏技术 · 用户服务」并启动 Mock 服务即可。
     repo::set_setting(db, KEY_ACTIVE_PROJECT, &setting_id(&open_demo.id)).await?;
-    repo::set_setting(db, KEY_ACTIVE_ENVIRONMENT, &setting_id(&dev_env.id)).await?;
+    repo::set_setting(
+        db,
+        &format!("{KEY_ACTIVE_ENVIRONMENT_PREFIX}{}", open_demo.id),
+        &setting_id(&open_dev.id),
+    )
+    .await?;
 
     Ok(())
 }
@@ -553,13 +612,21 @@ fn mock_rule(
     }
 }
 
-fn module(project: &Project, base_url: &str, is_default: bool) -> ModuleUrlConfig {
-    ModuleUrlConfig {
+fn environment(
+    project: &Project,
+    name: &str,
+    base_url: &str,
+    variables: Vec<EnvironmentVariable>,
+) -> Environment {
+    let now = Utc::now();
+    Environment {
         id: Uuid::new_v4(),
-        project_id: Some(project.id),
-        module_name: project.name.clone(),
+        project_id: project.id,
+        name: name.to_string(),
         base_url: base_url.to_string(),
-        is_default,
+        variables,
+        created_at: now,
+        updated_at: now,
     }
 }
 

@@ -121,10 +121,11 @@ Workspace layout:
 
 ## 5. Environments
 
-Settings → "Environments" (environments are **shared globally** across projects; the default module follows the active project):
+Settings → "Environments" (environments are **per project**: edit the environments of the project you are in, isolated from other projects):
 
-- "New environment": enter a name and variables (key/value pairs); each environment can hold **multiple module base URLs** plus **global variables / global params**.
+- "New environment": enter a name and variables (key/value pairs); each environment holds one **base URL** (supports `{{variables}}`) plus **global variables / global params**.
 - Switch environments from the top bar; variables are substituted automatically on send. Precedence: **environment > project**.
+- The active environment is remembered per project: each project tracks its own selected environment.
 - ⚠️ Environment variable values are **encrypted at rest** (AES-256-GCM). **Do not delete** `master.key` in the data directory — encrypted values become undecryptable without it (plaintext can be recovered from a backup JSON).
 
 ### 5.1 Global proxy & cookies

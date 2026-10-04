@@ -11,8 +11,8 @@ use std::collections::HashMap;
 use chrono::Utc;
 use fox_backup::{build_backup, restore_backup, BackupFile, BackupInput};
 use fox_core::model::{
-    BodySpec, HttpMethod, KeyValue, ModuleUrlConfig, RequestExample, RequestHistory,
-    ResponseExample, TestCase, TestCaseStatus, TestRun,
+    BodySpec, HttpMethod, KeyValue, RequestExample, RequestHistory, ResponseExample, TestCase,
+    TestCaseStatus, TestRun,
 };
 use fox_core::variable::{resolve_variables_with, ResolveOptions};
 use fox_http::client::send_request;
@@ -41,7 +41,7 @@ async fn full_user_flow() {
         .unwrap();
 
     // 2. 创建环境（变量稍后通过 update_environment 写入）。
-    let mut env = repo::create_environment(&db, "本地", &[], &[])
+    let mut env = repo::create_environment(&db, project.id, "本地", "", &[])
         .await
         .unwrap();
 
@@ -66,16 +66,11 @@ async fn full_user_flow() {
     let server_mock = server::start(store).await.expect("Mock 服务启动失败");
     let base_url = server_mock.address();
 
-    // 环境：默认模块的 base_url 指向 Mock。
-    env.modules.push(ModuleUrlConfig {
-        module_name: "api".into(),
-        base_url: base_url.clone(),
-        is_default: true,
-        ..Default::default()
-    });
+    // 环境：Base URL 指向 Mock。
+    env.base_url = base_url.clone();
     repo::update_environment(&db, &env).await.unwrap();
-    // 后端环境解析应命中默认模块基址。
-    assert_eq!(env.base_url(None, None), Some(base_url.as_str()));
+    // 后端环境解析应命中基址。
+    assert_eq!(env.base_url, base_url);
 
     // 合并变量（模拟工作区 merged_vars：项目变量 < 环境变量）。
     let mut vars = HashMap::<String, String>::new();
@@ -258,7 +253,7 @@ async fn openapi_roundtrip_and_backup() {
 
     // ---- 备份 → 恢复 → 验证数据一致 ----
     let folders = repo::list_folders(&db, project.id).await.unwrap();
-    let envs = repo::list_environments(&db).await.unwrap();
+    let envs = repo::list_environments(&db, project.id).await.unwrap();
     let rules = repo::list_mock_rules(&db, project.id).await.unwrap();
     let all_examples: Vec<ResponseExample> = examples_map.values().flatten().cloned().collect();
     let all_req_examples: Vec<RequestExample> =

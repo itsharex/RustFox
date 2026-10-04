@@ -4,29 +4,30 @@
  *
  * 左侧 Sidebar：
  * - 「全局组」：全局变量 / 全局参数 / Vault Secrets（占位，后续版本启用）；
- * - 「环境组」：环境列表（色点 + 名称 + 默认模块基址），底部「+ 新建环境」。
+ * - 「环境组」：当前项目的环境列表（色点 + 名称 + Base URL），底部「+ 新建环境」。
  *
  * 右侧详情主面板：
  * - Header：环境名称编辑 + 摘要；
- * - 前置 URL 配置表：模块 (Module) | 前置 URL (Base URL) | 默认 | 操作 —— 在线编辑、增删；
+ * - Base URL：环境前置基址（可含 {{变量}}）；
  * - 环境变量表：变量名 | 远程值 | 本地值 | 启用 | 操作 —— 本地值优先覆盖远程值；
- * - 底部统一「保存 / 取消」变更控制，未保存切换环境 / 关闭需确认。
+ * - 底部统一「保存 / 取消」变更控制；未保存时切换/关闭弹居中三选确认
+ *   （保存并继续 / 放弃修改 / 继续编辑），「保存并继续」为默认键。
  *
  * 所有编辑作用于本地副本，保存时一次落库（store.updateEnvironment upsert）。
  */
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { join } from '@tauri-apps/api/path'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useLocaleStore } from '../stores/locale'
 import { useFoxApi } from '../composables/useFoxApi'
 import { useToast } from '../composables/useToast'
-import { defaultModule, envBaseUrl, envColorClass, normalizeBaseUrl } from '../utils/environment'
+import { envBaseUrl, envColorClass, normalizeBaseUrl } from '../utils/environment'
 import { deepClone } from '../utils/clone'
 import { rowKey } from '../utils/rowKey'
-import CustomSelect from './ui/CustomSelect.vue'
 import Icon from './ui/Icon.vue'
 import IconButton from './ui/IconButton.vue'
+import Menu, { type MenuItem } from './ui/Menu.vue'
 import Modal from './ui/Modal.vue'
 import Popconfirm from './ui/Popconfirm.vue'
 import type {
@@ -35,10 +36,16 @@ import type {
   EnvironmentVariable,
   GlobalParam,
   ImportedEnv,
-  ModuleUrlConfig,
 } from '../types/foxApi'
 
-const props = defineProps<{ open: boolean; initialEnvId?: string | null; createNew?: boolean }>()
+const props = defineProps<{
+  open: boolean
+  initialEnvId?: string | null
+  createNew?: boolean
+  /** 独立管理模式：管理指定项目（非当前工作区项目）的环境——首页设置进入。 */
+  projectId?: string | null
+  projectName?: string | null
+}>()
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
 
 const store = useWorkspaceStore()
@@ -54,6 +61,22 @@ const dirty = ref(false)
 /** 新建环境是否仍未被编辑：仅创建本身不计入「未保存修改」，关闭时直接丢弃不弹确认。 */
 let newEnvPristine = false
 
+/** 独立管理模式：目标项目不是当前工作区项目——数据自加载、保存不回写工作区列表。 */
+const detached = computed(() => !!props.projectId && props.projectId !== store.project?.id)
+/** 实际管理的项目 id：独立模式取 props，否则跟随工作区当前项目。 */
+const effectiveProjectId = computed(() => (detached.value ? props.projectId : store.project?.id) ?? '')
+/** 独立模式加载环境列表中。 */
+const envsLoading = ref(false)
+
+const activeEnvId = computed(() => (detached.value ? null : store.activeEnvId))
+
+/** 弹窗标题：独立模式追加项目名，明确当前管理的是谁的环境。 */
+const dialogTitle = computed(() =>
+  detached.value && props.projectName
+    ? `${t('settings.environments')} · ${props.projectName}`
+    : t('settings.environments'),
+)
+
 /** 右侧详情面板作用域：'env' = 环境详情；'global' = 全局变量；'params' = 全局参数。 */
 const scope = ref<'env' | 'global' | 'params'>('env')
 /** 全局变量本地副本（作用域 global 时编辑此表，保存时整体落库）。 */
@@ -62,16 +85,6 @@ const globalDirty = ref(false)
 /** 全局参数本地副本（作用域 params 时编辑此表，保存时整体落库）。 */
 const globalParams = ref<GlobalParam[]>([])
 const paramsDirty = ref(false)
-
-const activeEnvId = computed(() => store.activeEnvId)
-
-/**
- * 当前项目在该环境下的「实际默认模块」：项目绑定模块优先，其次兜底 is_default。
- * 运行时解析（地址栏前缀 / 发送 / {{base_url}}）与这里的展示一致。
- */
-const effectiveDefaultId = computed<string | null>(
-  () => (selected.value ? defaultModule(selected.value, store.project?.id)?.id ?? null : null),
-)
 
 /** 全局组：全局变量 / 全局参数已启用；Vault Secrets 仍为占位（置灰）。 */
 const globalItems = [
@@ -88,20 +101,15 @@ function globalItemTitle(item: (typeof globalItems)[number]): string {
   })
 }
 
-function ensureDefaultModule(env: Environment): void {
-  if (env.modules.length > 0 && !env.modules.some((m) => m.is_default)) {
-    env.modules[0].is_default = true
-  }
-}
-
 function select(env: Environment | null): void {
+  commitRename()
   selected.value = env ? deepClone(env) : null
-  if (selected.value) ensureDefaultModule(selected.value)
   dirty.value = false
   scope.value = 'env'
 }
 
 function selectGlobal(): void {
+  cancelRename()
   scope.value = 'global'
   globalVars.value = deepClone(store.globalVariables)
   globalDirty.value = false
@@ -109,6 +117,7 @@ function selectGlobal(): void {
 }
 
 function selectParams(): void {
+  cancelRename()
   scope.value = 'params'
   globalParams.value = deepClone(store.globalParams)
   paramsDirty.value = false
@@ -159,12 +168,14 @@ function hasPending(): boolean {
 }
 
 function guardClose(): boolean {
+  commitRename()
   if (!hasPending()) return true
   confirmLeave.value = true
   return false
 }
 
 function guard(action: () => void): void {
+  commitRename()
   if (!hasPending()) {
     action()
     return
@@ -174,36 +185,86 @@ function guard(action: () => void): void {
 }
 
 function discardChanges(): void {
+  if (busy.value) return
   const act = pendingAction
   pendingAction = null
   confirmLeave.value = false
   dirty.value = false
   globalDirty.value = false
   paramsDirty.value = false
+  cancelRename()
   act?.()
 }
 
 function keepEditing(): void {
+  if (busy.value) return
   pendingAction = null
   confirmLeave.value = false
 }
 
+/** 确认弹窗自身被关闭（Esc / 遮罩 / ✕）= 继续编辑。 */
+function onConfirmToggle(open: boolean): void {
+  if (open) {
+    confirmLeave.value = true
+    return
+  }
+  keepEditing()
+}
+
+/** 保存并继续：落库成功才执行被拦截的切换/关闭动作，失败则留在确认弹窗。 */
+async function saveAndProceed(): Promise<void> {
+  if (busy.value) return
+  const ok = await save()
+  if (!ok) return
+  const act = pendingAction
+  pendingAction = null
+  confirmLeave.value = false
+  act?.()
+}
+
 watch(
   () => props.open,
-  (isOpen) => {
-    if (!isOpen) return
-        // 环境表只做浅拷贝：左侧列表是纯读（渲染 + 点击 select 时才深克隆选中项），
-    // 深克隆整表会把每个环境的变量/模块数组都复制一遍，纯属白费。
-    envs.value = [...store.environments]
-    const preferred = props.initialEnvId
-      ? store.environments.find((e) => e.id === props.initialEnvId)
-      : undefined
-    const active = store.environments.find((e) => e.id === store.activeEnvId)
-    select(preferred ?? active ?? store.environments[0] ?? null)
+  async (isOpen) => {
+    if (!isOpen) {
+      cancelRename()
+      return
+    }
     globalVars.value = deepClone(store.globalVariables)
     globalDirty.value = false
     globalParams.value = deepClone(store.globalParams)
     paramsDirty.value = false
+
+    if (detached.value) {
+      // 独立模式：目标项目的环境列表走 IPC 自加载，不读工作区 store（那是当前项目的列表）
+      envsLoading.value = true
+      envs.value = []
+      select(null)
+      try {
+        const list = await api.listEnvironments(effectiveProjectId.value)
+        if (!props.open) return // 加载期间已被关闭
+        envs.value = list
+      } catch (err) {
+        if (!props.open) return
+        toast.error(t('envmgr.loadFail'), {
+          message: err instanceof Error ? err.message : String(err),
+        })
+      } finally {
+        envsLoading.value = false
+      }
+      const preferred = props.initialEnvId
+        ? envs.value.find((e) => e.id === props.initialEnvId)
+        : undefined
+      select(preferred ?? envs.value[0] ?? null)
+    } else {
+      // 环境表只做浅拷贝：左侧列表是纯读（渲染 + 点击 select 时才深克隆选中项），
+      // 深克隆整表会把每个环境的变量/模块数组都复制一遍，纯属白费。
+      envs.value = [...store.environments]
+      const preferred = props.initialEnvId
+        ? store.environments.find((e) => e.id === props.initialEnvId)
+        : undefined
+      const active = store.environments.find((e) => e.id === store.activeEnvId)
+      select(preferred ?? active ?? store.environments[0] ?? null)
+    }
     // 「新建环境」快捷入口：打开即建一条待保存的新环境（createNew 由调用方在关闭时复位）
     if (props.createNew) addEnvironment()
   },
@@ -213,8 +274,9 @@ function addEnvironment(): void {
   const now = new Date().toISOString()
   const env: Environment = {
     id: crypto.randomUUID(),
+    project_id: effectiveProjectId.value,
     name: t('envmgr.newEnvName'),
-    modules: [],
+    base_url: '',
     variables: [],
     created_at: now,
     updated_at: now,
@@ -223,25 +285,108 @@ function addEnvironment(): void {
   select(env)
   dirty.value = true
   newEnvPristine = true
+  void beginRename(env, true)
+}
+
+// ---------- 左侧行内重命名 ----------
+/** 当前处于行内编辑的环境 id（null = 无）。 */
+const editingId = ref<string | null>(null)
+const editValue = ref('')
+const editInput = ref<HTMLInputElement | null>(null)
+
+/** 函数 ref：忽略 unmount 的 null 回调，避免「切行编辑」时新旧元素 ref 乱序被清空。 */
+function setEditInput(el: unknown): void {
+  if (el) editInput.value = el as HTMLInputElement
+}
+
+/** 左侧行显示名：选中行实时跟随右侧编辑中的 selected.name，其余行走本地副本。 */
+function rowName(env: Environment): string {
+  return selected.value && selected.value.id === env.id ? selected.value.name : env.name
+}
+
+/** 进入行内编辑：createAll=true（新建流程）全选默认名，直接输入即覆盖；否则光标置尾。 */
+async function beginRename(env: Environment, selectAll = false): Promise<void> {
+  if (editingId.value && editingId.value !== env.id) commitRename()
+  editingId.value = env.id
+  editValue.value = rowName(env)
+  // 双拍 nextTick：首拍前 Modal 的 autofocus 会把焦点抢到关闭按钮，第二拍才轮到输入框
+  await nextTick()
+  await nextTick()
+  if (editingId.value !== env.id) return
+  const el = editInput.value
+  el?.focus()
+  if (selectAll) el?.select()
+  else el?.setSelectionRange(el.value.length, el.value.length)
+}
+
+/** Esc：回滚不落名。 */
+function cancelRename(): void {
+  if (!editingId.value) return
+  editingId.value = null
+  editValue.value = ''
+}
+
+/**
+ * 提交行内改名：空名回退原名；名字没变不置脏（新建未编辑关闭不弹确认）。
+ * 只写 selected.name，不落 envs 条目——行显示走 rowName()（选中行读 selected.name），
+ * 与右侧 .em-name 完全同源；切换/丢弃时 select() 重取 envs 即自然回滚，
+ * 也避免浅拷贝数组被原地改写穿 store。
+ */
+function commitRename(): void {
+  const id = editingId.value
+  if (!id) return
+  editingId.value = null
+  const name = editValue.value.trim()
+  editValue.value = ''
+  if (!selected.value || selected.value.id !== id) return
+  const current = selected.value.name
+  const finalName = name || current
+  if (finalName === current) return
+  selected.value.name = finalName
+  markDirty()
+}
+
+function onRowClick(env: Environment): void {
+  if (editingId.value === env.id) return
+  if (editingId.value) commitRename()
+  guard(() => select(env))
+}
+
+/** 双击行名进入行内重命名（非选中行先经未保存确认再选中）。 */
+function onRowDblClick(env: Environment): void {
+  if (editingId.value === env.id) return
+  if (selected.value?.id === env.id) {
+    void beginRename(env)
+    return
+  }
+  guard(() => {
+    select(env)
+    void beginRename(env)
+  })
 }
 
 // ---------- 环境导入导出（RustFox 原生 JSON / Postman Environment） ----------
-const EXCHANGE_FORMATS = [
-  { value: 'rustfox_json', label: 'RustFox' },
-  { value: 'postman_json', label: 'Postman' },
-]
-const exchangeFormat = ref<EnvExchangeFormat>('rustfox_json')
+// 导出格式收敛进「导出」按钮的下拉菜单（两种格式都完整展示，不再用角落里被挤到截断的下拉）；
+// 导入无需选格式：import_environment 自动识别 RustFox / Postman。
 const exchanging = ref(false)
 
+/** 导出菜单项（RustFox JSON / Postman 为专有名词，两种语言显示原文）。 */
+const EXPORT_FORMAT_ITEMS: MenuItem[] = [
+  { key: 'rustfox_json', label: 'RustFox JSON', icon: 'file' },
+  { key: 'postman_json', label: 'Postman', icon: 'download' },
+]
+
+const exportMenu = ref<InstanceType<typeof Menu> | null>(null)
+
 /** 导出选中环境：经目录选择框落盘（变量以明文落盘，与备份 JSON 口径一致）。 */
-async function exportSelected(): Promise<void> {
+async function exportSelected(format: EnvExchangeFormat): Promise<void> {
   if (!selected.value || exchanging.value) return
   if (dirty.value) {
     toast.warning(t('envmgr.exportUnsavedWarn'))
   }
   exchanging.value = true
   try {
-    const doc = await api.exportEnvironment(selected.value.id, exchangeFormat.value)
+    const doc = await api.exportEnvironment(selected.value.id, format)
     const dir = await openDialog({ directory: true, title: t('envmgr.exportDirTitle') })
     if (!dir || Array.isArray(dir)) return
     const path = await join(dir, doc.suggested_name)
@@ -252,6 +397,16 @@ async function exportSelected(): Promise<void> {
   } finally {
     exchanging.value = false
   }
+}
+
+/** 打开导出格式菜单（需先选中环境）。 */
+function openExportMenu(event: MouseEvent): void {
+  if (!selected.value || exchanging.value) return
+  exportMenu.value?.openAt(event.currentTarget as HTMLElement, EXPORT_FORMAT_ITEMS, 'left')
+}
+
+function onExportSelect(item: MenuItem): void {
+  void exportSelected(item.key as EnvExchangeFormat)
 }
 
 const importOpen = ref(false)
@@ -287,7 +442,7 @@ async function previewImport(): Promise<void> {
   }
   importing.value = true
   try {
-    importPreview.value = await api.importEnvironment(importText.value)
+    importPreview.value = await api.importEnvironment(importText.value, store.project?.id ?? '')
   } catch (err) {
     importError.value = err instanceof Error ? err.message : String(err)
   } finally {
@@ -312,20 +467,22 @@ async function confirmImport(): Promise<void> {
     const now = new Date().toISOString()
     const env: Environment = {
       id: crypto.randomUUID(),
+      project_id: store.project?.id ?? '',
       name,
-      modules: preview.modules.map((m) => ({ ...m, id: crypto.randomUUID(), project_id: null })),
+      base_url: preview.base_url,
       variables: preview.variables,
       created_at: now,
       updated_at: now,
     }
-    const saved = await store.updateEnvironment(env, { silent: true })
+    const saved = detached.value
+      ? await store.saveEnvironmentRemote(env)
+      : await store.updateEnvironment(env, { silent: true })
     envs.value.push(saved)
     select(saved)
     importOpen.value = false
     toast.success(t('envmgr.importSuccess', { name: saved.name }), {
       message: t('envmgr.importSummary', {
         vars: preview.variables.length,
-        modules: preview.modules.length,
         format: preview.format,
       }),
     })
@@ -336,33 +493,11 @@ async function confirmImport(): Promise<void> {
   }
 }
 
-// ---------- 模块（Module Base URLs） ----------
+// ---------- 编辑标记 ----------
 /** 实际编辑标记：清除「新建未编辑」状态，此后关闭/切换恢复未保存确认流程。 */
 function markDirty(): void {
   dirty.value = true
   newEnvPristine = false
-}
-
-function addModule(): void {
-  const env = selected.value
-  if (!env) return
-  const isFirst = env.modules.length === 0
-  env.modules.push({
-    id: crypto.randomUUID(),
-    project_id: null,
-    module_name: isFirst ? t('envmgr.defaultModuleName') : t('envmgr.newModuleName'),
-    base_url: '',
-    is_default: isFirst,
-  })
-  markDirty()
-}
-
-function removeModule(index: number): void {
-  const env = selected.value
-  if (!env) return
-  env.modules.splice(index, 1)
-  ensureDefaultModule(env)
-  markDirty()
 }
 
 // ---------- 环境变量 ----------
@@ -394,8 +529,10 @@ function variablesCount(): number {
   return selected.value?.variables.filter((v) => v.enabled).length ?? 0
 }
 
-async function save(): Promise<void> {
-  if (busy.value) return
+/** 落库当前作用域的修改；返回是否保存成功（供「保存并继续」判断是否执行后续动作）。 */
+async function save(): Promise<boolean> {
+  if (busy.value) return false
+  commitRename()
   if (scope.value === 'params') {
     busy.value = true
     try {
@@ -407,12 +544,13 @@ async function save(): Promise<void> {
       paramsDirty.value = false
       confirmLeave.value = false
       toast.success(t('envmgr.globalParamsSaved'))
+      return true
     } catch (err) {
       toast.error(t('envmgr.globalParamsSaveFail'), { message: err instanceof Error ? err.message : String(err) })
+      return false
     } finally {
       busy.value = false
     }
-    return
   }
   if (scope.value === 'global') {
     busy.value = true
@@ -425,48 +563,51 @@ async function save(): Promise<void> {
       globalDirty.value = false
       confirmLeave.value = false
       toast.success(t('envmgr.globalVarsSaved'))
+      return true
     } catch (err) {
       toast.error(t('envmgr.globalVarsSaveFail'), { message: err instanceof Error ? err.message : String(err) })
+      return false
     } finally {
       busy.value = false
     }
-    return
   }
-  if (!selected.value) return
+  if (!selected.value) return false
   const name = selected.value.name.trim()
   if (!name) {
     toast.warning(t('envmgr.nameRequired'))
-    return
+    return false
   }
   const env = selected.value
-  ensureDefaultModule(env)
-  const normalizedModules: ModuleUrlConfig[] = env.modules.map((m) => ({
-    ...m,
-    module_name: m.module_name.trim(),
-    base_url: normalizeBaseUrl(m.base_url),
-  }))
+  const normalizedBase = normalizeBaseUrl(env.base_url)
   const normalizedVariables: EnvironmentVariable[] = env.variables
     .filter((v) => v.key.trim() !== '')
     .map((v) => ({ ...v, key: v.key.trim() }))
   busy.value = true
   try {
-    const saved = await store.updateEnvironment(
-      {
-        ...env,
-        name,
-        modules: normalizedModules,
-        variables: normalizedVariables,
-      },
-      { silent: true },
-    )
+    const payload = {
+      ...env,
+      name,
+      base_url: normalizedBase,
+      variables: normalizedVariables,
+    }
+    let saved: Environment
+    if (detached.value) {
+      // 独立模式：直连 IPC 保存并回显校验，不回写工作区项目列表
+      saved = await store.saveEnvironmentRemote(payload)
+      envs.value = envs.value.map((e) => (e.id === saved.id ? deepClone(saved) : e))
+    } else {
+      saved = await store.updateEnvironment(payload, { silent: true })
+      envs.value = [...store.environments]
+    }
     selected.value = deepClone(saved)
-    envs.value = [...store.environments]
     dirty.value = false
     newEnvPristine = false
     confirmLeave.value = false
     toast.success(t('envmgr.saved', { name: saved.name }))
+    return true
   } catch (err) {
     toast.error(t('envmgr.saveFail'), { message: err instanceof Error ? err.message : String(err) })
+    return false
   } finally {
     busy.value = false
   }
@@ -488,9 +629,10 @@ function cancel(): void {
 async function remove(env: Environment): Promise<void> {
   const persisted = store.environments.some((e) => e.id === env.id)
   try {
-    if (persisted) await store.deleteEnvironment(env.id)
+    if (persisted) await store.deleteEnvironment(env.id, { silent: true })
     const idx = envs.value.findIndex((e) => e.id === env.id)
     envs.value = envs.value.filter((e) => e.id !== env.id)
+    if (editingId.value === env.id) cancelRename()
     if (selected.value?.id === env.id) {
       select(envs.value[Math.min(idx, Math.max(envs.value.length - 1, 0))] ?? null)
     }
@@ -504,21 +646,12 @@ async function remove(env: Environment): Promise<void> {
 <template>
   <Modal
     :open="open"
-    :title="t('settings.environments')"
+    :title="dialogTitle"
     width="min(1120px, 94vw)"
     :guard-close="guardClose"
     @update:open="emit('update:open', $event)"
   >
     <div class="em">
-      <div v-if="confirmLeave" class="em-confirm" role="alert">
-        <span class="em-confirm-text">{{ t('envmgr.unsavedWarning') }}</span>
-        <span class="em-confirm-actions">
-          <button class="rf-btn rf-btn-sm" type="button" @click="keepEditing">{{ t('envmgr.keepEditing') }}</button>
-          <button class="rf-btn rf-btn-sm rf-btn-danger" type="button" @click="discardChanges">
-            {{ t('envmgr.discard') }}
-          </button>
-        </span>
-      </div>
       <div class="em-body">
         <!-- ============ 左侧 Sidebar ============ -->
         <aside class="em-side">
@@ -555,42 +688,53 @@ async function remove(env: Environment): Promise<void> {
           <div class="em-group em-group-envs">
             <div class="em-group-title">{{ t('envmgr.groupEnvs') }}</div>
             <div class="em-list-body">
+              <div v-if="envsLoading" class="em-side-hint">{{ t('common.loading') }}</div>
               <div
                 v-for="env in envs"
                 :key="env.id"
                 class="em-row"
                 :class="{ active: env.id === activeEnvId, sel: env.id === selected?.id }"
-                @click="guard(() => select(env))"
+                @click="onRowClick(env)"
+                @dblclick="onRowDblClick(env)"
               >
-                <span class="edot" :class="`ed-${envColorClass(env.name)}`"></span>
-                <span class="em-row-name" v-tooltip-overflow="env.name">{{ env.name }}</span>
-                <span v-if="envBaseUrl(env, store.project?.id)" class="em-row-url">{{ envBaseUrl(env, store.project?.id) }}</span>
-                <span v-if="env.id === activeEnvId" class="em-row-active">{{ t('envmgr.current') }}</span>
-                <Popconfirm
-                  :title="t('envmgr.deleteConfirm', { name: env.name })"
-                  :confirm-text="t('common.delete')"
-                  @confirm="remove(env)"
-                >
-                  <IconButton name="trash" :size="12" tone="danger" class="em-row-del" :title="t('common.delete')" />
-                </Popconfirm>
+                <span class="edot" :class="`ed-${envColorClass(rowName(env))}`"></span>
+                <input
+                  v-if="editingId === env.id"
+                  :ref="setEditInput"
+                  v-model="editValue"
+                  class="rf-input rf-input-sm em-row-input"
+                  :placeholder="t('envmgr.namePh')"
+                  spellcheck="false"
+                  @click.stop
+                  @keydown.enter.prevent="commitRename"
+                  @keydown.esc.stop.prevent="cancelRename"
+                  @blur="commitRename"
+                />
+                <template v-else>
+                  <span class="em-row-name" v-tooltip-overflow="rowName(env)">{{ rowName(env) }}</span>
+                  <span v-if="envBaseUrl(env)" class="em-row-url">{{ envBaseUrl(env) }}</span>
+                  <span v-if="env.id === activeEnvId" class="em-row-active">{{ t('envmgr.current') }}</span>
+                  <Popconfirm
+                    :title="t('envmgr.deleteConfirmTitle', { name: env.name })"
+                    :description="t('confirm.undone')"
+                    :confirm-text="t('common.delete')"
+                    @confirm="remove(env)"
+                  >
+                    <IconButton name="trash" :size="12" tone="danger" class="em-row-del" :title="t('common.delete')" />
+                  </Popconfirm>
+                </template>
               </div>
             </div>
             <button class="rf-btn rf-btn-sm em-add" type="button" @click="addEnvironment">
               <Icon name="plus" :size="13" /> {{ t('envmgr.addEnv') }}
             </button>
             <div class="em-exchange-row">
-              <CustomSelect
-                v-model="exchangeFormat"
-                :options="EXCHANGE_FORMATS"
-                size="sm"
-                class="em-exchange-select"
-              />
               <button
                 class="rf-btn rf-btn-sm"
                 type="button"
                 :disabled="!selected || exchanging"
                 :title="t('envmgr.exportTitle')"
-                @click="exportSelected"
+                @click="openExportMenu"
               >
                 <Icon name="upload" :size="13" /> {{ t('envmgr.export') }}
               </button>
@@ -607,6 +751,9 @@ async function remove(env: Environment): Promise<void> {
           </div>
         </aside>
 
+        <!-- 导出格式菜单（RustFox JSON / Postman） -->
+        <Menu ref="exportMenu" @select="onExportSelect" />
+
         <!-- ============ 右侧详情 ============ -->
         <section class="em-editor">
           <template v-if="scope === 'env' && selected">
@@ -618,72 +765,29 @@ async function remove(env: Environment): Promise<void> {
                 spellcheck="false"
                 @input="onAnyChange"
               />
-              <span class="em-editor-meta">
-                {{ t('envmgr.editorMeta', { modules: selected.modules.length, vars: variablesCount() }) }}
-              </span>
+               <span class="em-editor-meta">
+                 {{ t('envmgr.editorMeta', { vars: variablesCount() }) }}
+               </span>
             </div>
 
             <!-- 前置 URL 配置表 -->
             <div class="em-section">
               <div class="em-section-head">
-                <span class="em-section-title">{{ t('envmgr.sectionModules') }}</span>
+                <span class="em-section-title">{{ t('envmgr.sectionBaseUrl') }}</span>
                 <span class="em-section-hint">
-                  {{ t('envmgr.modulesHint') }}
+                  {{ t('envmgr.baseUrlHint') }}
                 </span>
               </div>
               <div class="em-table">
-                <div class="em-th em-th-mod">
-                  <span class="em-col-mod">{{ t('envmgr.colModule') }}</span>
-                  <span class="em-col-base">{{ t('envmgr.colBaseUrl') }}</span>
-                  <span class="em-col-op"></span>
-                </div>
-                <div
-                  v-for="(m, i) in selected.modules"
-                  :key="m.id"
-                  class="em-tr em-tr-mod"
-                  :class="{ 'is-default': m.id === effectiveDefaultId }"
-                >
-                  <template v-if="m.project_id">
-                    <span class="em-col-mod em-mod-project" :title="t('envmgr.projectModuleTitle', { name: m.module_name })">
-                      <Icon name="folder" :size="12" class="em-mod-ic" />
-                      <span class="em-mod-name" v-tooltip-overflow="m.module_name">{{ m.module_name }}</span>
-                    <span
-                      v-if="m.id === effectiveDefaultId"
-                      class="em-mod-effective"
-                      :title="t('envmgr.effectiveDefaultTitle')"
-                    >{{ t('envmgr.projectDefault') }}</span>
-                    </span>
-                  </template>
-                  <template v-else>
-                    <input
-                      v-model="m.module_name"
-                      class="rf-input rf-input-sm em-col-mod"
-                      :placeholder="t('envmgr.moduleNamePh')"
-                      spellcheck="false"
-                      @input="onAnyChange"
-                    />
-                  </template>
+                <div class="em-tr em-tr-base">
                   <input
-                    v-model="m.base_url"
-                    class="rf-input rf-input-sm em-col-base"
+                    v-model="selected.base_url"
+                    class="rf-input rf-input-sm em-base-input"
                     :placeholder="t('envmgr.baseUrlPh')"
                     spellcheck="false"
                     @input="onAnyChange"
                   />
-                  <IconButton
-                    v-if="!m.project_id"
-                    name="trash"
-                    :size="13"
-                    tone="danger"
-                    :title="t('envmgr.deleteModule')"
-                    class="em-col-op"
-                    @click="removeModule(i)"
-                  />
-
                 </div>
-                <button class="rf-btn rf-btn-sm em-add-var" type="button" @click="addModule">
-                  <Icon name="plus" :size="13" /> {{ t('envmgr.addModule') }}
-                </button>
               </div>
             </div>
 
@@ -960,7 +1064,7 @@ async function remove(env: Environment): Promise<void> {
       </div>
       <div class="em-import-row">
         <span class="em-import-label">{{ t('envmgr.previewContent') }}</span>
-        <span>{{ t('envmgr.previewSummary', { vars: importPreview.variables.length, modules: importPreview.modules.length }) }}</span>
+        <span>{{ t('envmgr.previewSummary', { vars: importPreview.variables.length }) }}</span>
       </div>
     </div>
     <template #footer>
@@ -975,6 +1079,32 @@ async function remove(env: Environment): Promise<void> {
       </button>
     </template>
   </Modal>
+
+  <!-- 未保存修改确认：居中三选弹窗。closable=false 去掉 ✕，autofocus 落在首个按钮
+       「保存并继续」上（Enter 直接触发）；Esc 关闭本弹窗 = 继续编辑。
+       声明在最后，与其他弹窗嵌套时保持顶层。 -->
+  <Modal
+    :open="confirmLeave"
+    :title="t('envmgr.unsavedTitle')"
+    width="380px"
+    :closable="false"
+    @update:open="onConfirmToggle"
+  >
+    <div class="em-confirm">
+      <p class="em-confirm-text">{{ t('envmgr.unsavedWarning') }}</p>
+      <div class="em-confirm-actions">
+        <button class="rf-btn rf-btn-sm rf-btn-primary" type="button" @click="saveAndProceed">
+          {{ t('envmgr.saveAndContinue') }}
+        </button>
+        <button class="rf-btn rf-btn-sm rf-btn-danger" type="button" @click="discardChanges">
+          {{ t('envmgr.discard') }}
+        </button>
+        <button class="rf-btn rf-btn-sm" type="button" @click="keepEditing">
+          {{ t('envmgr.keepEditing') }}
+        </button>
+      </div>
+    </div>
+  </Modal>
 </template>
 
 <style scoped>
@@ -986,28 +1116,24 @@ async function remove(env: Environment): Promise<void> {
   max-height: 70vh;
 }
 
-/* ---- 未保存修改确认条 ---- */
+/* ---- 未保存修改确认弹窗 ---- */
 .em-confirm {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border: 1px solid var(--warning-tint, var(--border));
-  border-radius: var(--radius);
-  background: var(--warning-tint, var(--bg-panel));
+  flex-direction: column;
+  gap: 14px;
 }
 
 .em-confirm-text {
-  flex: 1;
-  font-size: 12.5px;
-  color: var(--warning);
-  font-weight: 500;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-2);
 }
 
 .em-confirm-actions {
-  display: inline-flex;
+  display: flex;
+  justify-content: flex-end;
   gap: 8px;
-  flex-shrink: 0;
 }
 
 /* ---- 双栏主区 ---- */
@@ -1119,6 +1245,14 @@ async function remove(env: Environment): Promise<void> {
   gap: 2px;
 }
 
+/* 独立模式加载提示 */
+.em-side-hint {
+  padding: 10px 6px;
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+}
+
 .em-row {
   display: flex;
   align-items: center;
@@ -1153,6 +1287,12 @@ async function remove(env: Environment): Promise<void> {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 行内重命名输入框：占满行剩余宽度，替换名称/url/徽标/删除的位置 */
+.em-row-input {
+  flex: 1;
+  min-width: 0;
 }
 
 .em-row-url {
@@ -1201,9 +1341,12 @@ async function remove(env: Environment): Promise<void> {
   gap: 6px;
   margin-top: 6px;
 }
-.em-exchange-select {
+
+/* 导出 / 导入等宽铺满，替代原先被挤到截断的格式下拉 */
+.em-exchange-row .rf-btn {
   flex: 1;
   min-width: 0;
+  justify-content: center;
 }
 
 /* 环境导入弹窗 */
@@ -1330,10 +1473,6 @@ async function remove(env: Environment): Promise<void> {
   letter-spacing: 0.04em;
 }
 
-.em-th-mod {
-  margin-bottom: 4px;
-}
-
 .em-tr {
   display: flex;
   align-items: center;
@@ -1345,59 +1484,12 @@ async function remove(env: Environment): Promise<void> {
   opacity: 0.45;
 }
 
-.em-tr-mod.is-default {
-  background: var(--accent-tint);
-  border-radius: var(--radius);
+/* Base URL 行（单输入） */
+.em-tr-base {
+  padding: 2px 0;
 }
 
-.em-tr-mod.is-default .em-col-mod {
-  font-weight: 600;
-}
-
-/* 「本项目默认」徽标：项目绑定模块中当前项目实际生效的那一个 */
-.em-mod-effective {
-  flex-shrink: 0;
-  margin-left: 6px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 600;
-  white-space: nowrap;
-  color: var(--success);
-  background: var(--success-tint);
-}
-
-/* 模块表列 */
-.em-col-mod {
-  width: 22%;
-  min-width: 0;
-}
-
-.em-mod-project {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: var(--h-sm, 26px);
-  padding: 0 8px;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius);
-  color: var(--text-2);
-  font-size: 12.5px;
-}
-
-.em-mod-ic {
-  color: var(--accent);
-  flex-shrink: 0;
-}
-
-.em-mod-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.em-col-base {
+.em-base-input {
   flex: 1;
   min-width: 0;
   font-family: var(--font-mono);

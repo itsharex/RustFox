@@ -12,8 +12,8 @@ use uuid::Uuid;
 use fox_core::model::{
     ApiKeyLocation, AuthSpec, BodySpec, Endpoint, EndpointStatus, Environment, EnvironmentVariable,
     GlobalParam, GlobalParamLocation, GraphQLSpec, HttpMethod, KeyValue, MockMatchItem, MockRule,
-    ModuleUrlConfig, MultipartField, OAuth2Token, Project, RequestExample, RequestHistory,
-    RequestSpec, ResponseExample, TestCase, TestCaseStatus, TestRun,
+    MultipartField, OAuth2Token, Project, RequestExample, RequestHistory, RequestSpec,
+    ResponseExample, TestCase, TestCaseStatus, TestRun,
 };
 
 /// 合法键：snake_case（小写字母/数字/下划线，且不含大写字母）。
@@ -113,14 +113,9 @@ fn ipc_models_serialize_snake_case_keys() {
         "Environment",
         &Environment {
             id: Uuid::new_v4(),
+            project_id: Uuid::new_v4(),
             name: "开发环境".into(),
-            modules: vec![ModuleUrlConfig {
-                id: Uuid::new_v4(),
-                project_id: Some(Uuid::new_v4()),
-                module_name: "Petstore".into(),
-                base_url: "http://127.0.0.1:4010".into(),
-                is_default: true,
-            }],
+            base_url: "http://127.0.0.1:4010".into(),
             variables: vec![EnvironmentVariable {
                 key: "token".into(),
                 remote_value: "abc".into(),

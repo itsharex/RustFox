@@ -247,6 +247,7 @@
 - M20：环境全局化——多模块 Base URL、全局变量/全局参数；默认模块随当前项目；项目优先解析（环境 > 项目）。
 - M21：工作区——顶栏多项目标签快照（草稿/标签跨项目保留）；GraphQL 调试视图（/graphql，data/errors 语义）；测试用例 Drawer（Method 联动 / CodeMirror 6 / 拖拽分割）；设计态 Schema 标注 + 多格式文档导出；Cookie 自动回放 + 全局代理（持久化）；历史按接口过滤；项目卡片拖拽排序持久化；dev/正式数据目录隔离（`RustFox-dev`）。
 - M22：偏好——主题三档（跟随系统/深色/浅色，`<html data-theme>` + localStorage 持久）；请求超时可配置；自增序列管理；备份/文档导出改目录选择框；更新进度条累计修正。
+- M23：环境按项目归属——移除模块概念（`ModuleUrlConfig` 删除）：环境含 `project_id` 外键（级联删除）+ 单一 `base_url`（可含 `{{变量}}`，自动以 `base_url` 变量注入）；迁移 0013 重建 environments 表并为存量项目预置「开发/测试」环境；激活环境按项目记忆（settings `active_environment_id:{project_id}`）；备份 schema v3（旧备份多模块 → 取默认/首个模块基址升级）；前端 envBar/QuickView/Manager/Settings/Editor/GraphQL 全链路适配。
 
 ## M2.6：功能联通性验收与诊断（✅ 通过）
 

@@ -11,7 +11,7 @@
 | --- | --- | --- |
 | Endpoints + groups | Endpoints + folders | OpenAPI / Postman Collection import builds the tree |
 | Descriptions, params, bodies, response examples | Same content | Carried over by the import |
-| Front URL / environment domain | Environment base_url (per-module base URLs for multi-service projects) | One line, manual |
+| Front URL / environment domain | Environment base_url (one base URL per environment) | One line, manual |
 | Environment / global variables | Environment / project / global variables (shared `{{name}}` syntax) | Copy over; Postman Environment files import directly |
 | Bearer / Basic / API Key | Same auth types | Copy the secrets over (they never travel inside docs) |
 | OAuth2 sessions | Four OAuth2 modes | Re-authorize to get a token |
@@ -41,8 +41,7 @@ After import, check two things: groups became folders, and (base_url + path) joi
 
 ## 4. Environments & variables: map them over
 
-1. Create an environment, put the Apifox front URL into base_url (one base URL per
-   module for multi-service projects);
+1. Create an environment, put the Apifox front URL into base_url;
 2. Copy Apifox environment variables into RustFox variables verbatim — both sides use
    `{{name}}` (precedence: environment > project > global);
 3. A Postman Environment file imports directly (bottom of the environment manager),

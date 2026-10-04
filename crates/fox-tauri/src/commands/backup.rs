@@ -33,7 +33,7 @@ pub async fn backup_export(state: State<'_, AppState>, project_id: Uuid) -> Comm
         repo::get_project(&state.db, project_id),
         repo::list_folders(&state.db, project_id),
         repo::list_endpoints(&state.db, project_id),
-        repo::list_environments(&state.db),
+        repo::list_environments(&state.db, project_id),
         repo::list_mock_rules(&state.db, project_id),
         repo::get_global_variables(&state.db),
         repo::get_global_params(&state.db),
@@ -109,9 +109,8 @@ pub async fn backup_restore(
         // INSERT：N 行从 N 次往返降到 ceil(N/200) 次，原子性不变。
         repo::save_folders_bulk(tx.as_mut(), &restored.folders).await?;
         repo::save_endpoints_bulk(tx.as_mut(), &restored.endpoints).await?;
-        // 环境保存需项目列表做模块同步：同事务内预取一次（读己之写）。
-        let projects = repo::list_projects(tx.as_mut()).await?;
-        repo::save_environments_bulk(tx.as_mut(), &restored.environments, &projects).await?;
+        // 环境随备份项目重映射归属后整体写入。
+        repo::save_environments_bulk(tx.as_mut(), &restored.environments).await?;
         repo::save_mock_rules_bulk(tx.as_mut(), &restored.mock_rules).await?;
         repo::save_response_examples_bulk(tx.as_mut(), &restored.response_examples).await?;
         repo::save_request_examples_bulk(tx.as_mut(), &restored.request_examples).await?;

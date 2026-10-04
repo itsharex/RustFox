@@ -7,8 +7,8 @@ use fox_storage::repository as repo;
 use uuid::Uuid;
 
 use fox_core::model::{
-    EnvironmentVariable, HttpMethod, MockRule, ModuleUrlConfig, RequestExample, RequestHistory,
-    RequestSpec, ResponseExample, TestCase, TestCaseStatus, WsMessageType,
+    EnvironmentVariable, HttpMethod, MockRule, RequestExample, RequestHistory, RequestSpec,
+    ResponseExample, TestCase, TestCaseStatus, WsMessageType,
 };
 
 async fn pool() -> SqlitePool {
@@ -239,24 +239,14 @@ async fn environment_crud() {
     let db = pool().await;
     let project = repo::create_project(&db, "P", "").await.unwrap();
 
-    let env = repo::create_environment(&db, "local", &[], &[])
+    let env = repo::create_environment(&db, project.id, "local", "", &[])
         .await
         .unwrap();
     assert_eq!(env.name, "local");
+    assert_eq!(env.project_id, project.id);
 
     let mut updated = env.clone();
-    updated.modules.push(ModuleUrlConfig {
-        module_name: "支付".into(),
-        base_url: "https://pay.example.com".into(),
-        is_default: true,
-        ..Default::default()
-    });
-    updated.modules.push(ModuleUrlConfig {
-        module_name: "收单".into(),
-        base_url: "https://acq.example.com".into(),
-        is_default: false,
-        ..Default::default()
-    });
+    updated.base_url = "https://pay.example.com".into();
     updated.variables.push(EnvironmentVariable {
         key: "token".into(),
         remote_value: "abc".into(),
@@ -267,36 +257,18 @@ async fn environment_crud() {
     repo::update_environment(&db, &updated).await.unwrap();
 
     let fetched = repo::get_environment(&db, env.id).await.unwrap();
-    // 支付/收单为手工模块；项目「P」被自动同步追加为第三个模块。
-    assert_eq!(fetched.modules.len(), 3);
-    assert_eq!(fetched.modules[0].base_url, "https://pay.example.com");
-    assert!(fetched.modules[0].is_default);
-    assert_eq!(fetched.modules[1].module_name, "收单");
-    let project_module = fetched
-        .modules
-        .iter()
-        .find(|m| m.project_id.is_some())
-        .unwrap();
-    assert_eq!(
-        project_module.module_name, project.name,
-        "项目模块名自动跟随项目名"
-    );
-    assert_eq!(project_module.base_url, "", "新项目模块基址留空待补填");
+    assert_eq!(fetched.base_url, "https://pay.example.com");
     assert_eq!(fetched.variables.len(), 1);
     assert_eq!(fetched.variables[0].effective_value(), "abc");
-    // 默认模块基址
-    assert_eq!(
-        fetched.base_url(None, None),
-        Some("https://pay.example.com")
-    );
-    // 按模块名解析
-    assert_eq!(
-        fetched.base_url(Some("收单"), None),
-        Some("https://acq.example.com")
-    );
 
-    let listed = repo::list_environments(&db).await.unwrap();
+    // 环境按项目隔离：仅列出本项目环境
+    let other = repo::create_project(&db, "Q", "").await.unwrap();
+    repo::create_environment(&db, other.id, "other", "https://other.example.com", &[])
+        .await
+        .unwrap();
+    let listed = repo::list_environments(&db, project.id).await.unwrap();
     assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].id, env.id);
 
     // M11：落库应为密文（不包含明文 token），且不含加密格式前缀（明文容错路径）
     let raw: (String,) = sqlx::query_as("SELECT variables_json FROM environments WHERE id = ?")
@@ -306,20 +278,23 @@ async fn environment_crud() {
         .unwrap();
     assert!(
         !raw.0.contains("abc"),
-        "变量应加密存储，明文出现在库中: {}",
+        "变量应加密存储，明文出现在库中： {}",
         raw.0
     );
     assert!(raw.0.contains(':'), "密文应为 base64:base64 格式");
-    // 模块基址非敏感信息，明文落库。
-    let modules: (String,) = sqlx::query_as("SELECT modules_json FROM environments WHERE id = ?")
+    // 基址非敏感信息，明文落库。
+    let base: (String,) = sqlx::query_as("SELECT base_url FROM environments WHERE id = ?")
         .bind(env.id.to_string())
         .fetch_one(&db)
         .await
         .unwrap();
-    assert!(modules.0.contains("https://pay.example.com"));
+    assert!(base.0.contains("https://pay.example.com"));
 
     repo::delete_environment(&db, env.id).await.unwrap();
-    assert!(repo::list_environments(&db).await.unwrap().is_empty());
+    assert!(repo::list_environments(&db, project.id)
+        .await
+        .unwrap()
+        .is_empty());
 }
 
 #[tokio::test]
@@ -332,7 +307,9 @@ async fn cascade_delete_project() {
     let ep = repo::create_endpoint(&db, project.id, Some(folder.id), "E")
         .await
         .unwrap();
-    let env = repo::create_environment(&db, "E", &[], &[]).await.unwrap();
+    let env = repo::create_environment(&db, project.id, "E", "", &[])
+        .await
+        .unwrap();
     assert_eq!(
         repo::list_endpoints(&db, project.id).await.unwrap().len(),
         1
@@ -347,8 +324,8 @@ async fn cascade_delete_project() {
 
     assert!(repo::get_endpoint(&db, ep.id).await.is_err());
     assert!(repo::get_folder(&db, folder.id).await.is_err());
-    // 环境为全局维度：不随项目删除级联。
-    assert!(repo::get_environment(&db, env.id).await.is_ok());
+    // 环境随项目级联删除。
+    assert!(repo::get_environment(&db, env.id).await.is_err());
     assert_eq!(repo::list_projects(&db).await.unwrap().len(), 1);
 }
 
@@ -466,23 +443,46 @@ async fn save_project_repeated_id_updates_not_conflicts() {
 #[tokio::test]
 async fn save_environment_repeated_id_updates_not_conflicts() {
     let db = pool().await;
-    let _project = repo::create_project(&db, "P", "").await.unwrap();
-    let created = repo::create_environment(&db, "开发", &[], &[])
+    let project = repo::create_project(&db, "P", "").await.unwrap();
+    let created = repo::create_environment(&db, project.id, "开发", "", &[])
         .await
         .unwrap();
     let mut edited = created.clone();
     edited.name = "生产".into();
     edited.updated_at = chrono::Utc::now();
-    // save 返回的环境应已同步项目模块（新建环境 + 已存在项目 → 模块自动追加）。
     let saved = repo::save_environment(&db, &edited).await.unwrap();
-    assert!(
-        saved.modules.iter().any(|m| m.project_id.is_some()),
-        "返回环境应含项目模块"
-    );
     assert_eq!(saved.name, "生产");
 
     let fetched = repo::get_environment(&db, created.id).await.unwrap();
     assert_eq!(fetched.name, "生产");
+}
+
+/// 用户场景回归：编辑预置环境输入 Base URL（如 http://localhost:8093）后保存——
+/// save_environment 走 upsert 路径，base_url 必须持久，读回（单查 + 列表）不丢。
+#[tokio::test]
+async fn save_environment_upsert_persists_base_url() {
+    let db = pool().await;
+    let project = repo::create_project(&db, "P", "").await.unwrap();
+    let created = repo::create_environment(&db, project.id, "开发环境", "", &[])
+        .await
+        .unwrap();
+
+    let mut edited = created.clone();
+    edited.base_url = "http://localhost:8093".into();
+    repo::save_environment(&db, &edited).await.unwrap();
+
+    let fetched = repo::get_environment(&db, created.id).await.unwrap();
+    assert_eq!(fetched.base_url, "http://localhost:8093");
+    let listed = repo::list_environments(&db, project.id).await.unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].base_url, "http://localhost:8093");
+
+    // 重复 upsert 改基址：覆盖更新而非残留旧值
+    let mut again = fetched;
+    again.base_url = "http://localhost:9094".into();
+    repo::save_environment(&db, &again).await.unwrap();
+    let refetched = repo::get_environment(&db, created.id).await.unwrap();
+    assert_eq!(refetched.base_url, "http://localhost:9094");
 }
 
 #[tokio::test]
@@ -531,7 +531,7 @@ async fn bulk_save_matches_per_row_save_semantics() {
     let ep = repo::create_endpoint(&db, project.id, Some(folder.id), "E")
         .await
         .unwrap();
-    let env = repo::create_environment(&db, "dev", &[], &[])
+    let env = repo::create_environment(&db, project.id, "dev", "", &[])
         .await
         .unwrap();
 
@@ -587,10 +587,9 @@ async fn bulk_save_matches_per_row_save_semantics() {
     // 走与备份导出相同的读路径拿模型，再整批回写。
     let folders = repo::list_folders(&db, project.id).await.unwrap();
     let endpoints = repo::list_endpoints(&db, project.id).await.unwrap();
-    let environments = repo::list_environments(&db).await.unwrap();
+    let environments = repo::list_environments(&db, project.id).await.unwrap();
     let rules = repo::list_mock_rules(&db, project.id).await.unwrap();
     let examples = repo::list_response_examples(&db, ep.id).await.unwrap();
-    let projects = repo::list_projects(&db).await.unwrap();
 
     // request_examples 是普通 INSERT（与逐条 create_* 一致）：批量写入一条新 id。
     let mut fresh = snapshot.clone();
@@ -603,7 +602,7 @@ async fn bulk_save_matches_per_row_save_semantics() {
         repo::save_endpoints_bulk(&mut conn, &endpoints)
             .await
             .unwrap();
-        repo::save_environments_bulk(&mut conn, &environments, &projects)
+        repo::save_environments_bulk(&mut conn, &environments)
             .await
             .unwrap();
         repo::save_mock_rules_bulk(&mut conn, &rules).await.unwrap();
@@ -621,7 +620,13 @@ async fn bulk_save_matches_per_row_save_semantics() {
         repo::list_endpoints(&db, project.id).await.unwrap().len(),
         1
     );
-    assert_eq!(repo::list_environments(&db).await.unwrap().len(), 1);
+    assert_eq!(
+        repo::list_environments(&db, project.id)
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
     assert_eq!(
         repo::list_mock_rules(&db, project.id).await.unwrap().len(),
         1
@@ -650,13 +655,10 @@ async fn bulk_save_matches_per_row_save_semantics() {
         repo::list_folders(&db, project.id).await.unwrap()[0].name,
         "改名"
     );
-    // 环境批量写入后仍可读出（模块同步 + 变量解密路径未被破坏）。
+    // 环境批量写入后仍可读出（变量解密路径未被破坏）。
     let fetched_env = repo::get_environment(&db, env.id).await.unwrap();
     assert_eq!(fetched_env.name, "dev");
-    assert!(
-        fetched_env.modules.iter().any(|m| m.project_id.is_some()),
-        "批量写入的环境应保留项目模块"
-    );
+    assert_eq!(fetched_env.project_id, project.id);
 }
 
 /// 设置批量读取：一次 IN 查询取回全部命中键，缺失键不进结果。

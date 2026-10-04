@@ -2,7 +2,9 @@
 //!
 //! - 使用 `tokio::sync::RwLock`（读多写少），Command 并发读取激活上下文；
 //! - 激活对象首次访问时从数据库加载并写回缓存，避免重复查询；
-//! - `variables_for` 提供「环境 > 项目」合并变量表，供请求渲染使用。
+//! - `variables_for` 提供「环境 > 项目」合并变量表，供请求渲染使用；
+//! - 激活环境按项目记忆（settings 表 `active_environment_id:{project_id}`），
+//!   切换项目时各自保持自己的激活环境。
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -20,7 +22,13 @@ use crate::error::CommandResult;
 
 /// 激活上下文持久化键（settings 表）。
 const KEY_ACTIVE_PROJECT: &str = "active_project_id";
-const KEY_ACTIVE_ENVIRONMENT: &str = "active_environment_id";
+/// 激活环境按项目记忆：键为 `active_environment_id:{project_id}`。
+const KEY_ACTIVE_ENVIRONMENT_PREFIX: &str = "active_environment_id:";
+
+/// 某项目的激活环境持久化键。
+pub fn active_environment_key(project_id: Uuid) -> String {
+    format!("{KEY_ACTIVE_ENVIRONMENT_PREFIX}{project_id}")
+}
 
 /// 序列化激活 id 为 settings 值（JSON：`"uuid"` 或 `null`）。
 fn setting_value(id: Option<Uuid>) -> String {
@@ -38,6 +46,17 @@ async fn load_setting_uuid(db: &SqlitePool, key: &str) -> Option<Uuid> {
         .flatten()
         .and_then(|v| serde_json::from_str::<Option<String>>(&v).ok().flatten())
         .and_then(|s| Uuid::parse_str(&s).ok())
+}
+
+/// 读取项目持久化的激活环境 id：
+/// 缺失 / 损坏返回 `None`；环境不存在或不属于该项目同样按 `None`
+/// （环境已随项目删除 / 跨项目数据漂移时不静默恢复错环境）。
+async fn load_project_environment_id(db: &SqlitePool, project_id: Uuid) -> Option<Uuid> {
+    let id = load_setting_uuid(db, &active_environment_key(project_id)).await?;
+    match repo::get_environment(db, id).await {
+        Ok(env) if env.project_id == project_id => Some(id),
+        _ => None,
+    }
 }
 
 /// 当前激活上下文（多标签 / 多窗口共享）。
@@ -113,6 +132,9 @@ impl AppState {
     }
 
     /// 当前激活环境（缓存命中直接返回；否则查询并写回缓存）。
+    ///
+    /// 环境为项目维度：上下文中的激活环境即当前激活项目的
+    /// 激活环境（切换项目时由 `set_active_project` 换绑）。
     pub async fn active_environment(&self) -> CommandResult<Option<Environment>> {
         loop {
             let read = self.active.read().await;
@@ -154,9 +176,10 @@ impl AppState {
     }
 
     /// 设置激活项目（`None` 表示清空）。
-    /// 持久化到 settings 表，重启后由 `restore_active` 恢复。
     ///
-    /// 环境为全局维度，切换项目不改变激活环境。
+    /// 持久化到 settings 表，重启后由 `restore_active` 恢复。
+    /// 环境为项目维度：切换项目时激活环境一并换绑为目标项目
+    /// 记忆的激活环境（各项目互不影响）。
     /// 数据库查询全部在锁外完成：写锁若跨 await，会阻塞所有并发读
     /// （每次发请求的 `variables_for` 都要读激活上下文）。
     pub async fn set_active_project(&self, project_id: Option<Uuid>) -> CommandResult<()> {
@@ -164,20 +187,45 @@ impl AppState {
             Some(id) => Some(repo::get_project(&self.db, id).await?),
             None => None,
         };
+        // 目标项目记忆的激活环境（校验归属；无效按无环境处理）
+        let environment_id = match project_id {
+            Some(pid) => load_project_environment_id(&self.db, pid).await,
+            None => None,
+        };
+        let environment = match environment_id {
+            Some(id) => Some(repo::get_environment(&self.db, id).await?),
+            None => None,
+        };
 
         let mut write = self.active.write().await;
         write.project_id = project_id;
         write.project = project;
+        write.environment_id = environment_id;
+        write.environment = environment;
         drop(write);
         repo::set_setting(&self.db, KEY_ACTIVE_PROJECT, &setting_value(project_id)).await?;
         Ok(())
     }
 
-    /// 设置激活环境（`None` 表示不使用环境变量）。持久化到 settings 表。
+    /// 设置激活环境（`None` 表示不使用环境变量）。持久化到项目键。
+    ///
+    /// 环境必须属于当前激活项目（哪个项目就编辑哪个项目的环境）；
+    /// 未激活项目时拒绝设置。
     pub async fn set_active_environment(&self, environment_id: Option<Uuid>) -> CommandResult<()> {
+        let project_id = self
+            .active_project()
+            .await?
+            .map(|p| p.id)
+            .ok_or_else(|| fox_core::validation("请先选择项目再设置激活环境"))?;
         // 查库在锁外：无效 id 在此返回错误，不占用写锁
         let environment = match environment_id {
-            Some(id) => Some(repo::get_environment(&self.db, id).await?),
+            Some(id) => {
+                let env = repo::get_environment(&self.db, id).await?;
+                if env.project_id != project_id {
+                    return Err(fox_core::validation("环境不属于当前项目").into());
+                }
+                Some(env)
+            }
             None => None,
         };
         let mut write = self.active.write().await;
@@ -186,29 +234,28 @@ impl AppState {
         drop(write);
         repo::set_setting(
             &self.db,
-            KEY_ACTIVE_ENVIRONMENT,
+            &active_environment_key(project_id),
             &setting_value(environment_id),
         )
         .await?;
         Ok(())
     }
 
-    /// 启动时恢复持久化的激活项目 / 环境（校验存在性，无效则丢弃）。
-    /// 环境为全局维度，不校验项目归属。
+    /// 启动时恢复持久化的激活项目 / 环境（校验存在性与归属，无效则丢弃）。
     pub async fn restore_active(&self) -> CommandResult<()> {
         let project_id = load_setting_uuid(&self.db, KEY_ACTIVE_PROJECT).await;
         let project_ok = match project_id {
             Some(id) => repo::get_project(&self.db, id).await.is_ok(),
             None => false,
         };
-        let environment_id = load_setting_uuid(&self.db, KEY_ACTIVE_ENVIRONMENT).await;
-        let env_ok = match environment_id {
-            Some(id) => repo::get_environment(&self.db, id).await.is_ok(),
-            None => false,
+        let project_id = project_id.filter(|_| project_ok);
+        let environment_id = match project_id {
+            Some(pid) => load_project_environment_id(&self.db, pid).await,
+            None => None,
         };
         let mut write = self.active.write().await;
-        write.project_id = project_id.filter(|_| project_ok);
-        write.environment_id = environment_id.filter(|_| env_ok);
+        write.project_id = project_id;
+        write.environment_id = environment_id;
         write.project = None;
         write.environment = None;
         Ok(())
@@ -216,9 +263,9 @@ impl AppState {
 
     /// 合并变量表：运行时（空）> 环境 > 项目 > 全局。
     ///
-    /// 环境侧取「结构化变量（enabled、本地值优先）」扁平表；此外当环境中存在
-    /// 默认模块时，注入 `base_url = 默认模块前置 URL`（未显式定义 base_url 变量时），
-    /// 使请求引擎 `{{base_url}}` 拼接在旧语义下继续可用。
+    /// 环境侧取「结构化变量（enabled、本地值优先）」扁平表；此外当环境
+    /// 配置了 Base URL 时，注入 `base_url = 环境 Base URL`（未显式定义
+    /// base_url 变量时），使请求引擎 `{{base_url}}` 拼接继续可用。
     pub async fn variables_for(&self, environment_id: Option<Uuid>) -> CommandResult<VariableMap> {
         let project = self.active_project().await?;
         let environment = match environment_id {
@@ -235,18 +282,16 @@ impl AppState {
                 (v.key, value)
             })
             .collect();
-        let project_id = project.as_ref().map(|p| p.id);
         let project_vars = project.map(|p| p.variables).unwrap_or_default();
         let mut environment_vars: VariableMap = environment
             .as_ref()
             .map(|e| e.effective_variables())
             .unwrap_or_default();
         if !environment_vars.contains_key("base_url") {
-            // 默认模块随当前激活项目走：开放演示项目注入 jsonplaceholder，
-            // 用户服务项目注入 127.0.0.1:4010，而非全局 is_default 钉死的模块。
             if let Some(base) = environment
                 .as_ref()
-                .and_then(|e| e.base_url(None, project_id))
+                .map(|e| e.base_url.trim())
+                .filter(|b| !b.is_empty())
             {
                 environment_vars.insert("base_url".into(), base.to_string());
             }
@@ -267,86 +312,139 @@ impl AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fox_core::model::{Environment, ModuleUrlConfig, Project};
+    use fox_core::model::{Environment, EnvironmentVariable, Project};
     use std::path::PathBuf;
 
-    /// {{base_url}} 注入随激活项目走：默认模块优先取当前项目绑定的模块，
-    /// 而非全局 is_default 钉死的模块（多项目共用一个环境的场景）。
-    #[tokio::test]
-    async fn base_url_follows_active_project_module() {
-        let path: PathBuf =
-            std::env::temp_dir().join(format!("rustfox-module-test-{}.db", std::process::id()));
-        let _ = std::fs::remove_file(&path);
-        let db = fox_storage::db::init_db(&path).await.expect("建库");
-        let state = AppState::new(db.clone());
-
-        let mk_project = |name: &str| Project {
+    fn mk_project(name: &str) -> Project {
+        Project {
             id: Uuid::new_v4(),
             name: name.into(),
             description: String::new(),
             variables: Default::default(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
-        };
+        }
+    }
+
+    fn mk_env(project_id: Uuid, name: &str, base_url: &str) -> Environment {
+        Environment {
+            id: Uuid::new_v4(),
+            project_id,
+            name: name.into(),
+            base_url: base_url.into(),
+            variables: vec![EnvironmentVariable {
+                key: "token".into(),
+                remote_value: "tok".into(),
+                local_value: String::new(),
+                enabled: true,
+                description: None,
+            }],
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        }
+    }
+
+    /// {{base_url}} 注入按项目走：每个项目有自己的激活环境，
+    /// 切换项目即切到该项目记忆的激活环境基址。
+    #[tokio::test]
+    async fn base_url_follows_per_project_environment() {
+        let path: PathBuf =
+            std::env::temp_dir().join(format!("rustfox-env-test-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let db = fox_storage::db::init_db(&path).await.expect("建库");
+        let state = AppState::new(db.clone());
+
         let users = mk_project("小奏技术 · 用户服务");
         let open = mk_project("小奏技术 · 开放演示");
         repo::save_project(&db, &users).await.expect("落库项目");
         repo::save_project(&db, &open).await.expect("落库项目");
 
-        let env_id = Uuid::new_v4();
-        let now = chrono::Utc::now();
-        repo::save_environment(
-            &db,
-            &Environment {
-                id: env_id,
-                name: "dev".into(),
-                // is_default 钉在开放演示模块上：历史语义会把它注入一切项目
-                modules: vec![
-                    ModuleUrlConfig {
-                        id: Uuid::new_v4(),
-                        project_id: Some(users.id),
-                        module_name: users.name.clone(),
-                        base_url: "http://127.0.0.1:4010".into(),
-                        is_default: false,
-                    },
-                    ModuleUrlConfig {
-                        id: Uuid::new_v4(),
-                        project_id: Some(open.id),
-                        module_name: open.name.clone(),
-                        base_url: "https://jsonplaceholder.typicode.com".into(),
-                        is_default: true,
-                    },
-                ],
-                variables: Vec::new(),
-                created_at: now,
-                updated_at: now,
-            },
-        )
-        .await
-        .expect("落库环境");
-        state
-            .set_active_environment(Some(env_id))
+        let users_env = mk_env(users.id, "开发环境", "http://127.0.0.1:4010");
+        let open_env = mk_env(open.id, "开发环境", "https://jsonplaceholder.typicode.com");
+        repo::save_environment(&db, &users_env)
             .await
-            .expect("激活环境");
+            .expect("落库环境");
+        repo::save_environment(&db, &open_env)
+            .await
+            .expect("落库环境");
 
-        // 激活用户服务 → base_url = 用户服务自己的模块基址
+        // 激活用户服务 + 其开发环境 → base_url = 用户服务环境基址
         state
             .set_active_project(Some(users.id))
             .await
-            .expect("激活");
+            .expect("激活项目");
+        state
+            .set_active_environment(Some(users_env.id))
+            .await
+            .expect("激活环境");
         let vars = state.variables_for(None).await.expect("变量表");
         assert_eq!(
             vars.get("base_url").map(String::as_str),
             Some("http://127.0.0.1:4010")
         );
 
-        // 切到开放演示 → base_url 跟随切换（即使另一模块才是 is_default）
+        // 切到开放演示（其激活环境未设置 → 无 base_url 注入）
         state.set_active_project(Some(open.id)).await.expect("激活");
+        let vars = state.variables_for(None).await.expect("变量表");
+        assert_eq!(vars.get("base_url"), None);
+
+        // 设置开放演示的激活环境后 → base_url 跟随
+        state
+            .set_active_environment(Some(open_env.id))
+            .await
+            .expect("激活环境");
         let vars = state.variables_for(None).await.expect("变量表");
         assert_eq!(
             vars.get("base_url").map(String::as_str),
             Some("https://jsonplaceholder.typicode.com")
         );
+
+        // 切回用户服务 → 仍是用户服务自己的环境基址（按项目记忆）
+        state
+            .set_active_project(Some(users.id))
+            .await
+            .expect("切回");
+        let vars = state.variables_for(None).await.expect("变量表");
+        assert_eq!(
+            vars.get("base_url").map(String::as_str),
+            Some("http://127.0.0.1:4010")
+        );
+
+        db.close().await;
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// 激活环境归属校验：不能把 A 项目的环境设为 B 项目的激活环境。
+    #[tokio::test]
+    async fn set_active_environment_rejects_foreign_project() {
+        let path: PathBuf =
+            std::env::temp_dir().join(format!("rustfox-own-test-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let db = fox_storage::db::init_db(&path).await.expect("建库");
+        let state = AppState::new(db.clone());
+
+        let users = mk_project("用户服务");
+        let open = mk_project("开放演示");
+        repo::save_project(&db, &users).await.expect("落库项目");
+        repo::save_project(&db, &open).await.expect("落库项目");
+        let users_env = mk_env(users.id, "开发环境", "http://127.0.0.1:4010");
+        repo::save_environment(&db, &users_env)
+            .await
+            .expect("落库环境");
+
+        state
+            .set_active_project(Some(open.id))
+            .await
+            .expect("激活开放演示");
+        // 用户服务的环境不属于开放演示 → 拒绝
+        let err = state
+            .set_active_environment(Some(users_env.id))
+            .await
+            .expect_err("跨项目环境应拒绝");
+        assert!(err.to_string().contains("不属于当前项目"), "{err}");
+        assert_eq!(state.active_environment().await.expect("无激活环境"), None);
+
+        db.close().await;
         let _ = std::fs::remove_file(&path);
     }
 
@@ -360,14 +458,7 @@ mod tests {
         let db = fox_storage::db::init_db(&path).await.expect("建库");
         let state = AppState::new(db.clone());
 
-        let mut project = Project {
-            id: Uuid::new_v4(),
-            name: "项目".into(),
-            description: String::new(),
-            variables: Default::default(),
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-        };
+        let mut project = mk_project("项目");
         repo::save_project(&db, &project).await.expect("落库项目");
         state
             .set_active_project(Some(project.id))
@@ -408,6 +499,7 @@ mod tests {
     }
 
     /// 激活项目 / 环境必须跨「重启」恢复：写入 settings 表，重建状态后可读回。
+    /// 环境按项目记忆：每个项目各自恢复自己的激活环境。
     #[tokio::test]
     async fn active_context_persists_across_restart() {
         let path: PathBuf =
@@ -416,36 +508,17 @@ mod tests {
         let db = fox_storage::db::init_db(&path).await.expect("建库");
         let state = AppState::new(db.clone());
 
-        let project = Project {
-            id: Uuid::new_v4(),
-            name: "测试项目".into(),
-            description: String::new(),
-            variables: Default::default(),
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-        };
+        let project = mk_project("测试项目");
         repo::save_project(&db, &project).await.expect("落库项目");
-        let env_id = Uuid::new_v4();
-        repo::save_environment(
-            &db,
-            &Environment {
-                id: env_id,
-                name: "dev".into(),
-                modules: Vec::new(),
-                variables: Vec::new(),
-                created_at: chrono::Utc::now(),
-                updated_at: chrono::Utc::now(),
-            },
-        )
-        .await
-        .expect("落库环境");
+        let env = mk_env(project.id, "dev", "http://127.0.0.1:4010");
+        repo::save_environment(&db, &env).await.expect("落库环境");
 
         state
             .set_active_project(Some(project.id))
             .await
             .expect("激活项目");
         state
-            .set_active_environment(Some(env_id))
+            .set_active_environment(Some(env.id))
             .await
             .expect("激活环境");
 
@@ -454,7 +527,7 @@ mod tests {
         restarted.restore_active().await.expect("恢复激活上下文");
         let read = restarted.active.read().await;
         assert_eq!(read.project_id, Some(project.id), "项目应恢复");
-        assert_eq!(read.environment_id, Some(env_id), "环境应恢复");
+        assert_eq!(read.environment_id, Some(env.id), "环境应恢复");
         drop(read);
         assert_eq!(
             restarted
@@ -462,7 +535,7 @@ mod tests {
                 .await
                 .expect("读环境")
                 .map(|e| e.id),
-            Some(env_id)
+            Some(env.id)
         );
 
         // 回归：重启后用户经项目列表「重新进入」同一项目，环境必须保留
@@ -475,28 +548,23 @@ mod tests {
             let read = restarted.active.read().await;
             assert_eq!(
                 read.environment_id,
-                Some(env_id),
+                Some(env.id),
                 "重进同一项目不应清空环境"
             );
         }
 
-        // 环境为全局维度：切换 / 新增其他项目，激活环境保持有效。
+        // 环境按项目记忆：切换其他项目（无激活环境），当前项目环境保持。
         let other_project_id = Uuid::new_v4();
         repo::save_project(
             &db,
             &Project {
                 id: other_project_id,
-                name: "其他项目".into(),
-                description: String::new(),
-                variables: Default::default(),
-                created_at: chrono::Utc::now(),
-                updated_at: chrono::Utc::now(),
+                ..mk_project("其他项目")
             },
         )
         .await
         .expect("落库其他项目");
 
-        // 切换其他项目 → 全局环境不应被清空。
         restarted
             .set_active_project(Some(other_project_id))
             .await
@@ -504,15 +572,25 @@ mod tests {
         {
             let read = restarted.active.read().await;
             assert_eq!(read.project_id, Some(other_project_id));
-            assert_eq!(read.environment_id, Some(env_id), "全局环境跨项目保持");
+            assert_eq!(read.environment_id, None, "其他项目无激活环境");
         }
 
-        // 重启恢复：环境 id 有效即恢复，不受项目切换影响。
+        // 切回原项目 → 恢复原项目记忆的激活环境。
+        restarted
+            .set_active_project(Some(project.id))
+            .await
+            .expect("切回原项目");
+        {
+            let read = restarted.active.read().await;
+            assert_eq!(read.environment_id, Some(env.id), "按项目记忆恢复");
+        }
+
+        // 重启恢复：环境 id 有效且归属项目即恢复。
         let again = AppState::new(db.clone());
         again.restore_active().await.expect("恢复");
         let read = again.active.read().await;
-        assert_eq!(read.project_id, Some(other_project_id));
-        assert_eq!(read.environment_id, Some(env_id), "全局环境重启后恢复");
+        assert_eq!(read.project_id, Some(project.id));
+        assert_eq!(read.environment_id, Some(env.id), "重启后按项目恢复");
         drop(read);
 
         db.close().await;

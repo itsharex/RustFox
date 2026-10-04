@@ -61,7 +61,7 @@ const filteredOptions = computed(() => {
   if (!q) return options.value
   return options.value.filter((o) => {
     if (o.value === '') return false
-    const url = envBaseUrl(envByValue(o.value), store.project?.id).toLowerCase()
+    const url = envBaseUrl(envByValue(o.value)).toLowerCase()
     return o.label.toLowerCase().includes(q) || url.includes(q)
   })
 })
@@ -73,7 +73,7 @@ const noMatch = computed(
 
 /** 悬停 tooltip：完整 Base URL（无环境 / 未配置时不显示）。 */
 const tooltipContent = computed(() =>
-  activeEnv.value ? envBaseUrl(activeEnv.value, store.project?.id) : '',
+  activeEnv.value ? envBaseUrl(activeEnv.value) : '',
 )
 
 function envByValue(value: string | number): Environment | null | undefined {
@@ -83,7 +83,7 @@ function envByValue(value: string | number): Environment | null | undefined {
 
 /** 选项对应解析后的 Base URL（无环境 / 未配置为空串）。 */
 function urlOf(value: string | number): string {
-  return envBaseUrl(envByValue(value), store.project?.id)
+  return envBaseUrl(envByValue(value))
 }
 
 function onChange(value: string | number): void {

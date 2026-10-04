@@ -514,6 +514,7 @@ CREATE TABLE IF NOT EXISTS environments (
     id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
+    base_url TEXT NOT NULL DEFAULT '',
     variables_json TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -867,7 +868,7 @@ pub enum MultipartValueType {
 
 ### 13.1 base_url
 
-每个环境建议包含：
+每个环境声明一个 Base URL（可含 `{{变量}}`），相对路径请求都基于它拼接：
 
 ```text
 base_url
@@ -1494,11 +1495,14 @@ pub async fn list_endpoints(db: &SqlitePool, project_id: uuid::Uuid) -> Result<V
 ### 22.5 EnvironmentService
 
 ```rust
-pub async fn create_environment(db: &SqlitePool, project_id: uuid::Uuid, name: &str) -> Result<Environment>;
+pub async fn create_environment(db: &SqlitePool, project_id: uuid::Uuid, name: &str, base_url: &str) -> Result<Environment>;
 pub async fn update_environment(db: &SqlitePool, environment: &Environment) -> Result<Environment>;
 pub async fn delete_environment(db: &SqlitePool, environment_id: uuid::Uuid) -> Result<()>;
 pub async fn list_environments(db: &SqlitePool, project_id: uuid::Uuid) -> Result<Vec<Environment>>;
 ```
+
+环境按项目归属（`project_id` 外键，级联删除）；每个环境持有单一 `base_url`，
+激活环境按项目记忆（settings 键 `active_environment_id:{project_id}`）。
 
 ### 22.6 HttpService
 

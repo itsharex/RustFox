@@ -67,7 +67,7 @@ pub async fn save_project(state: State<'_, AppState>, project: Project) -> Comma
     Ok(project)
 }
 
-/// 删除项目（同时清理激活上下文缓存）。
+/// 删除项目（环境随项目级联删除，同时清理激活上下文缓存与持久化键）。
 #[tauri::command(rename_all = "camelCase")]
 pub async fn delete_project(state: State<'_, AppState>, project_id: Uuid) -> CommandResult<()> {
     repo::delete_project(&state.db, project_id).await?;
@@ -79,7 +79,12 @@ pub async fn delete_project(state: State<'_, AppState>, project_id: Uuid) -> Com
         active.environment = None;
         drop(active);
         repo::set_setting(&state.db, "active_project_id", "null").await?;
-        repo::set_setting(&state.db, "active_environment_id", "null").await?;
+        repo::set_setting(
+            &state.db,
+            &crate::state::active_environment_key(project_id),
+            "null",
+        )
+        .await?;
     }
     Ok(())
 }

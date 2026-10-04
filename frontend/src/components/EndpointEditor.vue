@@ -291,7 +291,7 @@ const activeEnvName = computed(() => activeEnv.value?.name ?? '')
 const envVars = computed(() => ({
   ...variableListToMap(store.globalVariables),
   ...(store.project?.variables ?? {}),
-  ...environmentVariableMap(activeEnv.value, store.project?.id),
+  ...environmentVariableMap(activeEnv.value),
 }))
 
 /** 地址栏前缀 chip 文案：环境 base_url 变量的「解析后」实际值或会话 Base URL。 */
@@ -329,9 +329,9 @@ const sessionBaseVars = computed(() => ({
 function resolveEnvBaseUrl(env: Environment): string {
   const vars = {
     ...sessionBaseVars.value,
-    ...environmentVariableMap(env, store.project?.id),
+    ...environmentVariableMap(env),
   }
-  const raw = envBaseUrl(env, store.project?.id)
+  const raw = envBaseUrl(env)
   return raw ? resolveVariables(raw, vars) : ''
 }
 
@@ -512,14 +512,14 @@ function applyPathVariables(path: string, pathVars: RequestSpec['path_variables'
   return out
 }
 
-/** 请求地址（与 send / 代码生成 / 压测共用）；有环境时按默认模块（优先当前项目绑定）拼接，变量由 resolveRequestUrl 解析。 */
+/** 请求地址（与 send / 代码生成 / 压测共用）；有环境时按环境 Base URL 拼接，变量由 resolveRequestUrl 解析。 */
 function buildUrl(): string {
   const d = draft.value
   if (!d) return ''
   const path = applyPathVariables(d.path, d.request.path_variables)
   if (isAbsolutePath(path)) return path
   if (activeEnv.value && envBaseUrl(activeEnv.value)) {
-    return resolveRequestUrl(activeEnv.value, null, path, envVars.value, d.project_id).url
+    return resolveRequestUrl(activeEnv.value, path, envVars.value).url
   }
   const rel = path.startsWith('/') ? path : `/${path}`
   return `${store.urlDomain}${rel}`

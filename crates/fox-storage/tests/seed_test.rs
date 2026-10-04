@@ -58,21 +58,29 @@ async fn seeds_full_fixture_set() {
         2
     );
 
-    // 环境 2 个，开发环境模块指向 3 个项目、变量 3 个
-    let envs = repo::list_environments(&db).await.unwrap();
+    // 环境：每个项目各自的开发 / 测试环境（单一 Base URL + 变量）
+    let envs = repo::list_environments(&db, users.id).await.unwrap();
     assert_eq!(envs.len(), 2);
     let dev = envs
         .iter()
         .find(|e| e.name == "开发环境")
         .expect("开发环境存在");
-    assert_eq!(dev.modules.len(), 3);
-    assert!(dev
-        .modules
-        .iter()
-        .any(|m| m.base_url == "http://127.0.0.1:4010"));
+    assert_eq!(dev.base_url, "http://127.0.0.1:4010");
     assert_eq!(dev.variables.len(), 3);
+    // 开放演示 / GraphQL 网关项目同样各有开发 + 测试环境
+    let open_demo = projects
+        .iter()
+        .find(|p| p.name == "小奏技术 · 开放演示")
+        .expect("开放演示项目存在");
+    let open_envs = repo::list_environments(&db, open_demo.id).await.unwrap();
+    assert_eq!(open_envs.len(), 2);
+    let open_dev = open_envs
+        .iter()
+        .find(|e| e.name == "开发环境")
+        .expect("开放演示开发环境存在");
+    assert_eq!(open_dev.base_url, "https://jsonplaceholder.typicode.com");
 
-    // 全局参数 2 个；激活项 settings 已写入
+    // 全局参数 2 个；激活项 settings 已写入（项目 + 该项目的激活环境）
     let params = repo::get_global_params(&db).await.unwrap();
     assert_eq!(params.len(), 2);
     let active_project = repo::get_setting(&db, "active_project_id")
@@ -81,10 +89,11 @@ async fn seeds_full_fixture_set() {
         .expect("active_project_id 已写入");
     // dev 默认激活公网项目（jsonplaceholder）而非本地 Mock，开箱即可直接发送请求
     assert!(active_project.contains(&open_demo.id.to_string()));
-    assert!(repo::get_setting(&db, "active_environment_id")
+    let active_env = repo::get_setting(&db, &format!("active_environment_id:{}", open_demo.id))
         .await
         .unwrap()
-        .is_some());
+        .expect("激活环境已写入");
+    assert!(active_env.contains(&open_dev.id.to_string()));
 }
 
 /// 幂等性：同一内存库重复 seed（模拟手动重复调用）不应报错。

@@ -20,7 +20,7 @@ export function useVarCandidates(): ComputedRef<string[]> {
     const merged = {
       ...variableListToMap(store.globalVariables),
       ...(store.project?.variables ?? {}),
-      ...environmentVariableMap(activeEnv, store.project?.id),
+      ...environmentVariableMap(activeEnv),
     }
     const set = new Set<string>(BUILTIN_VARIABLES)
     for (const key of Object.keys(merged)) set.add(key)

@@ -3,7 +3,7 @@
  * EnvironmentQuickView：当前环境变量速览弹层（👁️）。
  * - 深色浮层，跟随 EnvironmentBar 定位（空间不足时向上翻转）；
  * - 只读表格 + 值列行内快速编辑（blur / Enter 自动保存）；
- * - 基础 URL 行编辑默认模块基址（多模块环境的其余模块请到「管理环境」维护）；
+ * - 基础 URL 行编辑环境基址（完整变量表请到「管理环境」维护）；
  * - 底部：「＋ 添加变量」快捷行 +「管理环境」入口。
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -53,7 +53,7 @@ watch(
   () => env.value?.id,
   () => {
     rows.value = toRows(env.value)
-    baseUrlValue.value = envBaseUrl(env.value, store.project?.id)
+    baseUrlValue.value = envBaseUrl(env.value)
     dirty.value = false
   },
   { immediate: true },
@@ -108,28 +108,15 @@ function buildVariables(): EnvironmentVariable[] {
 
 async function save(): Promise<void> {
   if (!env.value || busy.value) return
-  const modules = [...env.value.modules]
   const normalizedBase = normalizeBaseUrl(baseUrlValue.value)
-  if (modules.length === 0) {
-    if (normalizedBase) {
-      modules.push({ id: crypto.randomUUID(), module_name: t('envmgr.defaultModuleName'), base_url: normalizedBase, is_default: true })
-    }
-  } else {
-    // 优先写当前项目绑定的模块（快速编辑的是「本项目在这个环境的基址」）
-    const pid = store.project?.id
-    let idx = pid ? modules.findIndex((m) => m.project_id === pid) : -1
-    if (idx === -1) idx = modules.findIndex((m) => m.is_default)
-    if (idx === -1) idx = 0
-    modules[idx] = { ...modules[idx], base_url: normalizedBase }
-  }
   busy.value = true
   try {
     const saved = await store.updateEnvironment(
-      { ...env.value, modules, variables: buildVariables() },
+      { ...env.value, base_url: normalizedBase, variables: buildVariables() },
       { silent: true },
     )
     rows.value = toRows(saved)
-    baseUrlValue.value = envBaseUrl(saved, store.project?.id)
+    baseUrlValue.value = envBaseUrl(saved)
     dirty.value = false
   } catch (err) {
     toast.error(t('envmgr.saveFail'), { message: err instanceof Error ? err.message : String(err) })

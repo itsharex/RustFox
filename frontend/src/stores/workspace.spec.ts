@@ -343,8 +343,9 @@ describe('cURL 导入：环境前缀优先时不覆写环境，path 存完整 UR
     const now = new Date().toISOString()
     const env: Environment = {
       id: 'env-1',
+      project_id: 'p-a',
       name: '测试',
-      modules: [{ id: 'm-1', module_name: '默认', base_url: 'https://env.example.com', is_default: true }],
+      base_url: 'https://env.example.com',
       variables: [],
       created_at: now,
       updated_at: now,
@@ -369,7 +370,7 @@ describe('cURL 导入：环境前缀优先时不覆写环境，path 存完整 UR
       { key: 'x', value: '1', enabled: true, description: '' },
     ])
     // 共享环境不被导入污染；展示前缀仍是环境变量
-    expect(env.modules[0]!.base_url).toBe('https://env.example.com')
+    expect(env.base_url).toBe('https://env.example.com')
     expect(store.urlDomain).toBe('{{base_url}}')
     expect(store.sessionBaseUrl).toBe('https://httpbin.org')
   })
@@ -397,7 +398,7 @@ describe('cURL 导入：环境前缀优先时不覆写环境，path 存完整 UR
 
     expect(store.draftOf(id)!.path).toBe('https://httpbin.org/post')
     expect(store.draftOf(id)!.method).toBe('POST')
-    expect(env.modules[0]!.base_url).toBe('https://env.example.com')
+    expect(env.base_url).toBe('https://env.example.com')
   })
 })
 
