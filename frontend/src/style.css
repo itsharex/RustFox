@@ -44,6 +44,7 @@
   --color-method-put: var(--put);
   --color-method-patch: var(--patch);
   --color-method-delete: var(--delete);
+  --color-method-grpc: var(--grpc);
   --color-method-neutral: var(--text-3);
 }
 
@@ -75,6 +76,7 @@
   --put: #3b82f6;
   --patch: #a78bfa;
   --delete: #ef4444;
+  --grpc: #06b6d4;
 
   /* ---- 语义派生 ---- */
   --accent-tint: rgba(131, 128, 232, 0.16);
@@ -217,6 +219,7 @@
   --put: #2563eb;
   --patch: #8b5cf6;
   --delete: #dc2626;
+  --grpc: #0891b2;
 
   --accent-tint: rgba(95, 90, 212, 0.12);
   --success-tint: rgba(22, 163, 74, 0.1);
@@ -610,6 +613,9 @@ kbd,
 .rf-method-graphql {
   color: var(--patch);
 }
+.rf-method-grpc {
+  color: var(--grpc);
+}
 
 /* ---- Method 文本色（全局语义色） ----
  * m-select-* 曾只定义在 EndpointEditor 局部，其余 4 处引用（历史/用例/Mock/抽屉）
@@ -628,6 +634,9 @@ kbd,
 }
 .m-select-patch {
   color: var(--patch);
+}
+.m-select-grpc {
+  color: var(--grpc);
 }
 .m-select-head,
 .m-select-options {

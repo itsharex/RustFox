@@ -16,6 +16,7 @@ export const METHOD_TONE: Record<string, string> = {
   delete: 'text-method-delete bg-method-delete/10 border-method-delete/20',
   patch: 'text-method-patch bg-method-patch/10 border-method-patch/20',
   graphql: 'text-method-patch bg-method-patch/10 border-method-patch/20',
+  grpc: 'text-method-grpc bg-method-grpc/10 border-method-grpc/20',
   head: 'text-method-neutral bg-method-neutral/10 border-method-neutral/20',
   options: 'text-method-neutral bg-method-neutral/10 border-method-neutral/20',
 }
@@ -28,6 +29,7 @@ export const METHOD_TEXT_TONE: Record<string, string> = {
   delete: 'text-method-delete',
   patch: 'text-method-patch',
   graphql: 'text-method-patch',
+  grpc: 'text-method-grpc',
   head: 'text-method-get',
   options: 'text-method-neutral',
 }

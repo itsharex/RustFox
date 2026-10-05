@@ -30,3 +30,11 @@ describe('methodTone', () => {
     }
   })
 })
+
+describe('methodTone：GRPC', () => {
+  it('GRPC 徽章 / 文本色走 grpc 青色令牌，未知方法仍兜底中性灰', () => {
+    expect(methodTone('GRPC')).toBe('text-method-grpc bg-method-grpc/10 border-method-grpc/20')
+    expect(methodTextTone('GRPC')).toBe('text-method-grpc')
+    expect(methodTone('grpc')).toBe(methodTone('GRPC'))
+  })
+})

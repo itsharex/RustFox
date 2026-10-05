@@ -72,6 +72,9 @@ export function tabOf(body: BodySpec, _headers: KeyValue[]): BodyTab {
     case 'json':
     case 'text':
       return 'raw'
+    // gRPC 配置走独立 GrpcPanel 页签，不经由 Body 页签推导
+    case 'grpc':
+      return 'none'
   }
 }
 

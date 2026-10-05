@@ -17,6 +17,8 @@ import Icon from './Icon.vue'
 export interface SelectOption {
   value: string | number
   label: string
+  /** 分组分隔标题：不可选中、不参与键盘导航（如方法下拉里的「其他协议」）。 */
+  header?: boolean
 }
 
 const props = withDefaults(
@@ -56,6 +58,20 @@ const pos = ref<{ left: number; top: number; width: number; up: boolean }>({
   width: 0,
   up: false,
 })
+
+/** 可选中选项的索引列表（header 分隔项被排除，键盘导航只在其中循环）。 */
+const selectableIndexes = computed(() =>
+  props.options.map((o, i) => (o.header ? -1 : i)).filter((i) => i >= 0),
+)
+
+/** 从 from 出发按 step 相对移动到的可选中索引（from 无效时落到首/尾）。 */
+function nextSelectable(from: number, step: 1 | -1): number {
+  const list = selectableIndexes.value
+  if (!list.length) return -1
+  const pos = list.indexOf(from)
+  if (pos === -1) return step === 1 ? list[0] : list[list.length - 1]
+  return list[(pos + step + list.length) % list.length]
+}
 
 const selectedIndex = computed(() => {
   const idx = props.options.findIndex((o) => String(o.value) === String(props.modelValue))
@@ -112,26 +128,26 @@ function onKeydown(event: KeyboardEvent): void {
   if (props.disabled) return
   if (event.key === 'ArrowDown') {
     event.preventDefault()
-    if (!props.options.length) return
+    if (!selectableIndexes.value.length) return
     if (!open.value) {
       openPopup()
       return
     }
-    highlight.value = (highlight.value + 1) % props.options.length
+    highlight.value = nextSelectable(highlight.value, 1)
     scrollToHighlight()
   } else if (event.key === 'ArrowUp') {
     event.preventDefault()
-    if (!props.options.length) return
+    if (!selectableIndexes.value.length) return
     if (!open.value) {
       openPopup()
       return
     }
-    highlight.value = (highlight.value - 1 + props.options.length) % props.options.length
+    highlight.value = nextSelectable(highlight.value, -1)
     scrollToHighlight()
   } else if (event.key === 'Enter') {
     event.preventDefault()
     const target = open.value ? props.options[highlight.value] : undefined
-    if (target) {
+    if (target && !target.header) {
       pick(target)
     } else {
       openPopup()
@@ -223,9 +239,10 @@ defineExpose({ close })
           <slot name="search" />
         </div>
         <div class="cs-pop-list">
+          <template v-for="(o, i) in options" :key="String(o.value)">
+          <div v-if="o.header" class="cs-opt-header" role="presentation">{{ o.label }}</div>
           <div
-            v-for="(o, i) in options"
-            :key="String(o.value)"
+            v-else
             class="cs-opt"
             :class="{ hl: highlight === i, sel: String(o.value) === String(modelValue) }"
             role="option"
@@ -248,6 +265,7 @@ defineExpose({ close })
               :selected="String(o.value) === String(modelValue)"
             />
           </div>
+          </template>
         </div>
         <div v-if="$slots.footer" class="cs-pop-footer">
           <slot name="footer" />
@@ -356,6 +374,21 @@ defineExpose({ close })
   margin-top: 4px;
   padding-top: 6px;
   border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+.cs-opt-header {
+  padding: 6px 12px 3px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--text-3);
+  letter-spacing: 0.06em;
+  user-select: none;
+  cursor: default;
+}
+.cs-pop-list > .cs-opt-header:first-child {
+  border-top: 0;
+  margin-top: 0;
 }
 
 .cs-opt {

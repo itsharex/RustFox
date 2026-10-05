@@ -44,6 +44,8 @@ import type {
   ExportedDoc,
   Folder,
   GlobalParam,
+  GrpcInvokeArgs,
+  GrpcInvokeResult,
   HttpMethod,
   ImportResult,
   KeyValue,
@@ -57,8 +59,10 @@ import type {
   RequestExample,
   RequestHistory,
   RequestSpec,
+  ProtoFile,
   ResponseExample,
   SeqCounter,
+  ServiceCatalog,
   TestCase,
   TestCaseStatus,
 } from '../types/foxApi'
@@ -530,6 +534,38 @@ export function useFoxApi() {
   const sseDisconnect = (connectionId: string) =>
     call<boolean>('sse_disconnect', { connectionId })
 
+  // ---------- gRPC 调试 ----------
+  /** 服务目录：proto 文件编译（免连服务器）或服务端反射。 */
+  const grpcListServices = (args: {
+    address: string
+    use_tls?: boolean
+    metadata?: KeyValue[]
+    proto_ids?: string[]
+    project_id?: string | null
+    environment_id?: string | null
+    force_reload?: boolean
+  }) => run(() => call<ServiceCatalog>('grpc_list_services', { args }))
+
+  /** gRPC 调用：unary 直返响应；服务端流转 stream_id（消息经 fox:grpc-event 推送）。 */
+  const grpcInvoke = (args: GrpcInvokeArgs) =>
+    run(() => call<GrpcInvokeResult>('grpc_invoke', { args }))
+
+  /** 关闭服务端流（不存在或已结束时返回 false）。 */
+  const grpcStreamClose = (streamId: string) =>
+    call<boolean>('grpc_stream_close', { streamId })
+
+  /** 项目级 proto 文件列表。 */
+  const grpcListProtoFiles = (projectId: string) =>
+    quiet<ProtoFile[]>('grpc_list_proto_files', { projectId })
+
+  /** 批量保存 proto 文件（upsert），返回保存后的完整列表。 */
+  const grpcSaveProtoFiles = (projectId: string, files: Array<{ id?: string | null; name: string; content: string }>) =>
+    run(() => call<ProtoFile[]>('grpc_save_proto_files', { projectId, files }))
+
+  /** 删除 proto 文件。 */
+  const grpcDeleteProtoFile = (protoId: string) =>
+    run(() => call<void>('grpc_delete_proto_file', { protoId }))
+
   return {
     pending,
     activeProject,
@@ -629,6 +665,12 @@ export function useFoxApi() {
     wsDisconnect,
     sseConnect,
     sseDisconnect,
+    grpcListServices,
+    grpcInvoke,
+    grpcStreamClose,
+    grpcListProtoFiles,
+    grpcSaveProtoFiles,
+    grpcDeleteProtoFile,
   }
 }
 

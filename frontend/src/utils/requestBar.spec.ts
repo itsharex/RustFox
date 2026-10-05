@@ -127,3 +127,35 @@ describe('envBadgeTooltip', () => {
     expect(envBadgeTooltip({ urlDomain: '', resolvedDomain: '', envName: '' }, t)).toBe('')
   })
 })
+describe('applyMethodDefaults：GRPC 分支', () => {
+  it('GRPC + 空 body → 初始化 grpc 配置（空服务/方法、{} 消息、反射），返回 grpc', () => {
+    const r = req()
+    const tab = applyMethodDefaults(r, 'GRPC')
+    expect(tab).toBe('grpc')
+    expect(r.body).toEqual({
+      mode: 'grpc',
+      spec: { service: '', method: '', message: '{}', use_tls: false, proto_ids: [] },
+    })
+  })
+
+  it('GRPC + 已有 grpc 配置 → 保留原样（不覆盖 service/method/message）', () => {
+    const spec = {
+      service: 'grpcbin.GRPCBin',
+      method: 'DummyUnary',
+      message: '{"f_string":"x"}',
+      use_tls: true,
+      proto_ids: ['pf-1'],
+    }
+    const r = req({ body: { mode: 'grpc', spec } })
+    const tab = applyMethodDefaults(r, 'GRPC')
+    expect(tab).toBe('grpc')
+    expect(r.body).toEqual({ mode: 'grpc', spec })
+  })
+
+  it('GRPC + 已有 JSON body → 覆盖为 grpc 配置（HTTP body 对 gRPC 无意义）', () => {
+    const r = req({ body: { mode: 'json', raw: '{"a":1}' } })
+    const tab = applyMethodDefaults(r, 'GRPC')
+    expect(tab).toBe('grpc')
+    expect(r.body.mode).toBe('grpc')
+  })
+})

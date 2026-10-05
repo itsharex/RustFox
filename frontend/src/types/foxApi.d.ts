@@ -28,10 +28,19 @@ export interface CommandError {
     | 'JSON'
     | 'DECRYPT'
     | 'OAUTH2'
+    | 'GRPC'
   message: string
 }
 
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS'
+export type HttpMethod =
+  | 'GET'
+  | 'POST'
+  | 'PUT'
+  | 'DELETE'
+  | 'PATCH'
+  | 'HEAD'
+  | 'OPTIONS'
+  | 'GRPC'
 
 export type EndpointStatus =
   | 'designing'
@@ -152,6 +161,29 @@ export interface FieldDoc {
   required?: boolean
 }
 
+/** gRPC 调用配置（Rust `GrpcSpec`；地址存 Endpoint.path，metadata 复用 headers）。 */
+export interface GrpcSpec {
+  /** 全限定服务名，如 `user.v1.UserService`。 */
+  service: string
+  method: string
+  /** 请求消息 protobuf-JSON 文本（空串或 "{}" 表示空消息）。 */
+  message: string
+  /** 是否使用 TLS（false = 明文 h2c）。 */
+  use_tls: boolean
+  /** 引用的项目级 proto 文件 id（空 = 使用服务端反射）。 */
+  proto_ids: string[]
+}
+
+/** 项目级 proto 文件（Rust `ProtoFile`）。 */
+export interface ProtoFile {
+  id: string
+  project_id: string
+  name: string
+  content: string
+  created_at: string
+  updated_at: string
+}
+
 /** 请求 Body（Rust `BodySpec`，tag = "mode"）。 */
 export type BodySpec =
   | { mode: 'none' }
@@ -161,6 +193,7 @@ export type BodySpec =
   | { mode: 'multipart'; fields: MultipartField[] }
   | { mode: 'graphql'; spec: GraphQLSpec }
   | { mode: 'binary'; path: string }
+  | { mode: 'grpc'; spec: GrpcSpec }
 
 /** GraphQL 错误位置（Rust `GraphQLErrorLocation`）。 */
 export interface GraphQLErrorLocation {
@@ -609,4 +642,83 @@ export interface MockRule {
   priority: number
   created_at: string
   updated_at: string
+}
+// ---------- gRPC 调试（Rust fox-grpc / commands/grpc.rs） ----------
+
+/** gRPC 服务目录里的单个方法（Rust `GrpcMethodInfo`）。 */
+export interface GrpcMethodInfo {
+  method: string
+  input_type: string
+  output_type: string
+  client_streaming: boolean
+  server_streaming: boolean
+}
+
+/** gRPC 服务目录里的单个服务（Rust `GrpcServiceInfo`）。 */
+export interface GrpcServiceInfo {
+  service: string
+  methods: GrpcMethodInfo[]
+}
+
+/** 服务目录（grpcListServices 返回；source = reflection | proto）。 */
+export interface ServiceCatalog {
+  services: GrpcServiceInfo[]
+  source: string
+}
+
+/** gRPC unary 响应（Rust `GrpcResponse`）。 */
+export interface GrpcResponse {
+  message_json: string
+  metadata: [string, string][]
+  grpc_status: number
+  grpc_message: string
+  duration_ms: number
+  size_bytes: number
+}
+
+/** grpcInvoke 结果：unary 直返响应；服务端流转 stream_id（消息走事件）。 */
+export type GrpcInvokeResult =
+  | { kind: 'unary'; response: GrpcResponse }
+  | { kind: 'stream'; stream_id: string }
+
+/** 服务端流单条消息（fox:grpc-event kind=message，Rust `GrpcMessage`）。 */
+export interface GrpcMessageEvent {
+  kind: 'message'
+  sequence: number
+  message_json: string
+  elapsed_ms: number
+  size_bytes: number
+}
+
+/** 服务端流结束事件（fox:grpc-event kind=end，Rust `GrpcEvent::End`）。 */
+export interface GrpcEndEvent {
+  kind: 'end'
+  cancelled: boolean
+  grpc_status: number
+  grpc_message: string
+  metadata: [string, string][]
+}
+
+/** fox:grpc-event 载荷（stream_id + 流事件，flatten）。 */
+export type GrpcEventPayload =
+  | ({ stream_id: string } & GrpcMessageEvent)
+  | ({ stream_id: string } & GrpcEndEvent)
+  | { stream_id: string; kind: 'failed'; message: string }
+
+/** grpcInvoke 入参（命令层组装；模板字段由后端按环境渲染）。 */
+export interface GrpcInvokeArgs {
+  address: string
+  service: string
+  method: string
+  message?: string
+  metadata?: KeyValue[]
+  use_tls?: boolean
+  proto_ids?: string[]
+  project_id?: string | null
+  timeout_ms?: number | null
+  environment_id?: string | null
+  endpoint_project_id?: string | null
+  endpoint_id?: string | null
+  request_id?: string | null
+  force_reload?: boolean
 }

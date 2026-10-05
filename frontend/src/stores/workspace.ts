@@ -11,6 +11,7 @@
  */
 import { defineStore } from 'pinia'
 import { computed, nextTick, ref, watch } from 'vue'
+import { listen } from '@tauri-apps/api/event'
 import { useFoxApi } from '../composables/useFoxApi'
 import { useToast } from '../composables/useToast'
 import { useLocaleStore } from './locale'
@@ -28,6 +29,9 @@ import type {
   ExecuteResponse,
   Folder,
   GlobalParam,
+  GrpcEndEvent,
+  GrpcInvokeResult,
+  GrpcMessageEvent,
   HttpMethod,
   KeyValue,
   OAuth2Token,
@@ -59,6 +63,18 @@ export function defaultRequestSpec(): Endpoint['request'] {
 
 function eq(a: Endpoint, b: Endpoint): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
+}
+
+/** gRPC 服务端流运行态（stream_id → 状态；消息由 fox:grpc-event 事件追加）。 */
+export interface GrpcStreamState {
+  streamId: string
+  endpointId: string
+  service: string
+  method: string
+  messages: GrpcMessageEvent[]
+  status: 'running' | 'done' | 'failed'
+  end: GrpcEndEvent | null
+  error: string | null
 }
 
 export const useWorkspaceStore = defineStore('workspace', () => {
@@ -1300,6 +1316,94 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   }
 
+  // ---------- gRPC 调试 ----------
+
+  const grpcStreams = ref<Map<string, GrpcStreamState>>(new Map())
+
+  /** 某接口当前（最近一次）的服务端流状态。 */
+  function grpcStreamOf(endpointId: string): GrpcStreamState | null {
+    for (const st of grpcStreams.value.values()) {
+      if (st.endpointId === endpointId) return st
+    }
+    return null
+  }
+
+  /** fox:grpc-event 单例绑定（store 生命周期 = 应用生命周期，无需解绑）。 */
+  let grpcBound = false
+  async function bindGrpcEvents(): Promise<void> {
+    if (grpcBound) return
+    grpcBound = true
+    try {
+      await listen<{ stream_id: string } & Record<string, unknown>>('fox:grpc-event', (event) => {
+        const payload = event.payload
+        const st = grpcStreams.value.get(payload.stream_id)
+        if (!st) return
+        if (payload.kind === 'message') {
+          st.messages.push(payload as unknown as GrpcMessageEvent)
+        } else if (payload.kind === 'end') {
+          st.status = 'done'
+          st.end = payload as unknown as GrpcEndEvent
+        } else if (payload.kind === 'failed') {
+          st.status = 'failed'
+          st.error = String(payload.message ?? '')
+        }
+      })
+    } catch {
+      // 事件通道不可用（如测试环境）：流式消息收不到，不影响 unary
+      grpcBound = false
+    }
+  }
+
+  /**
+   * 发送 gRPC 调用：unary 直返响应；服务端流注册运行态并返回 stream_id。
+   * 地址 / 服务 / 方法 / 消息 / 元数据均为模板原文，由后端按环境统一渲染。
+   */
+  async function sendGrpc(endpoint: Endpoint, requestId?: string): Promise<GrpcInvokeResult> {
+    const spec = endpoint.request.body.mode === 'grpc' ? endpoint.request.body.spec : null
+    if (!spec) throw new Error(t('grpc.specMissing'))
+    const rid = requestId ?? crypto.randomUUID()
+    void bindGrpcEvents()
+    const result = await api.grpcInvoke({
+      address: endpoint.path,
+      service: spec.service,
+      method: spec.method,
+      message: spec.message,
+      metadata: endpoint.request.headers,
+      use_tls: spec.use_tls,
+      proto_ids: spec.proto_ids,
+      project_id: project.value?.id ?? null,
+      timeout_ms: endpoint.request.timeout_ms,
+      environment_id: activeEnvId.value,
+      endpoint_project_id: project.value?.id ?? null,
+      endpoint_id: endpoint.id,
+      request_id: rid,
+    })
+    if (result.kind === 'stream') {
+      const st: GrpcStreamState = {
+        streamId: result.stream_id,
+        endpointId: endpoint.id,
+        service: spec.service,
+        method: spec.method,
+        messages: [],
+        status: 'running',
+        end: null,
+        error: null,
+      }
+      grpcStreams.value.set(result.stream_id, st)
+    }
+    return result
+  }
+
+  /** 关闭服务端流（后端触发取消令牌 + 中止消费任务）。 */
+  async function closeGrpcStream(streamId: string): Promise<void> {
+    await api.grpcStreamClose(streamId)
+  }
+
+  /** 流结束后清理运行态（消息与结束事件保留在 UI 快照里则由编辑器持有）。 */
+  function dropGrpcStream(streamId: string): void {
+    grpcStreams.value.delete(streamId)
+  }
+
   /** 树内重命名接口：保存 + 同步列表与打开中的草稿。 */
   async function renameEndpoint(endpointId: string, name: string): Promise<void> {
     const e = endpoints.value.find((x) => x.id === endpointId)
@@ -1641,6 +1745,62 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     } catch {
       // 旧版记录只有 method/url，按降级路径恢复
     }
+
+    // gRPC 记录：url 字段即地址模板（无 scheme，不走 splitUrl/Base URL 语义），
+    // 配置在 spec.grpc（service/method/message/use_tls/metadata/timeout_ms）。
+    if ((summary.method ?? h.method) === 'GRPC') {
+      const g = (summary.spec as { grpc?: { service?: string; method?: string; message?: string; use_tls?: boolean; metadata?: [string, string][]; timeout_ms?: number | null } } | undefined)?.grpc
+      const target = h.endpoint_id ? endpoints.value.find((e) => e.id === h.endpoint_id) : null
+      let id: string
+      if (target) {
+        openEndpoint(target)
+        id = target.id
+      } else {
+        id = crypto.randomUUID()
+        const now = new Date().toISOString()
+        drafts.value.set(id, {
+          id,
+          project_id: project.value?.id ?? '',
+          folder_id: null,
+          name: t('default.endpointName'),
+          method: 'GRPC',
+          path: summary.url ?? h.url,
+          description: '',
+          status: 'designing',
+          sort_order: 0,
+          request: defaultRequestSpec(),
+          created_at: now,
+          updated_at: now,
+        })
+        if (!openTabs.value.includes(id)) openTabs.value.push(id)
+        activeTabId.value = id
+      }
+      const draft = drafts.value.get(id)
+      if (!draft) return
+      draft.method = 'GRPC'
+      draft.path = summary.url ?? h.url
+      draft.request.body = {
+        mode: 'grpc',
+        spec: {
+          service: g?.service ?? '',
+          method: g?.method ?? '',
+          message: g?.message ?? '{}',
+          use_tls: g?.use_tls ?? false,
+          proto_ids: [],
+        },
+      }
+      draft.request.headers = (g?.metadata ?? []).map(([key, value]) => ({
+        key,
+        value,
+        enabled: true,
+        description: '',
+      }))
+      draft.request.timeout_ms = g?.timeout_ms ?? null
+      draft.request.active_tab = 'grpc'
+      toast.info(t('ws.restoredToEditor'))
+      return
+    }
+
     const url = summary.url ?? h.url
     const { path, params, origin } = splitUrl(url)
     const envPrefixed = urlDomain.value.startsWith('{{')
@@ -1695,6 +1855,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     globalParams,
     sessionBaseUrl,
     urlDomain,
+    grpcStreams,
+    grpcStreamOf,
+    sendGrpc,
+    closeGrpcStream,
+    dropGrpcStream,
     setEnvironmentBaseUrl,
     loadError,
     openTabs,

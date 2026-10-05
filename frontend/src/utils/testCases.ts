@@ -116,6 +116,9 @@ export function bodyTypeOf(body: BodySpec): string {
       return 'binary'
     case 'none':
       return 'none'
+    // gRPC 不参与测试用例（本期排除）；快照标识保留区分
+    case 'grpc':
+      return 'grpc'
   }
 }
 
@@ -135,6 +138,8 @@ export function bodyContentOf(body: BodySpec): string {
       return body.path
     case 'none':
       return ''
+    case 'grpc':
+      return body.spec.message
   }
 }
 
@@ -185,6 +190,11 @@ export function restoreBody(bodyType: string, content: string): BodySpec {
       return { mode: 'binary', path: content }
     case 'none':
       return { mode: 'none' }
+    case 'grpc':
+      return {
+        mode: 'grpc',
+        spec: { service: '', method: '', message: content, use_tls: false, proto_ids: [] },
+      }
     default:
       return { mode: 'text', raw: content }
   }

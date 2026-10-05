@@ -37,6 +37,8 @@ import AuthPanel from './AuthPanel.vue'
 import BodyPanel from './BodyPanel.vue'
 import CodeExportMenu from './CodeExportMenu.vue'
 import CodePanel from './CodePanel.vue'
+import GrpcPanel from './GrpcPanel.vue'
+import GrpcResponsePanel from './GrpcResponsePanel.vue'
 import HeadersPanel from './HeadersPanel.vue'
 import CustomNumberInput from './ui/CustomNumberInput.vue'
 import CustomSelect from './ui/CustomSelect.vue'
@@ -60,11 +62,13 @@ import type { TabItem } from './ui/Tabs.vue'
 import type {
   ExecuteResponse,
   Environment,
+  GrpcResponse,
   HttpMethod,
   RequestSpec,
   ResponseExample,
   TestCaseCategory,
 } from '../types/foxApi'
+import type { GrpcStreamState } from '../stores/workspace'
 
 const store = useWorkspaceStore()
 const toast = useToast()
@@ -142,10 +146,33 @@ const sendError = computed<string | null>(() =>
   draft.value ? (sendErrors.value.get(draft.value.id) ?? null) : null,
 )
 
+/** gRPC 响应按接口 id 分桶（口径同 responses：切接口天然隔离）。 */
+const grpcResponses = ref<Map<string, GrpcResponse | null>>(new Map())
+const grpcResponse = computed<GrpcResponse | null>(() =>
+  draft.value ? (grpcResponses.value.get(draft.value.id) ?? null) : null,
+)
+/** 当前接口最近一次的服务端流状态（store 事件通道维护）。 */
+const grpcStream = computed<GrpcStreamState | null>(() =>
+  draft.value ? store.grpcStreamOf(draft.value.id) : null,
+)
+const isGrpc = computed(() => draft.value?.method === 'GRPC')
+/** 响应区展示口径：运行中的流优先；否则最近 unary；否则已结束的流。 */
+const grpcDisplay = computed<{ response: GrpcResponse | null; stream: GrpcStreamState | null }>(() => {
+  const st = grpcStream.value
+  if (st && st.status === 'running') return { response: null, stream: st }
+  if (grpcResponse.value) return { response: grpcResponse.value, stream: null }
+  return { response: null, stream: st }
+})
+
 const draft = computed(() => store.activeEndpoint)
 
 const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']
-const METHOD_OPTIONS = METHODS.map((m) => ({ value: m, label: m }))
+/** 方法下拉：HTTP 方法一组 + 分隔标题 + gRPC（协议维度，选中后编辑器形态整体切换）。 */
+const METHOD_OPTIONS = computed(() => [
+  ...METHODS.map((m) => ({ value: m, label: m })),
+  { value: '__proto_header__', label: t('editor.methodGroupOther'), header: true },
+  { value: 'GRPC' as HttpMethod, label: 'GRPC' },
+])
 
 // ---------- 配置 Tab 系统 ----------
 type ConfigTabKey =
@@ -153,12 +180,13 @@ type ConfigTabKey =
   | 'auth'
   | 'headers'
   | 'body'
+  | 'grpc'
   | 'path'
   | 'examples'
   | 'code'
 
 /** 合法 Tab 集合（历史数据可能持久化过已下线的前置脚本 Scripts / Tests 页签）。 */
-const VALID_TABS: readonly ConfigTabKey[] = ['params', 'auth', 'headers', 'body', 'path', 'examples', 'code']
+const VALID_TABS: readonly ConfigTabKey[] = ['params', 'auth', 'headers', 'body', 'grpc', 'path', 'examples', 'code']
 
 /** 未保存 active_tab 时的智能默认（不写回草稿，避免标记脏）。 */
 const smartTab = ref<ConfigTabKey>('params')
@@ -190,6 +218,13 @@ const BODY_TAB_LABELS: Record<string, string> = {
 const configTabs = computed<TabItem[]>(() => {
   const d = draft.value
   if (!d) return []
+  // gRPC：主配置（服务/方法/消息/proto）+ 元数据（复用请求头），不提供代码生成
+  if (d.method === 'GRPC') {
+    return [
+      { key: 'grpc', label: 'gRPC' },
+      { key: 'headers', label: t('editor.tabHeaders'), count: d.request.headers.length },
+    ]
+  }
   const bodyMode = d.request.body.mode
   return [
     { key: 'params', label: t('editor.tabParams'), count: d.request.params.length },
@@ -214,7 +249,12 @@ const configTabs = computed<TabItem[]>(() => {
 watch(
   () => draft.value?.id,
   () => {
-    smartTab.value = draft.value && methodNeedsBody(draft.value.method) ? 'body' : 'params'
+    smartTab.value =
+      draft.value && draft.value.method === 'GRPC'
+        ? 'grpc'
+        : draft.value && methodNeedsBody(draft.value.method)
+          ? 'body'
+          : 'params'
   },
   { immediate: true },
 )
@@ -247,9 +287,11 @@ watch(
       const restored = d.request.active_tab
       smartTab.value = (restored && VALID_TABS.includes(restored as ConfigTabKey)
         ? (restored as ConfigTabKey)
-        : methodNeedsBody(m)
-          ? 'body'
-          : 'params')
+        : m === 'GRPC'
+          ? 'grpc'
+          : methodNeedsBody(m)
+            ? 'body'
+            : 'params')
       methodRevert = null
       return
     }
@@ -440,8 +482,9 @@ function onUrlPaste(event: ClipboardEvent): void {
   void importCurlText(text)
 }
 
-/** 路径输入框 placeholder：有基础 URL 时提示自动拼接，无则提示粘贴完整 URL。 */
+/** 路径输入框 placeholder：gRPC 提示地址格式；HTTP 提示 Base URL 拼接。 */
 const urlPlaceholder = computed(() => {
+  if (draft.value?.method === 'GRPC') return t('grpc.addressPh')
   if (!urlDomain.value) return t('editor.urlPhBare')
   return t('editor.urlPhJoin', { v: resolvedDomain.value || urlDomain.value })
 })
@@ -516,6 +559,8 @@ function applyPathVariables(path: string, pathVars: RequestSpec['path_variables'
 function buildUrl(): string {
   const d = draft.value
   if (!d) return ''
+  // gRPC：path 即完整地址（host:port，可含 {{变量}}），不拼 Base URL
+  if (d.method === 'GRPC') return d.path
   const path = applyPathVariables(d.path, d.request.path_variables)
   if (isAbsolutePath(path)) return path
   if (activeEnv.value && envBaseUrl(activeEnv.value)) {
@@ -544,6 +589,7 @@ async function send(): Promise<void> {
     toast.info(t('editor.sendingHint'))
     return
   }
+  if (draft.value.method === 'GRPC') return sendGrpc()
   const snapshot = draft.value
   sendErrors.value.set(targetId, null)
   const url = buildUrl()
@@ -572,6 +618,50 @@ async function send(): Promise<void> {
   } finally {
     sendingMap.value.delete(targetId)
     // 等响应分支挂载后再重启动画：完成瞬间仍是请求中占位，flashEl 为空。
+    await nextTick()
+    triggerFlash()
+  }
+}
+
+/**
+ * gRPC 发送：unary 直返响应入桶；服务端流注册运行态（消息经事件异步追加），
+ * 发送按钮随即复位——流的关闭由响应区按钮控制。
+ */
+async function sendGrpc(): Promise<void> {
+  const d = draft.value
+  if (!d) return
+  const targetId = d.id
+  if (sendingMap.value.has(targetId)) {
+    toast.info(t('editor.sendingHint'))
+    return
+  }
+  sendErrors.value.set(targetId, null)
+  const rid = crypto.randomUUID()
+  sendingMap.value.set(targetId, { requestId: rid, startedAt: Date.now() })
+  ensureElapsedTimer()
+  try {
+    const result = await store.sendGrpc(d, rid)
+    if (result.kind === 'unary') {
+      grpcResponses.value.set(targetId, result.response)
+      void store.loadHistories()
+    } else {
+      // 服务端流：清掉旧 unary 响应，让流式时间线接管响应区
+      grpcResponses.value.set(targetId, null)
+    }
+    sendErrors.value.set(targetId, null)
+    triggerFlash()
+  } catch (err) {
+    const e = err as Error & { code?: string }
+    if (e?.code === 'CANCELLED') {
+      toast.info(t('editor.cancelled'))
+      sendErrors.value.set(targetId, null)
+    } else {
+      sendErrors.value.set(targetId, err instanceof Error ? err.message : String(err))
+      grpcResponses.value.set(targetId, null)
+      triggerFlash()
+    }
+  } finally {
+    sendingMap.value.delete(targetId)
     await nextTick()
     triggerFlash()
   }
@@ -702,7 +792,14 @@ const splitterDragging = ref(false)
 const requestBodyCollapsed = computed(() => requestBodyHeight.value <= REQUEST_MIN)
 
 /** 正在发送或已有结果时展示响应区（发送中显示请求中占位，见模板）。 */
-const hasResponse = computed(() => !!response.value || !!sendError.value || sending.value)
+const hasResponse = computed(
+  () =>
+    !!response.value ||
+    !!sendError.value ||
+    sending.value ||
+    !!grpcResponse.value ||
+    !!grpcStream.value,
+)
 
 let splitStartY = 0
 let splitStartHeight = 0
@@ -1025,7 +1122,7 @@ onUnmounted(() => {
         <button class="rf-btn rf-btn-sm" type="button" :title="t('editor.toolsHint')" @click="showTools = true">
           <Icon name="gauge" :size="13" /> {{ t('editor.tools') }}
         </button>
-        <CodeExportMenu :draft="draft" :url="requestUrl" />
+        <CodeExportMenu v-if="!isGrpc" :draft="draft" :url="requestUrl" />
         <div class="save-group">
           <button class="rf-btn save-main" type="button" @click="save">
             <Icon name="save" :size="14" /> {{ t('editor.saveHint') }}
@@ -1052,6 +1149,7 @@ onUnmounted(() => {
       <AuthPanel v-else-if="activeTab === 'auth'" :draft="draft" />
       <HeadersPanel v-else-if="activeTab === 'headers'" :draft="draft" />
       <BodyPanel v-else-if="activeTab === 'body'" :draft="draft" />
+      <GrpcPanel v-else-if="activeTab === 'grpc'" :draft="draft" />
       <PathVariablesPanel v-else-if="activeTab === 'path'" :draft="draft" />
       <RequestExamplesPanel v-else-if="activeTab === 'examples'" :draft="draft" />
       <CodePanel v-else :draft="draft" :url="requestUrl" />
@@ -1123,7 +1221,13 @@ onUnmounted(() => {
           </button>
         </div>
         <div v-else ref="flashEl" class="response-anim" :class="{ 'is-stale': sending }">
-          <ResponsePanel v-if="response" :response="response" @save-example="saveExample" />
+          <GrpcResponsePanel
+            v-if="isGrpc && (grpcDisplay.response || grpcDisplay.stream)"
+            :method="draft.method"
+            :response="grpcDisplay.response"
+            :stream="grpcDisplay.stream"
+          />
+          <ResponsePanel v-else-if="!isGrpc && response" :response="response" @save-example="saveExample" />
           <div v-else-if="sendError" class="send-error" role="alert">
             <span>{{ t('editor.sendFail', { v: sendError }) }}</span>
           </div>

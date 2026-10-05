@@ -74,3 +74,69 @@ describe('CustomSelect：下拉行为', () => {
     wrapper.unmount()
   })
 })
+
+describe('CustomSelect：header 分隔项', () => {
+  const GROUPED = [
+    { value: 'GET', label: 'GET' },
+    { value: 'POST', label: 'POST' },
+    { value: '__h__', label: '其他协议', header: true },
+    { value: 'GRPC', label: 'GRPC' },
+  ]
+
+  function mountGrouped(modelValue = 'GET') {
+    return mount(CustomSelect, {
+      props: { options: GROUPED, modelValue },
+      attachTo: document.body,
+    })
+  }
+
+  it('header 渲染为分隔标题，不是可选项（无 role=option、点击不触发 change）', async () => {
+    const wrapper = mountGrouped()
+    await wrapper.find('.cs-trigger').trigger('click')
+    await nextTick()
+    const header = document.querySelector('.cs-opt-header')
+    expect(header?.textContent).toContain('其他协议')
+    // 可选 .cs-opt 只有 3 个（header 不在内）
+    expect(document.querySelectorAll('.cs-opt')).toHaveLength(3)
+    header!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await nextTick()
+    expect(wrapper.emitted('change')).toBeUndefined()
+    wrapper.unmount()
+    document.body.innerHTML = ''
+  })
+
+  it('键盘 ArrowDown 从选中项循环到下一可选项，跳过 header', async () => {
+    const wrapper = mountGrouped('POST') // POST 的下一个可选是 GRPC（跳过 header）
+    await wrapper.find('.cs-trigger').trigger('click')
+    await nextTick()
+    await wrapper.find('.cs-trigger').trigger('keydown', { key: 'ArrowDown' })
+    await nextTick()
+    const hl = document.querySelector('.cs-opt.hl .cs-opt-label')
+    expect(hl?.textContent).toBe('GRPC')
+    wrapper.unmount()
+    document.body.innerHTML = ''
+  })
+
+  it('选中项为最后一个时 ArrowDown 循环回首个可选项', async () => {
+    const wrapper = mountGrouped('GRPC')
+    await wrapper.find('.cs-trigger').trigger('click')
+    await nextTick()
+    await wrapper.find('.cs-trigger').trigger('keydown', { key: 'ArrowDown' })
+    await nextTick()
+    expect(document.querySelector('.cs-opt.hl .cs-opt-label')?.textContent).toBe('GET')
+    wrapper.unmount()
+    document.body.innerHTML = ''
+  })
+
+  it('Enter 在高亮项上确认选中（header 永不成为高亮）', async () => {
+    const wrapper = mountGrouped('GET')
+    await wrapper.find('.cs-trigger').trigger('click')
+    await nextTick()
+    await wrapper.find('.cs-trigger').trigger('keydown', { key: 'ArrowDown' }) // POST
+    await wrapper.find('.cs-trigger').trigger('keydown', { key: 'Enter' })
+    await nextTick()
+    expect(wrapper.emitted('change')?.[0]).toEqual(['POST'])
+    wrapper.unmount()
+    document.body.innerHTML = ''
+  })
+})

@@ -10,7 +10,7 @@ import type { RequestSpec } from '../types/foxApi'
 import { applyRawSubtype } from './bodyMode'
 import { stripProtocol } from './url'
 
-export type SmartTab = 'body' | 'params'
+export type SmartTab = 'body' | 'params' | 'grpc'
 
 /** 函数边界重新读取 body，打断 TS 对 `mode === 'none'` 的持久窄化（applyRawSubtype 会改写 body）。 */
 function bodyOf(req: RequestSpec): RequestSpec['body'] {
@@ -33,6 +33,16 @@ export function smartTabFor(method: string): SmartTab {
  * - 其余：不触碰 body。返回 'params'。
  */
 export function applyMethodDefaults(req: RequestSpec, method: string): SmartTab {
+  // GRPC：body 切到 grpc 配置（地址在 path，元数据复用 headers），激活 gRPC 页签
+  if (method === 'GRPC') {
+    if (req.body.mode !== 'grpc') {
+      req.body = {
+        mode: 'grpc',
+        spec: { service: '', method: '', message: '{}', use_tls: false, proto_ids: [] },
+      }
+    }
+    return 'grpc'
+  }
   if (!methodNeedsBody(method)) return 'params'
   if (req.body.mode === 'none') {
     applyRawSubtype(req, 'json')
