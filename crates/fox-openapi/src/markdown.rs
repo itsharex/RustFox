@@ -18,7 +18,11 @@ pub fn export_markdown(
         Utc::now().format("%Y-%m-%d %H:%M:%S")
     ));
 
-    for (idx, ep) in endpoints.iter().enumerate() {
+    for (idx, ep) in endpoints
+        .iter()
+        .filter(|ep| !ep.method.is_grpc())
+        .enumerate()
+    {
         out.push_str(&format!(
             "## {}. {}（{} {}）\n\n",
             idx + 1,
@@ -130,6 +134,8 @@ pub fn export_markdown(
             BodySpec::None => None,
             BodySpec::Multipart { .. } => None,
             BodySpec::Binary { .. } => None,
+            // gRPC 端点已在循环入口过滤，兜底不产出请求体段
+            BodySpec::Grpc { .. } => None,
             BodySpec::GraphQL { spec } => {
                 out.push_str("### 请求体（GraphQL）\n\n");
                 out.push_str(&format!("```graphql\n{}\n```\n\n", spec.query));

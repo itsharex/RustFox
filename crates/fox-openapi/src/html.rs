@@ -18,7 +18,11 @@ pub fn export_html(
     examples_by_endpoint: &HashMap<Uuid, Vec<ResponseExample>>,
 ) -> String {
     let mut cards = String::with_capacity(8192);
-    for (idx, ep) in endpoints.iter().enumerate() {
+    for (idx, ep) in endpoints
+        .iter()
+        .filter(|ep| !ep.method.is_grpc())
+        .enumerate()
+    {
         let empty: Vec<ResponseExample> = Vec::new();
         let examples = examples_by_endpoint.get(&ep.id).unwrap_or(&empty);
         let _ = write_card(&mut cards, idx + 1, ep, examples);

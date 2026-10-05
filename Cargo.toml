@@ -4,6 +4,7 @@ members = [
     "crates/fox-core",
     "crates/fox-storage",
     "crates/fox-http",
+    "crates/fox-grpc",
     "crates/fox-openapi",
     "crates/fox-mock",
     "crates/fox-test",
@@ -101,6 +102,21 @@ tokio-tungstenite = { version = "0.30", default-features = false, features = [
     "rustls-tls-webpki-roots",
 ] }
 shell-words = "1.1"
+
+# gRPC 客户端（tonic 动态调用）：prost-reflect 免生成代码，protox 纯 Rust 运行时编译 .proto
+# tonic 0.14 起 prost 集成拆分至 tonic-prost，核心只保留 codec/transport 能力
+tonic = { version = "0.14", default-features = false, features = [
+    "transport",
+    "codegen",
+    "channel",
+    "tls-ring",
+    "tls-native-roots",
+] }
+prost = "0.14"
+prost-types = "0.14"
+prost-reflect = { version = "0.16", features = ["serde"] }
+protox = "0.9"
+tonic-reflection = "0.14"
 
 [profile.release]
 lto = "thin"

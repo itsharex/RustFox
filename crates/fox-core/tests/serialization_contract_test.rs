@@ -11,9 +11,9 @@ use uuid::Uuid;
 
 use fox_core::model::{
     ApiKeyLocation, AuthSpec, BodySpec, Endpoint, EndpointStatus, Environment, EnvironmentVariable,
-    GlobalParam, GlobalParamLocation, GraphQLSpec, HttpMethod, KeyValue, MockMatchItem, MockRule,
-    MultipartField, OAuth2Token, Project, RequestExample, RequestHistory, RequestSpec,
-    ResponseExample, TestCase, TestCaseStatus, TestRun,
+    GlobalParam, GlobalParamLocation, GraphQLSpec, GrpcSpec, HttpMethod, KeyValue, MockMatchItem,
+    MockRule, MultipartField, OAuth2Token, Project, ProtoFile, RequestExample, RequestHistory,
+    RequestSpec, ResponseExample, TestCase, TestCaseStatus, TestRun,
 };
 
 /// 合法键：snake_case（小写字母/数字/下划线，且不含大写字母）。
@@ -276,4 +276,54 @@ fn signature_enums_ipc_values() {
         let json = serde_json::to_value(algo).unwrap();
         assert_eq!(serde_json::from_value::<Algo>(json).unwrap(), algo);
     }
+}
+
+/// gRPC 契约：wire 值锁定 + BodySpec::Grpc 往返 + 旧数据兼容（`#[serde(default)]`）。
+#[test]
+fn grpc_ipc_values_and_roundtrip() {
+    // HttpMethod::Grpc 的 wire 值（UPPERCASE rename；与历史落库数据兼容）
+    assert_eq!(serde_json::to_value(HttpMethod::Grpc).unwrap(), "GRPC");
+    assert_eq!(
+        serde_json::from_str::<HttpMethod>("\"GRPC\"").unwrap(),
+        HttpMethod::Grpc
+    );
+    assert_eq!(HttpMethod::Grpc.as_str(), "GRPC");
+    // 方法下拉仍为纯 HTTP（gRPC 是独立协议维度）
+    assert!(!HttpMethod::all().contains(&HttpMethod::Grpc));
+    assert!(HttpMethod::all_with_grpc().contains(&HttpMethod::Grpc));
+
+    // BodySpec::Grpc wire 标签与字段往返
+    let spec = GrpcSpec {
+        service: "grpcbin.GRPCBin".into(),
+        method: "DummyUnary".into(),
+        message: "{}".into(),
+        use_tls: false,
+        proto_ids: vec![],
+    };
+    let body = BodySpec::Grpc { spec };
+    let v = serde_json::to_value(&body).unwrap();
+    assert_eq!(v["mode"], "grpc");
+    assert_eq!(v["spec"]["service"], "grpcbin.GRPCBin");
+    let back: BodySpec = serde_json::from_value(v).unwrap();
+    assert!(matches!(back, BodySpec::Grpc { .. }));
+
+    // 旧版本请求规格（无 grpc 字段）反序列化兼容：default 填空 GrpcSpec
+    let legacy: RequestSpec = serde_json::from_str("{}").unwrap();
+    assert!(matches!(legacy.body, BodySpec::None));
+
+    // ProtoFile 键名契约（snake_case 由上方统一扫描兜底，此处锁 roundtrip）
+    let now = chrono::Utc::now();
+    let file = ProtoFile {
+        id: Uuid::new_v4(),
+        project_id: Uuid::new_v4(),
+        name: "user/v1/user.proto".into(),
+        content: "syntax = \"proto3\";".into(),
+        created_at: now,
+        updated_at: now,
+    };
+    check("ProtoFile", &file);
+    check("GrpcSpec", &GrpcSpec::default());
+    let json = serde_json::to_value(&file).unwrap();
+    let back: ProtoFile = serde_json::from_value(json).unwrap();
+    assert_eq!(back, file);
 }

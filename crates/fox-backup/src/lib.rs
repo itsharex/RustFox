@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use chrono::Utc;
 use fox_core::model::{
-    Endpoint, Environment, EnvironmentVariable, Folder, GlobalParam, MockRule, Project,
+    Endpoint, Environment, EnvironmentVariable, Folder, GlobalParam, MockRule, Project, ProtoFile,
     RequestExample, ResponseExample,
 };
 use fox_core::AppError;
@@ -29,6 +29,9 @@ pub struct BackupFile {
     /// 请求用例（旧版本备份无此字段，缺失时按空处理）。
     #[serde(default)]
     pub request_examples: Vec<RequestExample>,
+    /// 项目级 proto 文件（gRPC 调试用；旧备份缺失按空处理）。
+    #[serde(default)]
+    pub proto_files: Vec<ProtoFile>,
     /// 全局设置快照（白名单键：代理/超时/自增序列；旧备份缺失按空处理）。
     #[serde(default)]
     pub settings: HashMap<String, String>,
@@ -175,6 +178,7 @@ pub struct BackupInput<'a> {
     pub mock_rules: &'a [MockRule],
     pub response_examples: &'a [ResponseExample],
     pub request_examples: &'a [RequestExample],
+    pub proto_files: &'a [ProtoFile],
     pub settings: &'a HashMap<String, String>,
     pub global_variables: &'a [EnvironmentVariable],
     pub global_params: &'a [GlobalParam],
@@ -192,6 +196,7 @@ pub fn build_backup(input: &BackupInput) -> BackupFile {
         mock_rules: input.mock_rules.to_vec(),
         response_examples: input.response_examples.to_vec(),
         request_examples: input.request_examples.to_vec(),
+        proto_files: input.proto_files.to_vec(),
         settings: input.settings.clone(),
         global_variables: input.global_variables.to_vec(),
         global_params: input.global_params.to_vec(),
@@ -208,6 +213,7 @@ pub struct Restored {
     pub mock_rules: Vec<MockRule>,
     pub response_examples: Vec<ResponseExample>,
     pub request_examples: Vec<RequestExample>,
+    pub proto_files: Vec<ProtoFile>,
 }
 
 /// 恢复：全量重映射 UUID（新项目）。返回值与 `build_backup` 顺序对应。
@@ -277,6 +283,15 @@ pub fn restore_backup(file: &BackupFile) -> Restored {
         });
     }
 
+    let mut proto_files: Vec<ProtoFile> = Vec::new();
+    for f in &file.proto_files {
+        proto_files.push(ProtoFile {
+            id: Uuid::new_v4(),
+            project_id: new_project_id,
+            ..f.clone()
+        });
+    }
+
     Restored {
         project: Project {
             id: new_project_id,
@@ -288,6 +303,7 @@ pub fn restore_backup(file: &BackupFile) -> Restored {
         mock_rules,
         response_examples,
         request_examples,
+        proto_files,
     }
 }
 
@@ -391,6 +407,14 @@ mod tests {
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
+        let proto_file = ProtoFile {
+            id: Uuid::new_v4(),
+            project_id: project.id,
+            name: "user/v1/user.proto".into(),
+            content: "syntax = \"proto3\";".into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
         build_backup(&BackupInput {
             project: &project,
             folders: &[folder],
@@ -399,6 +423,7 @@ mod tests {
             mock_rules: &[rule],
             response_examples: &[example],
             request_examples: &[req_example],
+            proto_files: &[proto_file],
             settings: &HashMap::from([("http_timeout_ms".into(), "30000".into())]),
             global_variables: &[],
             global_params: &[],
@@ -426,6 +451,16 @@ mod tests {
         let parsed = BackupFile::parse(&text).unwrap();
         assert!(parsed.request_examples.is_empty());
         assert_eq!(parsed.response_examples.len(), 1);
+    }
+
+    /// 旧备份无 proto_files 字段时按空处理（不升 schema 版本）。
+    #[test]
+    fn parse_old_backup_without_proto_files_defaults_empty() {
+        let data = sample_data();
+        let mut v = serde_json::json!(data);
+        v.as_object_mut().unwrap().remove("proto_files");
+        let parsed = BackupFile::parse(&v.to_string()).unwrap();
+        assert!(parsed.proto_files.is_empty());
     }
 
     #[test]
@@ -528,6 +563,11 @@ mod tests {
         assert_eq!(req_ex.name, "分页查询");
         assert_eq!(req_ex.request.params[0].key, "page");
         assert_ne!(req_ex.id, data.request_examples[0].id);
+        // proto 文件：重映射归属新项目，内容保留
+        assert_eq!(restored.proto_files.len(), 1);
+        assert_eq!(restored.proto_files[0].project_id, restored.project.id);
+        assert_eq!(restored.proto_files[0].name, "user/v1/user.proto");
+        assert_ne!(restored.proto_files[0].id, data.proto_files[0].id);
         // 无交叉引用残留
         let old_ids: Vec<Uuid> = data.endpoints.iter().map(|e| e.id).collect();
         for new_ep in &restored.endpoints {

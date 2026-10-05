@@ -267,6 +267,7 @@ async fn openapi_roundtrip_and_backup() {
         mock_rules: &rules,
         response_examples: &all_examples,
         request_examples: &all_req_examples,
+        proto_files: &[],
         settings: &std::collections::HashMap::new(),
         global_variables: &[],
         global_params: &[],

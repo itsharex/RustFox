@@ -75,6 +75,12 @@ RustFox 核心插件的默认权限：允许前端调用全部 fox 命令
 - `allow-log-dir-path`
 - `allow-get-log-retention-days`
 - `allow-set-log-retention-days`
+- `allow-grpc-list-services`
+- `allow-grpc-invoke`
+- `allow-grpc-stream-close`
+- `allow-grpc-list-proto-files`
+- `allow-grpc-save-proto-files`
+- `allow-grpc-delete-proto-file`
 - `allow-ws-connect`
 - `allow-ws-send`
 - `allow-ws-disconnect`
@@ -1176,6 +1182,162 @@ Enables the get_projects command without any pre-configured scope.
 <td>
 
 Denies the get_projects command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:allow-grpc-delete-proto-file`
+
+</td>
+<td>
+
+Enables the grpc_delete_proto_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:deny-grpc-delete-proto-file`
+
+</td>
+<td>
+
+Denies the grpc_delete_proto_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:allow-grpc-invoke`
+
+</td>
+<td>
+
+Enables the grpc_invoke command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:deny-grpc-invoke`
+
+</td>
+<td>
+
+Denies the grpc_invoke command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:allow-grpc-list-proto-files`
+
+</td>
+<td>
+
+Enables the grpc_list_proto_files command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:deny-grpc-list-proto-files`
+
+</td>
+<td>
+
+Denies the grpc_list_proto_files command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:allow-grpc-list-services`
+
+</td>
+<td>
+
+Enables the grpc_list_services command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:deny-grpc-list-services`
+
+</td>
+<td>
+
+Denies the grpc_list_services command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:allow-grpc-save-proto-files`
+
+</td>
+<td>
+
+Enables the grpc_save_proto_files command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:deny-grpc-save-proto-files`
+
+</td>
+<td>
+
+Denies the grpc_save_proto_files command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:allow-grpc-stream-close`
+
+</td>
+<td>
+
+Enables the grpc_stream_close command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fox-tauri:deny-grpc-stream-close`
+
+</td>
+<td>
+
+Denies the grpc_stream_close command without any pre-configured scope.
 
 </td>
 </tr>

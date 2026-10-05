@@ -34,6 +34,14 @@ impl CommandError {
             message: msg.into(),
         }
     }
+
+    /// gRPC 调用类错误（连接 / 编解码 / 远端非零状态）。
+    pub fn grpc(msg: impl Into<String>) -> Self {
+        CommandError {
+            code: "GRPC",
+            message: msg.into(),
+        }
+    }
 }
 
 impl std::fmt::Display for CommandError {
@@ -66,6 +74,7 @@ impl From<AppError> for CommandError {
             AppError::Decryption(_) => "DECRYPT",
             AppError::OAuth2(_) => "OAUTH2",
             AppError::Cancelled(_) => "CANCELLED",
+            AppError::Grpc(_) => "GRPC",
         };
         CommandError {
             code,

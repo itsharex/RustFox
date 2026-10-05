@@ -63,6 +63,10 @@ pub enum AppError {
     /// 请求被用户主动取消（前端取消按钮）。
     #[error("request cancelled: {0}")]
     Cancelled(String),
+
+    /// gRPC 调用失败（连接/编解码/远端状态；grpc-status 非零也归此）。
+    #[error("grpc error: {0}")]
+    Grpc(String),
 }
 
 impl AppError {
@@ -124,6 +128,7 @@ impl AppError {
             AppError::Decryption(msg) => msg.clone(),
             AppError::OAuth2(msg) => msg.clone(),
             AppError::Cancelled(_) => "请求已取消".to_string(),
+            AppError::Grpc(msg) => msg.clone(),
         }
     }
 }

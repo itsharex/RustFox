@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-grpc-list-proto-files"
+description = "Enables the grpc_list_proto_files command without any pre-configured scope."
+commands.allow = ["grpc_list_proto_files"]
+
+[[permission]]
+identifier = "deny-grpc-list-proto-files"
+description = "Denies the grpc_list_proto_files command without any pre-configured scope."
+commands.deny = ["grpc_list_proto_files"]

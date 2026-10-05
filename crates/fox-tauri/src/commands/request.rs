@@ -362,6 +362,15 @@ pub(crate) fn render_spec(spec: &RequestSpec, vars: &VariableMap) -> RequestSpec
             BodySpec::Binary { path } => BodySpec::Binary {
                 path: fox_core::resolve_variables(path, vars),
             },
+            BodySpec::Grpc { spec } => BodySpec::Grpc {
+                spec: fox_core::model::GrpcSpec {
+                    service: fox_core::resolve_variables(&spec.service, vars),
+                    method: fox_core::resolve_variables(&spec.method, vars),
+                    message: fox_core::resolve_variables(&spec.message, vars),
+                    use_tls: spec.use_tls,
+                    proto_ids: spec.proto_ids.clone(),
+                },
+            },
         },
         active_tab: spec.active_tab.clone(),
         timeout_ms: spec.timeout_ms,

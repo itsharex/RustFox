@@ -89,6 +89,9 @@ pub struct AppState {
     pub ws: RwLock<HashMap<String, crate::commands::ws::WsSession>>,
     /// SSE 订阅任务（connection_id → 转发任务句柄；断开即 abort）。
     pub sse: RwLock<HashMap<String, tokio::task::JoinHandle<()>>>,
+    /// 在途 gRPC 服务端流（stream_id → 取消令牌 + 消费任务句柄）。
+    /// 与 `request_cancels` 同为普通 Mutex：持有期间不 await。
+    pub grpc_streams: Mutex<HashMap<String, (CancellationToken, tokio::task::JoinHandle<()>)>>,
 }
 
 impl AppState {
@@ -102,6 +105,7 @@ impl AppState {
             run_cancels: Mutex::new(HashMap::new()),
             ws: RwLock::new(HashMap::new()),
             sse: RwLock::new(HashMap::new()),
+            grpc_streams: Mutex::new(HashMap::new()),
         }
     }
 

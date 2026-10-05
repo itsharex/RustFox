@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 
-/// HTTP 方法。
+/// 请求方法（HTTP 七种 + Grpc 独立协议维度）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum HttpMethod {
@@ -21,9 +21,13 @@ pub enum HttpMethod {
     PATCH,
     HEAD,
     OPTIONS,
+    /// gRPC 调试端点（独立协议，不走 HTTP 引擎；不入 all() 方法下拉，
+    /// 由前端方法下拉单独提供入口，历史/徽标展示走 all_with_grpc）。
+    Grpc,
 }
 
 impl HttpMethod {
+    /// HTTP 专用方法列表（方法下拉数据源；不含 Grpc——gRPC 是独立协议维度）。
     pub fn all() -> &'static [HttpMethod] {
         &[
             HttpMethod::GET,
@@ -36,6 +40,25 @@ impl HttpMethod {
         ]
     }
 
+    /// 全量方法（含 Grpc；历史/徽标等展示场景用）。
+    pub fn all_with_grpc() -> &'static [HttpMethod] {
+        &[
+            HttpMethod::GET,
+            HttpMethod::POST,
+            HttpMethod::PUT,
+            HttpMethod::DELETE,
+            HttpMethod::PATCH,
+            HttpMethod::HEAD,
+            HttpMethod::OPTIONS,
+            HttpMethod::Grpc,
+        ]
+    }
+
+    /// 是否为 gRPC 端点（执行链路据此分流到 fox-grpc）。
+    pub fn is_grpc(&self) -> bool {
+        matches!(self, HttpMethod::Grpc)
+    }
+
     pub fn as_str(&self) -> &'static str {
         match self {
             HttpMethod::GET => "GET",
@@ -45,6 +68,7 @@ impl HttpMethod {
             HttpMethod::PATCH => "PATCH",
             HttpMethod::HEAD => "HEAD",
             HttpMethod::OPTIONS => "OPTIONS",
+            HttpMethod::Grpc => "GRPC",
         }
     }
 }
@@ -67,6 +91,7 @@ impl FromStr for HttpMethod {
             "PATCH" => Ok(HttpMethod::PATCH),
             "HEAD" => Ok(HttpMethod::HEAD),
             "OPTIONS" => Ok(HttpMethod::OPTIONS),
+            "GRPC" => Ok(HttpMethod::Grpc),
             other => Err(AppError::Validation(format!("不支持的 HTTP 方法：{other}"))),
         }
     }
@@ -426,6 +451,39 @@ pub struct GraphQLSpec {
     pub operation_name: String,
 }
 
+/// gRPC 调用配置（BodySpec::Grpc 的载荷）。
+///
+/// 地址（host:port，可含 {{变量}}）存 `Endpoint.path`；metadata 复用
+/// RequestSpec.headers（gRPC 元数据即 HTTP/2 头）；`{{变量}}` 由执行层
+/// 与 HTTP 同口径渲染。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct GrpcSpec {
+    /// 全限定服务名，如 `user.v1.UserService`。
+    pub service: String,
+    /// 方法名，如 `GetUser`。
+    pub method: String,
+    /// 请求消息（protobuf-JSON 文本；空串或 "{}" 表示空消息）。
+    pub message: String,
+    /// 是否使用 TLS（false = 明文 h2c）。
+    pub use_tls: bool,
+    /// 引用的项目级 proto 文件 id（空 = 使用服务端反射）。
+    pub proto_ids: Vec<String>,
+}
+
+/// 项目级 proto 文件（gRPC 端点引用；protox 运行时编译的输入）。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProtoFile {
+    pub id: Uuid,
+    pub project_id: Uuid,
+    /// 文件名（import 路径相对名，如 `user/v1/user.proto`）。
+    pub name: String,
+    /// .proto 源文本。
+    pub content: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
 /// GraphQL 错误位置（errors[].locations[]）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GraphQLErrorLocation {
@@ -486,6 +544,12 @@ pub enum BodySpec {
     Binary {
         path: String,
     },
+    /// gRPC 调用（unary / 服务端流）：地址在 Endpoint.path，metadata 复用请求头。
+    /// `Grpc` 的 snake_case 产物即 `grpc`，无 GraphQL 的重命名陷阱，仍显式声明固定 wire 值。
+    #[serde(rename = "grpc")]
+    Grpc {
+        spec: GrpcSpec,
+    },
 }
 
 impl BodySpec {
@@ -499,6 +563,7 @@ impl BodySpec {
             BodySpec::Multipart { .. } => "multipart",
             BodySpec::GraphQL { .. } => "graphql",
             BodySpec::Binary { .. } => "binary",
+            BodySpec::Grpc { .. } => "grpc",
         }
     }
 

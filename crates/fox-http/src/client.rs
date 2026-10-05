@@ -69,6 +69,8 @@ fn reqwest_method(method: HttpMethod) -> Method {
         HttpMethod::PATCH => Method::PATCH,
         HttpMethod::HEAD => Method::HEAD,
         HttpMethod::OPTIONS => Method::OPTIONS,
+        // 不可达：gRPC 在 send_request_inner 入口已拦截；兜底按字面方法名
+        HttpMethod::Grpc => Method::from_bytes(b"GRPC").expect("GRPC 为合法方法 token"),
     }
 }
 
@@ -170,6 +172,8 @@ async fn build_multipart(fields: &[MultipartField]) -> Result<Payload, AppError>
 
 async fn build_payload(spec: &RequestSpec) -> Result<Payload, AppError> {
     match &spec.body {
+        // gRPC 在 send_request_inner 入口已拦截，此处兜底空载荷
+        BodySpec::Grpc { .. } => Ok(Payload::None),
         BodySpec::None => Ok(Payload::None),
         BodySpec::Json { raw } => Ok(Payload::Bytes(
             raw.as_bytes().to_vec(),
@@ -654,6 +658,12 @@ async fn send_request_inner(
     cancel: Option<&tokio_util::sync::CancellationToken>,
     body_cap: usize,
 ) -> Result<HttpResponseData, AppError> {
+    // gRPC 端点走 fox-grpc 引擎（命令层分流），HTTP 引擎不受理
+    if method.is_grpc() {
+        return Err(AppError::Validation(
+            "gRPC 端点不支持 HTTP 发送（应经 gRPC 引擎调用）".into(),
+        ));
+    }
     let timeout_ms = timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS);
     let client = shared_client(spec.follow_redirects, !spec.disable_cookies)?;
 

@@ -69,6 +69,10 @@ pub fn export_project_value(
     let mut path_map: IndexMap<String, PathItem> = IndexMap::new();
 
     for ep in endpoints {
+        // OpenAPI 是 HTTP 规范：gRPC 端点不参与导出
+        if ep.method.is_grpc() {
+            continue;
+        }
         let path_item = path_map.entry(ep.path.clone()).or_default();
         let op = build_operation(ep, examples_by_endpoint.get(&ep.id));
         match ep.method {
@@ -79,6 +83,7 @@ pub fn export_project_value(
             HttpMethod::PATCH => path_item.patch = Some(op),
             HttpMethod::HEAD => path_item.head = Some(op),
             HttpMethod::OPTIONS => path_item.options = Some(op),
+            HttpMethod::Grpc => unreachable!("gRPC 端点已在上方跳过"),
         }
     }
 

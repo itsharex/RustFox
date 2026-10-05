@@ -358,6 +358,8 @@ fn body_text(spec: &RequestSpec) -> String {
             serde_urlencoded::to_string(pairs).unwrap_or_default()
         }
         BodySpec::Multipart { .. } | BodySpec::None | BodySpec::Binary { .. } => String::new(),
+        // gRPC 不走 HTTP 脚本沙箱；兜底空串（与 client payload 口径一致）
+        BodySpec::Grpc { .. } => String::new(),
         BodySpec::GraphQL { spec } => {
             crate::client::graphql_request_json(spec, &std::collections::HashMap::new())
                 .unwrap_or_default()

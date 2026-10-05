@@ -376,6 +376,8 @@ fn body_parts(body: &BodySpec) -> (String, Option<&'static str>, Option<&Vec<Mul
         // 二进制文件无法内联为代码字符串：curl 走 --data-binary 特判，
         // 其余语言生成 octet-stream 头 + 空 body（文件读取由用户补充）。
         BodySpec::Binary { .. } => (String::new(), Some("application/octet-stream"), None),
+        // 代码生成仅面向 HTTP：gRPC 端点不进入生成入口，兜底空 body
+        BodySpec::Grpc { .. } => (String::new(), None, None),
     }
 }
 
