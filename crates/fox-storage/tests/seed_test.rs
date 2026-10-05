@@ -1,5 +1,5 @@
 //! 开发种子数据测试（仅 debug 构建运行）：内存库上完整跑一遍 seed_dev_data，
-//! 断言项目 / 接口 / 环境 / Mock 规则 / 全局参数 / 激活项齐全。
+//! 断言项目 / 接口 / 环境 / Mock 规则 / 测试用例 / 请求用例 / 全局参数 / 激活项齐全。
 #![cfg(debug_assertions)]
 
 use fox_storage::db::memory_pool;
@@ -23,13 +23,25 @@ async fn seeds_full_fixture_set() {
         .find(|p| p.name == "小奏技术 · 用户服务")
         .expect("用户服务项目存在");
 
-    // 用户服务：7 个接口（5 账号 + 2 鉴权），2 个文件夹，响应示例 5 条，Mock 规则 5 条
+    // 用户服务：7 个接口（5 账号 + 2 鉴权），2 个文件夹，Mock 规则 5 基础 + 3 高级
     let endpoints = repo::list_endpoints(&db, users.id).await.unwrap();
     assert_eq!(endpoints.len(), 7);
     let folders = repo::list_folders(&db, users.id).await.unwrap();
     assert_eq!(folders.len(), 2);
     let rules = repo::list_mock_rules(&db, users.id).await.unwrap();
-    assert_eq!(rules.len(), 5);
+    assert_eq!(
+        rules.len(),
+        8,
+        "5 条基础规则 + 3 条高级规则（query 精确匹配/故障注入/当前用户）"
+    );
+    assert!(
+        rules.iter().any(|r| r.fault_rate_pct > 0),
+        "应含故障注入演示规则"
+    );
+    assert!(
+        rules.iter().any(|r| !r.match_query.is_empty()),
+        "应含 query 精确匹配演示规则"
+    );
     let list_users = endpoints
         .iter()
         .find(|e| e.path == "/users" && e.method == fox_core::model::HttpMethod::GET)
@@ -40,15 +52,57 @@ async fn seeds_full_fixture_set() {
     assert_eq!(examples.len(), 1);
     assert_eq!(examples[0].status, 200);
 
+    // 测试用例：用户服务 8 条（正向/负向/边界值/安全性），全部挂在小奏技术端点上
+    let mut users_case_total = 0usize;
+    for e in &endpoints {
+        users_case_total += repo::list_test_cases(&db, e.id).await.unwrap().len();
+    }
+    assert_eq!(users_case_total, 8);
+    let login_cases = repo::list_test_cases(
+        &db,
+        endpoints
+            .iter()
+            .find(|e| e.path == "/auth/login")
+            .expect("登录接口存在")
+            .id,
+    )
+    .await
+    .unwrap();
+    assert_eq!(login_cases.len(), 2);
+    assert!(login_cases.iter().any(|c| c.category == "正向"));
+    assert!(login_cases.iter().any(|c| c.category == "负向"));
+
+    // 请求用例：用户列表 2 条（分页快照），登录 1 条
+    let list_req_examples = repo::list_request_examples(&db, list_users.id)
+        .await
+        .unwrap();
+    assert_eq!(list_req_examples.len(), 2);
+    assert!(list_req_examples
+        .iter()
+        .all(|ex| ex.name.contains("小奏技术")));
+
     // 开放演示：6 个接口；GraphQL 网关：2 个接口
     let open_demo = projects
         .iter()
         .find(|p| p.name == "小奏技术 · 开放演示")
         .expect("开放演示项目存在");
+    let open_endpoints = repo::list_endpoints(&db, open_demo.id).await.unwrap();
+    // 6 个 HTTP（JSONPlaceholder）+ 2 个 gRPC（grpcb.in 反射演示）
+    assert_eq!(open_endpoints.len(), 8);
     assert_eq!(
-        repo::list_endpoints(&db, open_demo.id).await.unwrap().len(),
-        6
+        open_endpoints
+            .iter()
+            .filter(|e| e.method == fox_core::model::HttpMethod::Grpc)
+            .count(),
+        2,
+        "gRPC 演示端点（unary + 服务端流）应存在"
     );
+    // 开放演示含 2 条测试用例（文章分页 / 发布周报）+ 1 条请求用例（周报样例）
+    let mut open_case_total = 0usize;
+    for e in &open_endpoints {
+        open_case_total += repo::list_test_cases(&db, e.id).await.unwrap().len();
+    }
+    assert_eq!(open_case_total, 2);
     let graphql = projects
         .iter()
         .find(|p| p.name == "小奏技术 · GraphQL 网关")

@@ -10,6 +10,7 @@
 //!   （启动 Mock 后基址 http://127.0.0.1:4010 可直接调试）；
 //! - 项目 2「小奏技术 · 开放演示」：公网真实 API（JSONPlaceholder），无需 Mock 即可直接发送；
 //! - 项目 3「小奏技术 · GraphQL 网关」：公共 GraphQL 服务，测试 GraphQL 工作台；
+//! - 项目 2 内含 gRPC 端点：公共反射演示服务（grpcb.in），测试 gRPC 调试；
 //! - 环境：每个项目各自的「开发环境 / 测试环境」（单一 Base URL + 变量）、
 //!   全局参数、激活项 settings。
 
@@ -21,8 +22,8 @@ use uuid::Uuid;
 
 use fox_core::model::{
     BodySpec, Endpoint, EndpointStatus, Environment, EnvironmentVariable, Folder, GlobalParam,
-    GlobalParamLocation, GraphQLSpec, HttpMethod, KeyValue, MockMatchItem, MockRule, Project,
-    RequestSpec,
+    GlobalParamLocation, GraphQLSpec, GrpcSpec, HttpMethod, KeyValue, MockMatchItem, MockRule,
+    Project, RequestExample, RequestSpec, TestCase, TestCaseStatus,
 };
 use fox_core::Result;
 
@@ -257,7 +258,57 @@ pub async fn seed_dev_data(db: &SqlitePool) -> Result<()> {
         repo::save_mock_rule(db, &rule).await?;
     }
 
+    // 高级 Mock 规则：query 精确匹配 / 故障注入 / 当前用户（演示匹配优先级与故障注入）
+    for rule in [
+        mock_rule_ex(
+            &users,
+            Some(&list_users),
+            "小奏技术·page=7 精确匹配",
+            HttpMethod::GET,
+            "/users",
+            200,
+            r#"{"page": 7, "list": [{"id": 7, "name": "奏小柒", "email": "qiqi@xiaozou.tech", "dept": "测试部", "company": "小奏技术"}]}"#,
+            0,
+            vec![MockMatchItem {
+                key: "page".into(),
+                value: "7".into(),
+            }],
+            20,
+            0,
+        ),
+        mock_rule_ex(
+            &users,
+            Some(&create_user),
+            "小奏技术·创建用户故障注入（30% 5xx）",
+            HttpMethod::POST,
+            "/users",
+            201,
+            r#"{"id": 1001, "name": "奏小新", "email": "xinxin@xiaozou.tech", "dept": "设计部", "company": "小奏技术"}"#,
+            0,
+            vec![],
+            20,
+            30,
+        ),
+        mock_rule_ex(
+            &users,
+            Some(&me),
+            "小奏技术·当前用户",
+            HttpMethod::GET,
+            "/auth/me",
+            200,
+            r#"{"id": 1, "name": "奏小雪", "company": "小奏技术", "role": "admin", "issuedBy": "RustFox Mock"}"#,
+            0,
+            vec![],
+            0,
+            0,
+        ),
+    ] {
+        repo::save_mock_rule(db, &rule).await?;
+    }
+
     // ---- 开放演示：真实公网接口（JSONPlaceholder） ----
+    // 收集已保存端点（名称 → 端点），供测试用例 / 请求用例挂载引用
+    let mut open_endpoints: HashMap<String, Endpoint> = HashMap::new();
     for (i, (name, method, path, desc, status, request)) in [
         (
             "文章列表",
@@ -318,16 +369,15 @@ pub async fn seed_dev_data(db: &SqlitePool) -> Result<()> {
     .into_iter()
     .enumerate()
     {
-        repo::save_endpoint(
-            db,
-            &endpoint(
-                &open_demo, None, name, method, path, desc, status, i as i64, request,
-            ),
-        )
-        .await?;
+        let ep = endpoint(
+            &open_demo, None, name, method, path, desc, status, i as i64, request,
+        );
+        repo::save_endpoint(db, &ep).await?;
+        open_endpoints.insert(name.to_string(), ep);
     }
 
     // ---- GraphQL：公共接口 ----
+    let mut graphql_endpoints: HashMap<String, Endpoint> = HashMap::new();
     for (i, (name, desc, query, variables)) in [
         (
             "国家列表",
@@ -345,30 +395,247 @@ pub async fn seed_dev_data(db: &SqlitePool) -> Result<()> {
     .into_iter()
     .enumerate()
     {
+        let ep = endpoint(
+            &graphql,
+            None,
+            name,
+            HttpMethod::POST,
+            "/graphql",
+            desc,
+            EndpointStatus::Released,
+            i as i64,
+            RequestSpec {
+                body: BodySpec::GraphQL {
+                    spec: GraphQLSpec {
+                        query: query.to_string(),
+                        variables: variables.to_string(),
+                        operation_name: String::new(),
+                    },
+                },
+                ..RequestSpec::default()
+            },
+        );
+        repo::save_endpoint(db, &ep).await?;
+        graphql_endpoints.insert(name.to_string(), ep);
+    }
+
+    // ---- gRPC：公共反射演示服务（grpcb.in：免 proto 文件，走服务端反射） ----
+    for (i, (name, desc, address, spec)) in [
+        (
+            "gRPC 回显调用（unary）",
+            "grpcbin.GRPCBin/DummyUnary：服务端反射免 proto 文件，回显请求消息；元数据（请求头）会被服务端记录",
+            "grpcb.in:9000",
+            GrpcSpec {
+                service: "grpcbin.GRPCBin".into(),
+                method: "DummyUnary".into(),
+                message: r#"{"f_string": "小奏技术"}"#.into(),
+                use_tls: false,
+                proto_ids: vec![],
+            },
+        ),
+        (
+            "gRPC 服务端流",
+            "hello.HelloService/LotsOfReplies：一次请求，服务端流回十条问候消息",
+            "grpcb.in:9000",
+            GrpcSpec {
+                service: "hello.HelloService".into(),
+                method: "LotsOfReplies".into(),
+                message: r#"{"greeting": "小奏技术"}"#.into(),
+                use_tls: false,
+                proto_ids: vec![],
+            },
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    {
         repo::save_endpoint(
             db,
             &endpoint(
-                &graphql,
+                &open_demo,
                 None,
                 name,
-                HttpMethod::POST,
-                "/graphql",
+                HttpMethod::Grpc,
+                address,
                 desc,
                 EndpointStatus::Released,
-                i as i64,
+                100 + i as i64,
                 RequestSpec {
-                    body: BodySpec::GraphQL {
-                        spec: GraphQLSpec {
-                            query: query.to_string(),
-                            variables: variables.to_string(),
-                            operation_name: String::new(),
-                        },
-                    },
+                    headers: vec![kv("x-demo", "rustfox")],
+                    body: BodySpec::Grpc { spec },
                     ..RequestSpec::default()
                 },
             ),
         )
         .await?;
+    }
+
+    // ---- 测试用例（Apifox 风格用例管理；分类为存库数据值，展示经 caseCategoryLabel 翻译） ----
+    for case in [
+        // 用户服务（启动 Mock 后可整组运行）
+        test_case(
+            &list_users,
+            "正向-小奏技术默认分页",
+            "正向",
+            HttpMethod::GET,
+            "/users",
+            vec![kv("page", "1"), kv("limit", "10")],
+            vec![],
+            "none",
+            "",
+        ),
+        test_case(
+            &list_users,
+            "边界值-limit 上限探测",
+            "边界值",
+            HttpMethod::GET,
+            "/users",
+            vec![kv("page", "1"), kv("limit", "1000")],
+            vec![],
+            "none",
+            "",
+        ),
+        test_case(
+            &get_user,
+            "正向-查询奏小雪",
+            "正向",
+            HttpMethod::GET,
+            "/users/1",
+            vec![],
+            vec![],
+            "none",
+            "",
+        ),
+        test_case(
+            &get_user,
+            "负向-不存在的用户",
+            "负向",
+            HttpMethod::GET,
+            "/users/99999",
+            vec![],
+            vec![],
+            "none",
+            "",
+        ),
+        test_case(
+            &login,
+            "正向-小奏管理员登录",
+            "正向",
+            HttpMethod::POST,
+            "/auth/login",
+            vec![],
+            vec![],
+            "urlencoded",
+            r#"{"username": "xiaozou_admin", "password": "xz@2024"}"#,
+        ),
+        test_case(
+            &login,
+            "负向-空密码登录",
+            "负向",
+            HttpMethod::POST,
+            "/auth/login",
+            vec![],
+            vec![],
+            "urlencoded",
+            r#"{"username": "xiaozou_admin", "password": ""}"#,
+        ),
+        test_case(
+            &create_user,
+            "正向-新增小奏技术成员",
+            "正向",
+            HttpMethod::POST,
+            "/users",
+            vec![],
+            vec![],
+            "json",
+            r#"{"name": "奏小新", "email": "xinxin@xiaozou.tech", "dept": "研发部"}"#,
+        ),
+        test_case(
+            &me,
+            "安全性-伪造 Token 访问",
+            "安全性",
+            HttpMethod::GET,
+            "/auth/me",
+            vec![],
+            vec![kv("Authorization", "Bearer xz-forged-token")],
+            "none",
+            "",
+        ),
+        // 开放演示（公网 JSONPlaceholder，直接可跑）
+        test_case(
+            open_endpoints.get("文章列表").expect("seed 文章列表端点"),
+            "正向-小奏技术文章分页",
+            "正向",
+            HttpMethod::GET,
+            "/posts",
+            vec![kv("_limit", "5"), kv("_page", "2")],
+            vec![],
+            "none",
+            "",
+        ),
+        test_case(
+            open_endpoints.get("发布文章").expect("seed 发布文章端点"),
+            "正向-发布小奏技术周报",
+            "正向",
+            HttpMethod::POST,
+            "/posts",
+            vec![],
+            vec![],
+            "json",
+            r#"{"title": "小奏技术周报 #42", "body": "本周小奏技术动态：gRPC 调试上线", "userId": 1}"#,
+        ),
+        // GraphQL 网关（body_type=graphql，body_content 为查询文本）
+        test_case(
+            graphql_endpoints
+                .get("国家详情（带变量）")
+                .expect("seed 国家详情端点"),
+            "正向-查询小奏技术所在国家",
+            "正向",
+            HttpMethod::POST,
+            "/graphql",
+            vec![],
+            vec![],
+            "graphql",
+            r#"query { country(code: "CN") { name emoji capital } }"#,
+        ),
+    ] {
+        repo::create_test_case(db, &case).await?;
+    }
+
+    // ---- 请求用例（请求快照，一键回填调试页） ----
+    for example in [
+        request_example_snap(&list_users, "小奏技术·第一页", RequestSpec {
+            params: vec![kv("page", "1"), kv("limit", "10")],
+            ..RequestSpec::default()
+        }),
+        request_example_snap(&list_users, "小奏技术·每页 50 条", RequestSpec {
+            params: vec![kv("page", "1"), kv("limit", "50")],
+            ..RequestSpec::default()
+        }),
+        request_example_snap(&login, "小奏管理员账号", RequestSpec {
+            body: BodySpec::UrlEncoded {
+                fields: vec![kv("username", "xiaozou_admin"), kv("password", "xz@2024")],
+            },
+            ..RequestSpec::default()
+        }),
+        request_example_snap(&create_user, "小奏技术新成员（研发部）", RequestSpec {
+            body: BodySpec::Json {
+                raw: r#"{"name": "奏小新", "email": "xinxin@xiaozou.tech", "dept": "研发部"}"#.into(),
+            },
+            ..RequestSpec::default()
+        }),
+        request_example_snap(
+            open_endpoints.get("更新文章").expect("seed 更新文章端点"),
+            "小奏技术周报样例",
+            RequestSpec {
+                body: BodySpec::Json {
+                    raw: r#"{"id": 1, "title": "小奏技术周报", "body": "本周小奏技术动态", "userId": 1}"#.into(),
+                },
+                ..RequestSpec::default()
+            },
+        ),
+    ] {
+        repo::create_request_example(db, &example).await?;
     }
 
     // ---- 环境（项目维度：每个项目各自的开发 / 测试环境 + 单一 Base URL） ----
@@ -656,4 +923,71 @@ fn json_body(raw: &str) -> RequestSpec {
 /// 与 fox-tauri state.rs `setting_value` 一致：JSON 字符串 `"uuid"`。
 fn setting_id(id: &Uuid) -> String {
     serde_json::to_string(&id.to_string()).unwrap_or_else(|_| "null".into())
+}
+
+/// 测试用例（挂到主接口；分类为存库数据值：正向/负向/边界值/安全性）。
+#[allow(clippy::too_many_arguments)]
+fn test_case(
+    endpoint: &Endpoint,
+    name: &str,
+    category: &str,
+    method: HttpMethod,
+    url_path: &str,
+    params: Vec<KeyValue>,
+    headers: Vec<KeyValue>,
+    body_type: &str,
+    body_content: &str,
+) -> TestCase {
+    TestCase {
+        id: Uuid::new_v4(),
+        request_id: endpoint.id,
+        name: name.to_string(),
+        category: category.to_string(),
+        method,
+        url_path: url_path.to_string(),
+        params,
+        headers,
+        body_type: body_type.to_string(),
+        body_content: body_content.to_string(),
+        last_run_status: TestCaseStatus::Untested,
+        created_at: Utc::now(),
+    }
+}
+
+/// 请求用例（当前请求快照，可一键回填调试页）。
+fn request_example_snap(endpoint: &Endpoint, name: &str, request: RequestSpec) -> RequestExample {
+    let now = Utc::now();
+    RequestExample {
+        id: Uuid::new_v4(),
+        endpoint_id: endpoint.id,
+        name: name.to_string(),
+        request,
+        created_at: now,
+        updated_at: now,
+    }
+}
+
+/// 高级 Mock 规则：支持 query 精确匹配 / 优先级 / 故障注入（基础版 mock_rule 的超集）。
+#[allow(clippy::too_many_arguments)]
+fn mock_rule_ex(
+    project: &Project,
+    endpoint: Option<&Endpoint>,
+    name: &str,
+    method: HttpMethod,
+    path: &str,
+    status: u16,
+    body: &str,
+    delay_ms: u64,
+    match_query: Vec<MockMatchItem>,
+    priority: i64,
+    fault_rate_pct: u8,
+) -> MockRule {
+    MockRule {
+        match_query,
+        priority,
+        fault_rate_pct,
+        ..mock_rule(
+            project, endpoint, name, method, path, status, body, delay_ms,
+        )
+    }
 }
