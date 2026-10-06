@@ -4,7 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import CodeExportDialog from './CodeExportDialog.vue'
 import { useLocaleStore } from '../stores/locale'
 import { collectErrors } from '../testUtils/componentTest'
-import { makeDraft } from '../testUtils/draftFixture'
+import { makeCodegenInputs } from '../testUtils/draftFixture'
 
 const codegenRender = vi.fn()
 
@@ -34,7 +34,7 @@ describe('CodeExportDialog：导出接口代码', () => {
   it('打开即自动生成并可关闭', async () => {
     codegenRender.mockResolvedValue('curl -X GET "https://api.example.com"')
     const wrapper = mount(CodeExportDialog, {
-      props: { draft: makeDraft(), url: 'https://api.example.com' },
+      props: { ...makeCodegenInputs() },
       attachTo: document.body,
     })
     await flushPromises()
@@ -56,7 +56,7 @@ describe('CodeExportDialog：导出接口代码', () => {
     codegenRender.mockImplementation(() => new Promise((r) => (resolve = r)))
 
     const wrapper = mount(CodeExportDialog, {
-      props: { draft: makeDraft(), url: 'https://api.example.com' },
+      props: { ...makeCodegenInputs() },
       attachTo: document.body,
     })
     await flushPromises()

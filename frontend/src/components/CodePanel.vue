@@ -2,6 +2,8 @@
 /**
  * CodePanel：生成代码面板（请求 Tab 的 Code 标签页）。
  * 从 ToolsDrawer 提取为独立面板：选择语言 → 生成 → 复制，输出为只读代码预览。
+ * 入参为 codegen 原始输入（method/url/headers/body/auth），不耦合 Endpoint——
+ * 调试页与测试用例抽屉（用例快照还原 BodySpec）均可复用。
  */
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useFoxApi } from '../composables/useFoxApi'
@@ -9,11 +11,14 @@ import { useToast } from '../composables/useToast'
 import { useLocaleStore } from '../stores/locale'
 import CustomSelect from './ui/CustomSelect.vue'
 import Icon from './ui/Icon.vue'
-import type { CodeLang, Endpoint } from '../types/foxApi'
+import type { AuthSpec, BodySpec, CodeLang, HttpMethod, KeyValue } from '../types/foxApi'
 
 const props = defineProps<{
-  draft: Endpoint | null
+  method: HttpMethod
   url: string
+  headers: KeyValue[]
+  body: BodySpec
+  auth: AuthSpec
   /** 打开即按当前语言自动生成，切语言时自动重新生成（导出弹窗用）。 */
   autoGenerate?: boolean
 }>()
@@ -44,16 +49,15 @@ const generatedCode = ref<string | null>(null)
 const generating = ref(false)
 
 async function generateCode(): Promise<void> {
-  if (!props.draft) return
   generating.value = true
   try {
     const code = await api.codegenRender({
       lang: codeLang.value,
-      method: props.draft.method,
+      method: props.method,
       url: props.url,
-      headers: props.draft.request.headers,
-      body: props.draft.request.body,
-      auth: props.draft.request.auth,
+      headers: props.headers,
+      body: props.body,
+      auth: props.auth,
     })
     if (disposed) return
     generatedCode.value = code

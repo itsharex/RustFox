@@ -1,10 +1,12 @@
 /**
- * TestCaseDrawer 单测：打开回填 / 修改后保存 / 原地运行（结果留在抽屉内，不切 Tab）。
+ * TestCaseDrawer 单测：打开回填 / 修改后保存 / 原地运行（结果留在抽屉内，不切 Tab）/
+ * 导出代码（复用 CodeExportMenu：注入解析后 URL + BodySpec）。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import TestCaseDrawer from './TestCaseDrawer.vue'
+import CodeExportMenu from './CodeExportMenu.vue'
 import { useLocaleStore } from '../stores/locale'
 import type { TestCase } from '../types/foxApi'
 
@@ -28,16 +30,18 @@ function makeCase(): TestCase {
 function mountDrawer(overrides: { open?: boolean; testCase?: TestCase | null } = {}) {
   const onRun = vi.fn()
   const onSave = vi.fn()
+  const resolveUrl = vi.fn((path: string) => `https://api.test${path}`)
   const wrapper = mount(TestCaseDrawer, {
     props: {
       open: overrides.open ?? true,
       endpointId: 'ep-1',
       testCase: overrides.testCase ?? makeCase(),
+      resolveUrl,
       onRun,
       onSave,
     },
   })
-  return { wrapper, onRun, onSave }
+  return { wrapper, onRun, onSave, resolveUrl }
 }
 
 describe('TestCaseDrawer', () => {
@@ -190,6 +194,32 @@ describe('TestCaseDrawer', () => {
       (b) => b.textContent?.trim() === '保存修改',
     ) as HTMLButtonElement
     expect(saveBtn.disabled).toBe(true)
+  })
+
+  it('导出代码：注入解析后 URL + BodySpec（贴底向上弹 + 左对齐右展开），Path 为空时置灰', async () => {
+    const { wrapper, resolveUrl } = mountDrawer()
+    const menu = wrapper.findComponent(CodeExportMenu)
+    expect(menu.exists()).toBe(true)
+    expect(menu.props('placement')).toBe('top')
+    // 弹出层左对齐向右展开，留在抽屉面板内（与 CustomSelect 下拉方向一致）
+    expect(menu.props('align')).toBe('left')
+    expect(resolveUrl).toHaveBeenCalledWith('/funds/transfer')
+    expect(menu.props('method')).toBe('POST')
+    expect(menu.props('url')).toBe('https://api.test/funds/transfer')
+    // body_type + 内容还原为 BodySpec（与运行时 restoreBody 同源）
+    expect(menu.props('body')).toEqual({ mode: 'json', raw: '{"amount":100}' })
+    // 用例无独立鉴权，导出与运行一致（auth none）
+    expect(menu.props('auth')).toEqual({ type: 'none' })
+    expect(menu.props('disabled')).toBe(false)
+
+    // Path 清空 → URL 清空且导出置灰
+    const pathInput = document.querySelector<HTMLInputElement>('.drw-path-input')!
+    pathInput.value = ''
+    pathInput.dispatchEvent(new Event('input'))
+    await vi.waitFor(() => {
+      expect(menu.props('url')).toBe('')
+      expect(menu.props('disabled')).toBe(true)
+    })
   })
 
   it('请求 Body 支持查找：FindBar 计数 + 输入不抢光标 + Esc 关闭', async () => {

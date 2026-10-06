@@ -1122,7 +1122,14 @@ onUnmounted(() => {
         <button class="rf-btn rf-btn-sm" type="button" :title="t('editor.toolsHint')" @click="showTools = true">
           <Icon name="gauge" :size="13" /> {{ t('editor.tools') }}
         </button>
-        <CodeExportMenu v-if="!isGrpc" :draft="draft" :url="requestUrl" />
+        <CodeExportMenu
+          v-if="!isGrpc"
+          :method="draft.method"
+          :url="requestUrl"
+          :headers="draft.request.headers"
+          :body="draft.request.body"
+          :auth="draft.request.auth"
+        />
         <div class="save-group">
           <button class="rf-btn save-main" type="button" @click="save">
             <Icon name="save" :size="14" /> {{ t('editor.saveHint') }}
@@ -1152,7 +1159,14 @@ onUnmounted(() => {
       <GrpcPanel v-else-if="activeTab === 'grpc'" :draft="draft" />
       <PathVariablesPanel v-else-if="activeTab === 'path'" :draft="draft" />
       <RequestExamplesPanel v-else-if="activeTab === 'examples'" :draft="draft" />
-      <CodePanel v-else :draft="draft" :url="requestUrl" />
+      <CodePanel
+        v-else
+        :method="draft.method"
+        :url="requestUrl"
+        :headers="draft.request.headers"
+        :body="draft.request.body"
+        :auth="draft.request.auth"
+      />
 
       <!-- 配置区底部：单请求超时 / 跟随重定向（绑定 draft.request，走既有脏检查与保存链路） -->
       <div class="req-settings">

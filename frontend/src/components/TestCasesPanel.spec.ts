@@ -30,6 +30,7 @@ const store = vi.hoisted(() => ({
   applyTestCaseToDraft: vi.fn(),
   openTestCaseInDebug: vi.fn(),
   updateTestCaseContent: vi.fn(),
+  resolveTestCaseUrl: vi.fn((path: string) => path),
   saveTestCase: vi.fn(),
   renameTestCase: vi.fn(),
   cloneTestCase: vi.fn(),

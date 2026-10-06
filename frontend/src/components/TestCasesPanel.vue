@@ -10,6 +10,7 @@ import { computed, ref, watch } from 'vue'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useLocaleStore } from '../stores/locale'
 import { CATEGORY_TONE, TEST_CASE_CATEGORIES, caseCategoryLabel, formatDuration, matchTestCaseKeyword, statusTextOf, statusToneOf } from '../utils/testCases'
+import { methodTextTone } from '../utils/methodTone'
 import type { Endpoint, TestCase, TestCaseCategory } from '../types/foxApi'
 import EmptyState from './ui/EmptyState.vue'
 import Icon from './ui/Icon.vue'
@@ -386,7 +387,7 @@ watch(
       >
         <span class="tcp-col-idx">{{ i + 1 }}</span>
         <button class="tcp-col-name tcp-name-btn" type="button" :title="t('cases.rowTitle', { name: c.name })" @click="openDrawer(c)">
-          <span class="tcp-method" :class="`m-select-${c.method.toLowerCase()}`">{{ c.method }}</span>
+          <span class="tcp-method" :class="methodTextTone(c.method)">{{ c.method }}</span>
           <span class="tcp-name-text">{{ c.name }}</span>
         </button>
         <span class="tcp-col-cat">
@@ -448,6 +449,7 @@ watch(
       :open="drawerOpen"
       :endpoint-id="draft?.id ?? ''"
       :test-case="drawerCase"
+      :resolve-url="store.resolveTestCaseUrl"
       :on-run="runDrawerPayload"
       :on-save="saveDrawerPayload"
       @update:open="drawerOpen = $event"

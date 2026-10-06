@@ -7,6 +7,9 @@
  * - 成功：触发按钮短暂显示「✓ 已复制」（2 秒 + 弹跳动画）；
  * - 剪贴板不可用（非安全上下文 / 权限被拒）：降级 execCommand，仍失败则
  *   回退打开代码预览弹窗，保证代码不丢失。
+ *
+ * 入参为 codegen 原始输入（method/url/headers/body/auth），不耦合 Endpoint——
+ * 调试页与测试用例抽屉（贴底工具条用 placement="top" 向上弹）均可复用。
  */
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useFoxApi } from '../composables/useFoxApi'
@@ -15,9 +18,22 @@ import { useLocaleStore } from '../stores/locale'
 import { copyText } from '../utils/clipboard'
 import CodeExportDialog from './CodeExportDialog.vue'
 import Icon from './ui/Icon.vue'
-import type { CodeLang, Endpoint } from '../types/foxApi'
+import type { AuthSpec, BodySpec, CodeLang, HttpMethod, KeyValue } from '../types/foxApi'
 
-const props = defineProps<{ draft: Endpoint | null; url: string }>()
+const props = defineProps<{
+  method: HttpMethod
+  url: string
+  headers: KeyValue[]
+  body: BodySpec
+  auth: AuthSpec
+  /** 置灰导出（如用例 Path 为空）。 */
+  disabled?: boolean
+  /** 菜单展开方向：默认向下；贴底工具条场景传 top 向上弹。 */
+  placement?: 'bottom' | 'top'
+  /** 水平对齐：默认右对齐（调试页顶栏靠右）；贴左侧触发器传 left 向右展开，与
+   * CustomSelect 下拉一致，避免弹出层越出抽屉面板盖住主内容区。 */
+  align?: 'left' | 'right'
+}>()
 
 /** 菜单选项（value 对应后端 codegen_render 的 lang）。 */
 const CODE_EXPORT_OPTIONS: Array<{ value: CodeLang; label: string }> = [
@@ -86,17 +102,17 @@ onMounted(() => {
 
 /** 生成指定语言代码并写入剪贴板；失败逐级降级。 */
 async function pickLang(lang: CodeLang): Promise<void> {
-  if (!props.draft || busyLang.value) return
+  if (props.disabled || busyLang.value) return
   openMenu.value = false
   busyLang.value = lang
   try {
     const code = await api.codegenRender({
       lang,
-      method: props.draft.method,
+      method: props.method,
       url: props.url,
-      headers: props.draft.request.headers,
-      body: props.draft.request.body,
-      auth: props.draft.request.auth,
+      headers: props.headers,
+      body: props.body,
+      auth: props.auth,
     })
     if (disposed) return
 
@@ -122,14 +138,25 @@ async function pickLang(lang: CodeLang): Promise<void> {
 
 <template>
   <div ref="wrapEl" class="code-export">
-    <button type="button" class="rf-btn ce-trigger" :class="{ 'ce-copied': copied }" @click="toggleMenu">
+    <button
+      type="button"
+      class="rf-btn ce-trigger"
+      :class="{ 'ce-copied': copied }"
+      :disabled="disabled"
+      @click="toggleMenu"
+    >
       <Icon v-if="copied" name="check" :size="14" />
       <Icon v-else name="code" :size="13" />
       {{ copied ? t('codegen.copied') : t('codegen.export') }}
       <Icon name="chevron-down" :size="11" class="ce-caret" :class="{ 'ce-caret-open': openMenu }" />
     </button>
 
-    <div v-if="openMenu" class="ce-menu" role="menu">
+    <div
+      v-if="openMenu"
+      class="ce-menu"
+      :class="{ 'ce-menu-top': placement === 'top', 'ce-menu-left': align === 'left' }"
+      role="menu"
+    >
       <button
         v-for="opt in CODE_EXPORT_OPTIONS"
         :key="opt.value"
@@ -144,7 +171,15 @@ async function pickLang(lang: CodeLang): Promise<void> {
       </button>
     </div>
 
-    <CodeExportDialog v-if="showFallback" :draft="draft" :url="url" @close="showFallback = false" />
+    <CodeExportDialog
+      v-if="showFallback"
+      :method="method"
+      :url="url"
+      :headers="headers"
+      :body="body"
+      :auth="auth"
+      @close="showFallback = false"
+    />
   </div>
 </template>
 
@@ -161,6 +196,10 @@ async function pickLang(lang: CodeLang): Promise<void> {
   color: var(--success);
   border-color: var(--success-tint);
   animation: ce-check 220ms var(--ease);
+}
+.ce-trigger:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .ce-caret {
@@ -187,6 +226,18 @@ async function pickLang(lang: CodeLang): Promise<void> {
   background: var(--bg-panel);
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.14);
   animation: ce-pop 130ms var(--ease);
+}
+
+/* 贴底工具条场景：从按钮上方展开（抽屉 Footer 等） */
+.ce-menu.ce-menu-top {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+/* 贴左侧触发器场景：左对齐向右展开（留在所属面板内，与 CustomSelect 下拉一致） */
+.ce-menu.ce-menu-left {
+  left: 0;
+  right: auto;
 }
 
 .ce-item {

@@ -18,7 +18,13 @@ import { useLocaleStore } from './locale'
 import { planCrossGroupMove, planSameGroupMove, wouldCreateCycle } from './treeOps'
 import { deepClone } from '../utils/clone'
 import { splitUrl } from '../utils/url'
-import { envBaseUrl } from '../utils/environment'
+import {
+  envBaseUrl,
+  environmentVariableMap,
+  resolveRequestUrl,
+  resolveVariables,
+  variableListToMap,
+} from '../utils/environment'
 import { applyCaseToRequest, restoreBody, snapshotRequest } from '../utils/testCases'
 import type {
   AuthSpec,
@@ -43,6 +49,13 @@ import type {
   TestCaseCategory,
   TestCaseStatus,
 } from '../types/foxApi'
+
+/**
+ * 后端内置默认超时（毫秒）。镜像 fox-http::client::DEFAULT_TIMEOUT_MS（300s）：
+ * 全局设置从未配置时，执行链路（resolve_timeout_ms）实际生效的就是这个值，
+ * 前端展示（超时占位符 / 设置页兜底）必须与之一致；后端调整时需同步。
+ */
+export const FALLBACK_GLOBAL_TIMEOUT_MS = 300_000
 
 /** 新建接口的默认请求规格（与 fox-core 模型字段一致）。 */
 export function defaultRequestSpec(): Endpoint['request'] {
@@ -104,6 +117,23 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   /** 会话级 Base URL（仅本次会话，不落库）；cURL 导入时自动预填为 URL 的 origin。 */
   const sessionBaseUrl = ref('http://localhost')
+
+  /**
+   * 全局生效的请求超时（毫秒）：全局设置值；未配置时即内置默认（非 null，
+   * 占位符展示「留空用全局（N 秒）」）。仅 IPC 失败时可能短暂为 null（回退静态文案）。
+   */
+  const globalTimeoutMs = ref<number | null>(null)
+
+  /** 拉取全局请求超时（store 创建时 + 设置页保存后刷新）。 */
+  async function refreshGlobalTimeoutMs(): Promise<void> {
+    try {
+      const ms = await api.getHttpTimeoutMs()
+      globalTimeoutMs.value = ms ?? FALLBACK_GLOBAL_TIMEOUT_MS
+    } catch {
+      globalTimeoutMs.value = FALLBACK_GLOBAL_TIMEOUT_MS
+    }
+  }
+  void refreshGlobalTimeoutMs()
 
   /** 地址栏域名前缀（唯一真实数据源）：选中环境声明 Base URL 时优先，否则回退会话 Base URL。 */
   const urlDomain = computed(() => {
@@ -746,6 +776,35 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         tests: null,
       },
     }
+  }
+
+  /** 变量合并表（优先级 环境 > 项目 > 全局，与调试页 envVars 同源）。 */
+  function caseVariableMap(): Record<string, string> {
+    const env = environments.value.find((e) => e.id === activeEnvId.value) ?? null
+    return {
+      ...variableListToMap(globalVariables.value),
+      ...(project.value?.variables ?? {}),
+      ...environmentVariableMap(env),
+    }
+  }
+
+  /**
+   * 用例路径 → 可运行 URL（导出代码用，与调试页 buildUrl 同源）：
+   * 完整地址直用（仅解析变量）；否则环境 Base URL 优先（resolveRequestUrl 解析
+   * `{{变量}}` 后拼接），回退会话 Base URL。
+   */
+  function resolveTestCaseUrl(path: string): string {
+    const trimmed = path.trim()
+    if (!trimmed) return ''
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) {
+      return resolveVariables(trimmed, caseVariableMap())
+    }
+    const env = environments.value.find((e) => e.id === activeEnvId.value) ?? null
+    if (env && envBaseUrl(env)) {
+      return resolveRequestUrl(env, trimmed, caseVariableMap()).url
+    }
+    const rel = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+    return `${urlDomain.value}${rel}`
   }
 
   /** 运行单个用例：拼 URL 执行请求，回写运行状态。返回响应或 null。 */
@@ -1926,6 +1985,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     applyTestCaseToDraft,
     openTestCaseInDebug,
     updateTestCaseContent,
+    resolveTestCaseUrl,
+    globalTimeoutMs,
+    refreshGlobalTimeoutMs,
     runTestCase,
     runAllTestCases,
     cancelAllTestCases,

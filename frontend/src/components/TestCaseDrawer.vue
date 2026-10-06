@@ -5,12 +5,15 @@
  * - Method + Path 无缝组合输入（Method Badge 下拉 + Path flex-1），Method 联动默认 Tab 与 Content-Type；
  * - Body 与 Response 均使用 CodeMirror 6（JSON 暗黑高亮 / 折叠 / 错误校验 / 只读）；
  * - 请求区与响应区之间可拖拽分割条（双击恢复 50%，双方 min-height 120px）；
- * - 底部操作栏 sticky，左侧「立即运行」、右侧「取消 / 保存修改」。
+ * - 底部操作栏 sticky，左侧「导出代码」（复用调试页 CodeExportMenu，向上弹出 +
+ *   左对齐向右展开，弹出层不越出抽屉）+「立即运行」、右侧「取消 / 保存修改」。
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { ExecuteResponse, HttpMethod, KeyValue, TestCase, TestCaseCategory } from '../types/foxApi'
-import { TEST_CASE_CATEGORIES, caseCategoryLabel, formatDuration, statusToneOf, statusTextOf } from '../utils/testCases'
+import type { AuthSpec, BodySpec, ExecuteResponse, HttpMethod, KeyValue, TestCase, TestCaseCategory } from '../types/foxApi'
+import { TEST_CASE_CATEGORIES, caseCategoryLabel, formatDuration, restoreBody, statusToneOf, statusTextOf } from '../utils/testCases'
+import { methodTextTone } from '../utils/methodTone'
 import { useLocaleStore } from '../stores/locale'
+import CodeExportMenu from './CodeExportMenu.vue'
 import CustomSelect from './ui/CustomSelect.vue'
 import FindBar from './ui/FindBar.vue'
 import Icon from './ui/Icon.vue'
@@ -22,6 +25,8 @@ const props = defineProps<{
   /** 当前接口 id（request_id），用于保存后回填本地列表。 */
   endpointId: string
   testCase: TestCase | null
+  /** 路径 → 可运行 URL（环境 Base URL + 变量解析），导出代码用；与 onRun/onSave 同为父级注入。 */
+  resolveUrl: (path: string) => string
   /** 运行回调：返回响应或抛错。由父级（store 或 panel）注入，避免组件耦合执行细节。 */
   onRun: (payload: {
     method: HttpMethod
@@ -57,8 +62,9 @@ const headers = ref<KeyValue[]>([])
 const bodyType = ref('none')
 const bodyContent = ref('')
 
+/** 方法下拉：选项文字按方法语义色渲染（methodTone 单源），选中项浅色高亮。 */
 const METHOD_OPTIONS = (['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'] as HttpMethod[]).map(
-  (m) => ({ value: m, label: m }),
+  (m) => ({ value: m, label: m, tone: methodTextTone(m) }),
 )
 /** Body 类型下拉（value 为 body_type 标识，label 随语言刷新）。 */
 const bodyOptions = computed(() => [
@@ -248,6 +254,14 @@ const headerRows = computed({
 const bodyLabel = computed(() => bodyOptions.value.find((o) => o.value === bodyType.value)?.label ?? bodyType.value)
 const bodyEditable = computed(() => bodyType.value !== 'none')
 
+// ---------- 导出代码（复用调试页 CodeExportMenu） ----------
+/** 用例没有独立鉴权配置（运行时 auth 固定 none），导出与实际执行一致。 */
+const NO_AUTH: AuthSpec = { type: 'none' }
+/** 导出用 URL：Path 非空时经父级解析（Base URL + 变量），空则置灰导出。 */
+const exportUrl = computed(() => (urlPath.value.trim() ? props.resolveUrl(urlPath.value.trim()) : ''))
+/** body_type + 内容 → BodySpec（JSON 非法时降级 raw 文本，与运行时 restoreBody 同源）。 */
+const exportBody = computed<BodySpec>(() => restoreBody(bodyType.value, bodyContent.value))
+
 // ---------- 底部操作 ----------
 const saving = ref(false)
 const running = ref(false)
@@ -336,7 +350,7 @@ function formatBody(): void {
   }
 }
 
-const methodClass = computed(() => `m-select-${method.value.toLowerCase()}`)
+const methodClass = computed(() => methodTextTone(method.value))
 
 // ---------- 请求区 / 响应区垂直拖拽分割 ----------
 const splitArea = ref<HTMLElement | null>(null)
@@ -438,10 +452,12 @@ function onSplitterDblClick(): void {
                     :class="methodClass"
                     :model-value="method"
                     :options="METHOD_OPTIONS"
+                    pop-class="cs-method-pop"
+                    :pop-min-width="130"
                     @update:model-value="method = String($event) as HttpMethod"
                   >
                     <template #display="{ label }">
-                      <span :class="`drw-method-badge m-select-${label.toLowerCase()}`">{{ label }}</span>
+                      <span :class="['drw-method-badge', methodTextTone(label)]">{{ label }}</span>
                     </template>
                   </CustomSelect>
                   <input
@@ -598,6 +614,16 @@ function onSplitterDblClick(): void {
           </div>
 
           <footer class="drw-foot">
+            <CodeExportMenu
+              placement="top"
+              align="left"
+              :method="method"
+              :url="exportUrl"
+              :headers="headers"
+              :body="exportBody"
+              :auth="NO_AUTH"
+              :disabled="!urlPath.trim()"
+            />
             <button
               class="rf-btn drw-run-btn"
               type="button"

@@ -3,13 +3,20 @@
  * CodeExportDialog：接口代码导出弹窗。
  * 复用 CodePanel（语言选择 → 生成 → 复制），打开即按当前请求配置自动生成
  * curl / Python / JavaScript / Go / Java / PHP 代码片段。
+ * 入参为 codegen 原始输入（与 CodeExportMenu 一致），调试页 / 用例抽屉通用。
  */
 import CodePanel from './CodePanel.vue'
 import Modal from './ui/Modal.vue'
 import { useLocaleStore } from '../stores/locale'
-import type { Endpoint } from '../types/foxApi'
+import type { AuthSpec, BodySpec, HttpMethod, KeyValue } from '../types/foxApi'
 
-defineProps<{ draft: Endpoint | null; url: string }>()
+defineProps<{
+  method: HttpMethod
+  url: string
+  headers: KeyValue[]
+  body: BodySpec
+  auth: AuthSpec
+}>()
 const emit = defineEmits<{ close: [] }>()
 
 const locale = useLocaleStore()
@@ -21,7 +28,14 @@ const t = locale.t
     <p class="modal-hint">
       {{ t('codeexport.hint') }}
     </p>
-    <CodePanel :draft="draft" :url="url" auto-generate />
+    <CodePanel
+      :method="method"
+      :url="url"
+      :headers="headers"
+      :body="body"
+      :auth="auth"
+      auto-generate
+    />
     <template #footer>
       <button class="rf-btn rf-btn-primary" type="button" @click="emit('close')">{{ t('common.close') }}</button>
     </template>

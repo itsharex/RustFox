@@ -5,7 +5,7 @@ import CodePanel from './CodePanel.vue'
 import CustomSelect from './ui/CustomSelect.vue'
 import { useLocaleStore } from '../stores/locale'
 import { collectErrors } from '../testUtils/componentTest'
-import { makeDraft } from '../testUtils/draftFixture'
+import { makeCodegenInputs } from '../testUtils/draftFixture'
 
 const codegenRender = vi.fn()
 
@@ -28,12 +28,12 @@ describe('CodePanel：自动生成（autoGenerate）', () => {
 
   it('默认不自动生成；autoGenerate 在挂载时自动生成一次', async () => {
     codegenRender.mockResolvedValue('curl -X GET "https://api.example.com"')
-    const w1 = mount(CodePanel, { props: { draft: makeDraft(), url: 'https://api.example.com' } })
+    const w1 = mount(CodePanel, { props: { ...makeCodegenInputs() } })
     await flushPromises()
     expect(codegenRender).not.toHaveBeenCalled()
 
     const w2 = mount(CodePanel, {
-      props: { draft: makeDraft(), url: 'https://api.example.com', autoGenerate: true },
+      props: { ...makeCodegenInputs(), autoGenerate: true },
     })
     await flushPromises()
     expect(codegenRender).toHaveBeenCalledTimes(1)
@@ -45,7 +45,7 @@ describe('CodePanel：自动生成（autoGenerate）', () => {
   it('autoGenerate 切换语言自动重新生成', async () => {
     codegenRender.mockResolvedValue('code')
     const wrapper = mount(CodePanel, {
-      props: { draft: makeDraft(), url: 'https://api.example.com', autoGenerate: true },
+      props: { ...makeCodegenInputs(), autoGenerate: true },
     })
     await flushPromises()
     expect(codegenRender).toHaveBeenCalledTimes(1)
@@ -65,7 +65,7 @@ describe('CodePanel：自动生成（autoGenerate）', () => {
     codegenRender.mockImplementation(() => new Promise((r) => (resolve = r)))
 
     const wrapper = mount(CodePanel, {
-      props: { draft: makeDraft(), url: 'https://api.example.com', autoGenerate: true },
+      props: { ...makeCodegenInputs(), autoGenerate: true },
     })
     await flushPromises()
     wrapper.unmount()
