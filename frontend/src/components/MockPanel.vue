@@ -9,6 +9,7 @@ import { useWorkspaceStore } from '../stores/workspace'
 import { useFoxApi } from '../composables/useFoxApi'
 import { useToast } from '../composables/useToast'
 import { useLocaleStore } from '../stores/locale'
+import { methodTextTone } from '../utils/methodTone'
 import type { Endpoint, MockRule } from '../types/foxApi'
 import EmptyState from './ui/EmptyState.vue'
 import Icon from './ui/Icon.vue'
@@ -82,7 +83,7 @@ const others = (): MockRule[] =>
       <span class="mkp-sec-label">{{ t('mockpanel.thisEndpoint') }}</span>
       <div class="mkp-list">
         <div v-for="r in related()" :key="r.id" class="mkp-row">
-          <span class="mkp-method" :class="`m-select-${r.method.toLowerCase()}`">{{ r.method }}</span>
+          <span class="mkp-method" :class="methodTextTone(r.method)">{{ r.method }}</span>
           <code class="mkp-path">{{ r.path }}</code>
           <span class="mkp-name">{{ r.name }}</span>
           <span class="mkp-status" :class="{ on: r.enabled }">{{ r.enabled ? t('mockpanel.enabled') : t('mockpanel.disabled') }}</span>
@@ -95,7 +96,7 @@ const others = (): MockRule[] =>
       <span class="mkp-sec-label">{{ t('mockpanel.otherRules') }}</span>
       <div class="mkp-list">
         <div v-for="r in others()" :key="r.id" class="mkp-row">
-          <span class="mkp-method" :class="`m-select-${r.method.toLowerCase()}`">{{ r.method }}</span>
+          <span class="mkp-method" :class="methodTextTone(r.method)">{{ r.method }}</span>
           <code class="mkp-path">{{ r.path }}</code>
           <span class="mkp-name">{{ r.name }}</span>
           <span class="mkp-status" :class="{ on: r.enabled }">{{ r.enabled ? t('mockpanel.enabled') : t('mockpanel.disabled') }}</span>

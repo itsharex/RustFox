@@ -140,3 +140,46 @@ describe('CustomSelect：header 分隔项', () => {
     document.body.innerHTML = ''
   })
 })
+
+describe('CustomSelect：tone 语义色与勾选位置', () => {
+  const TONED = [
+    { value: 'GET', label: 'GET', tone: 'text-method-get' },
+    { value: 'POST', label: 'POST' },
+  ]
+
+  it('tone 类透传到选项行；选中 tone 行不再用 accent 着色（class 组合正确）', async () => {
+    const wrapper = mount(CustomSelect, {
+      props: { options: TONED, modelValue: 'GET' },
+      attachTo: document.body,
+    })
+    await wrapper.find('.cs-trigger').trigger('click')
+    await nextTick()
+    const rows = Array.from(document.querySelectorAll<HTMLElement>('.cs-opt'))
+    expect(rows[0].classList.contains('text-method-get')).toBe(true)
+    // tone + sel 并存：CSS 由 .cs-opt.tone.sel 接管（语义色浅底），不落回 accent
+    expect(rows[0].classList.contains('sel')).toBe(true)
+    expect(rows[0].classList.contains('tone')).toBe(true)
+    // 无 tone 的行不携带 tone 类
+    expect(rows[1].classList.contains('tone')).toBe(false)
+    wrapper.unmount()
+    document.body.innerHTML = ''
+  })
+
+  it('勾选符在行尾（label 之后），未选中行不渲染勾选图标', async () => {
+    const wrapper = mount(CustomSelect, {
+      props: { options: TONED, modelValue: 'GET' },
+      attachTo: document.body,
+    })
+    await wrapper.find('.cs-trigger').trigger('click')
+    await nextTick()
+    const rows = Array.from(document.querySelectorAll<HTMLElement>('.cs-opt'))
+    // 行内顺序：label 在前、check 在后（勾选统一行尾，文本严格左对齐）
+    const label = rows[0].querySelector('.cs-opt-label')!
+    const check = rows[0].querySelector('.cs-opt-check')!
+    expect(label.nextElementSibling?.contains(check) || label.nextElementSibling === check).toBe(true)
+    // 未选中行没有勾选图标
+    expect(rows[1].querySelector('.cs-opt-check svg')).toBeNull()
+    wrapper.unmount()
+    document.body.innerHTML = ''
+  })
+})

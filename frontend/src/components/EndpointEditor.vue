@@ -24,6 +24,7 @@ import {
   variableListToMap,
 } from '../utils/environment'
 import { isCurlCommand } from '../utils/url'
+import { methodTextTone } from '../utils/methodTone'
 import { useVarCandidates } from '../composables/useVarCandidates'
 import { useVarAutocomplete } from '../composables/useVarAutocomplete'
 import { lazyComponent } from '../composables/lazyComponent'
@@ -167,11 +168,12 @@ const grpcDisplay = computed<{ response: GrpcResponse | null; stream: GrpcStream
 const draft = computed(() => store.activeEndpoint)
 
 const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']
-/** 方法下拉：HTTP 方法一组 + 分隔标题 + gRPC（协议维度，选中后编辑器形态整体切换）。 */
+/** 方法下拉：HTTP 方法一组 + 分隔标题 + gRPC（协议维度，选中后编辑器形态整体切换）。
+ *  tone 走 methodTone 单源映射，选项文字按方法语义色渲染、选中项浅色高亮。 */
 const METHOD_OPTIONS = computed(() => [
-  ...METHODS.map((m) => ({ value: m, label: m })),
+  ...METHODS.map((m) => ({ value: m, label: m, tone: methodTextTone(m) })),
   { value: '__proto_header__', label: t('editor.methodGroupOther'), header: true },
-  { value: 'GRPC' as HttpMethod, label: 'GRPC' },
+  { value: 'GRPC' as HttpMethod, label: 'GRPC', tone: methodTextTone('GRPC') },
 ])
 
 // ---------- 配置 Tab 系统 ----------
@@ -1022,10 +1024,12 @@ onUnmounted(() => {
           class="method-select"
           :model-value="draft.method"
           :options="METHOD_OPTIONS"
+          pop-class="cs-method-pop"
+          :pop-min-width="130"
           @update:model-value="draft.method = String($event) as HttpMethod"
         >
           <template #display="{ label }">
-            <span :class="`m-select-${draft.method.toLowerCase()}`">{{ label }}</span>
+            <span :class="methodTextTone(draft.method)">{{ label }}</span>
           </template>
         </CustomSelect>
         <span v-if="!isAbsolutePath(draft.path)" class="req-bar-divider"></span>
@@ -1445,7 +1449,7 @@ onUnmounted(() => {
   font-weight: 700;
 }
 
-/* m-select-* 方法文本色已上收全局（style.css），此处不再重复定义。 */
+/* 方法文本色统一走 utils/methodTone.ts（text-method-*），此处不再定义。 */
 
 /* 统一请求栏：方法下拉 + 基础URL标签 + 路径输入合并为一个控件 */
 .request-bar {

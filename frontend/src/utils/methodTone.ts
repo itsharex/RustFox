@@ -30,7 +30,7 @@ export const METHOD_TEXT_TONE: Record<string, string> = {
   patch: 'text-method-patch',
   graphql: 'text-method-patch',
   grpc: 'text-method-grpc',
-  head: 'text-method-get',
+  head: 'text-method-neutral',
   options: 'text-method-neutral',
 }
 

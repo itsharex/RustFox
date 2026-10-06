@@ -9,6 +9,9 @@
  *   #actions 定制选项右侧操作区（作为 .cs-opt 直接子项参与 flex 布局；
  *   点击需自行 .stop 防误选中）、#footer 底部固定操作栏（分割线下方，
  *   不参与列表滚动与键盘高亮循环）。
+ * - 勾选状态固定在行尾（左侧不留勾选列，全部选项文本严格左对齐）；
+ *   options[].tone 可注入语义色类（方法下拉的 text-method-*），选中态背景
+ *   跟随语义色浅色高亮而非 --accent。
  */
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useLocaleStore } from '../../stores/locale'
@@ -19,6 +22,13 @@ export interface SelectOption {
   label: string
   /** 分组分隔标题：不可选中、不参与键盘导航（如方法下拉里的「其他协议」）。 */
   header?: boolean
+  /**
+   * 选项行语义色类（如 methodTextTone('GET') 的 text-method-*，Tailwind utilities）。
+   * 设置后整行文字按语义色渲染（Tailwind utilities 在 layer 内，会被组件 scoped 的
+   * 无层样式覆盖，故 .cs-opt 基础色用 :not(.tone) 收窄）；选中态不再用 --accent
+   * 着色，背景改用 currentColor 12% 浅色高亮（跟随语义色）。
+   */
+  tone?: string
 }
 
 const props = withDefaults(
@@ -244,15 +254,12 @@ defineExpose({ close })
           <div
             v-else
             class="cs-opt"
-            :class="{ hl: highlight === i, sel: String(o.value) === String(modelValue) }"
+            :class="[{ hl: highlight === i, sel: String(o.value) === String(modelValue), tone: !!o.tone }, o.tone]"
             role="option"
             :aria-selected="String(o.value) === String(modelValue)"
             @click="pick(o)"
             @mouseenter="highlight = i"
           >
-            <span class="cs-opt-check">
-              <Icon v-if="String(o.value) === String(modelValue)" name="check" :size="12" />
-            </span>
             <span class="cs-opt-label" :title="o.label">
               <slot name="option" :option="o" :selected="String(o.value) === String(modelValue)">
                 {{ o.label }}
@@ -264,6 +271,10 @@ defineExpose({ close })
               :option="o"
               :selected="String(o.value) === String(modelValue)"
             />
+            <!-- 勾选状态统一放行尾：左侧不再留固定勾选区，全部选项文本严格左对齐 -->
+            <span class="cs-opt-check">
+              <Icon v-if="String(o.value) === String(modelValue)" name="check" :size="12" />
+            </span>
           </div>
           </template>
         </div>
@@ -349,12 +360,15 @@ defineExpose({ close })
   position: fixed;
   z-index: 1000;
   background: var(--bg-elevated);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  /* 发丝边框（深色近 border-white/10，浅色跟随变量不隐形）+ 深部大阴影拉开暗部层级 */
+  border: 1px solid color-mix(in srgb, var(--border-strong) 80%, transparent);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 24px 48px -12px rgb(0 0 0 / 0.55),
+    0 8px 20px rgb(0 0 0 / 0.45);
   padding: 4px;
   transform-origin: top;
-  animation: cs-in 120ms var(--ease);
+  animation: cs-in 100ms ease-out;
 }
 .cs-pop.up {
   transform-origin: bottom;
@@ -376,11 +390,13 @@ defineExpose({ close })
   border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
 }
 
+/* 分组标题：明确分隔线（mt-1 pt-1 档）+ 小字加粗，与选项文本列（12px）对齐 */
 .cs-opt-header {
-  padding: 6px 12px 3px;
+  padding: 4px 12px 5px;
   margin-top: 4px;
-  border-top: 1px solid var(--border);
-  font-size: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border-strong) 80%, transparent);
+  font-size: 11px;
+  font-weight: 500;
   color: var(--text-3);
   letter-spacing: 0.06em;
   user-select: none;
@@ -394,26 +410,39 @@ defineExpose({ close })
 .cs-opt {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   height: 30px;
-  padding: 0 10px 0 8px;
+  padding: 0 12px;
   cursor: pointer;
   font-size: 12.5px;
   font-family: var(--font-mono);
-  color: var(--text-1);
   white-space: nowrap;
   overflow: hidden;
   user-select: none;
-  transition: background var(--dur) var(--ease);
+  transition: background 100ms ease-out;
+}
+/* 基础文字色只作用于无语义色的行：tone 行的 text-method-* utilities（layer 内）
+ * 才能生效（无层 scoped 样式优先级恒高于 layer，须用 :not(.tone) 收窄）。 */
+.cs-opt:not(.tone) {
+  color: var(--text-1);
 }
 .cs-opt.hl {
   background: var(--bg-hover);
 }
-.cs-opt.sel {
+.cs-opt.sel:not(.tone) {
   color: var(--accent);
+}
+/* 带语义色的选中项：文字/行尾勾选保持语义色，背景仅微亮浅色（深色 = white/10 档，
+ * 浅色主题自动跟随 --bg-active 变量），不用语义色实底，保证任意方法色下都可读 */
+.cs-opt.tone.sel {
+  background: var(--bg-active);
 }
 .cs-opt:active {
   background: var(--accent-tint);
+}
+.cs-opt.tone:active {
+  background: var(--bg-active);
 }
 
 .cs-opt-check {
@@ -422,7 +451,6 @@ defineExpose({ close })
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent);
 }
 
 .cs-opt-label {

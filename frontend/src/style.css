@@ -71,10 +71,10 @@
   --orange: #f97316;
   --danger: #ef4444;
   --info: #3b82f6;
-  --get: #10b981;
+  --get: #22c55e;
   --post: #f59e0b;
   --put: #3b82f6;
-  --patch: #a78bfa;
+  --patch: #a855f7;
   --delete: #ef4444;
   --grpc: #06b6d4;
 
@@ -617,30 +617,17 @@ kbd,
   color: var(--grpc);
 }
 
-/* ---- Method 文本色（全局语义色） ----
- * m-select-* 曾只定义在 EndpointEditor 局部，其余 4 处引用（历史/用例/Mock/抽屉）
- * 实际裸奔无色；集中于此后所有调用方生效。 */
-.m-select-get {
-  color: var(--get);
-}
-.m-select-post {
-  color: var(--post);
-}
-.m-select-put {
-  color: var(--put);
-}
-.m-select-delete {
-  color: var(--delete);
-}
-.m-select-patch {
-  color: var(--patch);
-}
-.m-select-grpc {
-  color: var(--grpc);
-}
-.m-select-head,
-.m-select-options {
-  color: var(--text-3);
+/* ---- Method 文本色 ----
+ * 唯一来源：@theme 的 method-* 令牌 + utils/methodTone.ts 映射表
+ * （text-method-* utilities；方法下拉 tone / 触发器 / 树徽章 / 历史行统一走它）。
+ * 旧 .m-select-* 全局类已迁移删除，禁止再拼接构造类名。 */
+
+/* ---- 方法下拉选项排版（CustomSelect popClass="cs-method-pop"）----
+ * 等宽 + semibold + text-xs 档，接口工具质感；浮层经 Teleport 渲染，
+ * 组件 scoped 样式覆盖不到，故放全局（仅作用于方法下拉，不影响其他 select）。 */
+.cs-method-pop .cs-opt-label {
+  font-size: 12px;
+  font-weight: 600;
 }
 
 /* ---- 表单 / 列表 / 面板 ---- */

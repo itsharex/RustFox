@@ -20,7 +20,8 @@ describe('methodTone', () => {
 
   it('纯文本式只含文字色', () => {
     expect(methodTextTone('GET')).toBe('text-method-get')
-    expect(methodTextTone('HEAD')).toBe('text-method-get')
+    // HEAD / OPTIONS 与未知方法一样走中性灰（HEAD 无语义色）
+    expect(methodTextTone('HEAD')).toBe('text-method-neutral')
     expect(methodTextTone('GRAPHQL')).toBe('text-method-patch')
   })
 
