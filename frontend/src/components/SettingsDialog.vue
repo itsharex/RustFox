@@ -16,6 +16,7 @@ import { useToast } from '../composables/useToast'
 import { lazyComponent } from '../composables/lazyComponent'
 import { useThemeStore, type ThemeMode } from '../stores/theme'
 import { useLocaleStore, type LocaleMode } from '../stores/locale'
+import { useWorkspaceStore, FALLBACK_GLOBAL_TIMEOUT_MS } from '../stores/workspace'
 import {
   SHORTCUT_DEFAULTS,
   bindingLabel,
@@ -204,7 +205,8 @@ onMounted(async () => {
 })
 
 // ---------- 通用设置：请求超时（自动保存） ----------
-const DEFAULT_TIMEOUT_SEC = 300
+/** 全局超时兜底值（秒）：与后端执行链路的内置默认同源（workspace 常量镜像 fox-http）。 */
+const DEFAULT_TIMEOUT_SEC = FALLBACK_GLOBAL_TIMEOUT_MS / 1000
 const timeoutSec = ref(DEFAULT_TIMEOUT_SEC)
 
 async function saveTimeout(sec: number): Promise<void> {
@@ -216,6 +218,8 @@ async function saveTimeout(sec: number): Promise<void> {
   try {
     await api.setHttpTimeoutMs(v * 1000)
     timeoutSec.value = v
+    // 编辑器占位符实时展示新的全局超时（workspace store 缓存该值）
+    void useWorkspaceStore().refreshGlobalTimeoutMs()
     toast.success(t('settings.timeoutSaved', { v }))
   } catch (err) {
     toast.error(t('settings.saveFail'), { message: err instanceof Error ? err.message : String(err) })

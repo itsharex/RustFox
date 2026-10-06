@@ -98,6 +98,8 @@ vi.mock('../composables/useFoxApi', () => ({
     listExamples: vi.fn().mockResolvedValue([]),
     listRequestExamples: vi.fn().mockResolvedValue([]),
     listTestCases: vi.fn().mockResolvedValue([]),
+    // 全局超时：模拟「从未配置过」——后端返回 null，store 应回退内置默认
+    getHttpTimeoutMs: vi.fn().mockResolvedValue(null),
     listRequestHistories: vi
       .fn()
       .mockImplementation((projectId: string, limit?: number, endpointId?: string | null) => {
@@ -120,7 +122,7 @@ vi.mock('../composables/useToast', () => ({
   useToast: () => toastMock,
 }))
 
-import { useWorkspaceStore } from '../stores/workspace'
+import { useWorkspaceStore, FALLBACK_GLOBAL_TIMEOUT_MS } from '../stores/workspace'
 import { useLocaleStore } from '../stores/locale'
 
 /** 测试环境的 localStorage 为残缺对象（真机 WebView 才有完整实现），stub 一个内存版。 */
@@ -484,5 +486,18 @@ describe('请求历史：增量分页与失败提示', () => {
     backend.setHistoryImpl(() => Promise.reject(new Error('down again')))
     await store.loadHistories()
     expect(toastMock.error).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('全局请求超时：未配置时回退后端内置默认', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('getHttpTimeoutMs 返回 null（从未配置）时，globalTimeoutMs 取内置默认 300s', async () => {
+    const store = useWorkspaceStore()
+    await vi.waitFor(() => {
+      expect(store.globalTimeoutMs).toBe(FALLBACK_GLOBAL_TIMEOUT_MS)
+    })
   })
 })

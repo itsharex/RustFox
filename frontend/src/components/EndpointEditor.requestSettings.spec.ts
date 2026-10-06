@@ -71,6 +71,20 @@ describe('EndpointEditor：Path 页签', () => {
 })
 
 describe('EndpointEditor：请求设置行', () => {
+  it('超时占位展示全局生效值（未配置→内置默认 300 秒），行结构完整', async () => {
+    const { wrapper } = await mountEditor()
+    const row = wrapper.find('.req-settings')
+    // 行结构完整：标签 / 超时 / 输入 / 单位 / 复选 全部在场
+    expect(row.text()).toContain('请求设置')
+    expect(row.text()).toContain('超时')
+    expect(row.text()).toContain('毫秒')
+    expect(row.text()).toContain('跟随重定向')
+    // mock 后端返回 null（从未配置）→ store 回退内置默认 → 占位符带秒数
+    const input = wrapper.findComponent(CustomNumberInput)
+    expect(input.props('placeholder')).toBe('留空用全局（300 秒）')
+    wrapper.unmount()
+  })
+
   it('超时输入写入 request.timeout_ms：空串→null，非法输入不写回', async () => {
     const { wrapper, store } = await mountEditor()
     const input = wrapper.findComponent(CustomNumberInput)

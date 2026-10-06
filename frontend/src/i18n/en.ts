@@ -304,6 +304,7 @@ export const en: Record<ZhKey, string> = {
   'editor.reqSettings': 'Request settings',
   'editor.timeoutLabel': 'Timeout',
   'editor.timeoutPh': 'Timeout ms, empty = global',
+  'editor.timeoutPhGlobal': 'Empty = global ({sec}s)',
   'editor.msUnit': 'ms',
   'editor.followRedirects': 'Follow redirects',
   'editor.saveAsCase': 'Save as test case',

@@ -582,6 +582,12 @@ function onTimeoutInput(value: string | number): void {
   if (Number.isFinite(n) && n > 0) request.timeout_ms = Math.round(n)
 }
 
+/** 超时占位：未设置（留空）时展示全局默认值，让「跟随全局」具体可见；未加载完成回退静态文案。 */
+const timeoutPlaceholder = computed(() => {
+  const ms = store.globalTimeoutMs
+  return ms == null ? t('editor.timeoutPh') : t('editor.timeoutPhGlobal', { sec: Math.round(ms / 1000) })
+})
+
 async function send(): Promise<void> {
   if (!draft.value) return
   const targetId = draft.value.id
@@ -1171,13 +1177,13 @@ onUnmounted(() => {
       <!-- 配置区底部：单请求超时 / 跟随重定向（绑定 draft.request，走既有脏检查与保存链路） -->
       <div class="req-settings">
         <span class="rs-label">{{ t('editor.reqSettings') }}</span>
-        <label class="rs-field" :title="t('editor.timeoutPh')">
+        <label class="rs-field" :title="timeoutPlaceholder">
           <span class="rs-text">{{ t('editor.timeoutLabel') }}</span>
           <CustomNumberInput
             class="rs-timeout"
             size="sm"
             :model-value="draft.request.timeout_ms ?? ''"
-            :placeholder="t('editor.timeoutPh')"
+            :placeholder="timeoutPlaceholder"
             @update:model-value="onTimeoutInput"
           />
           <span class="rs-unit">{{ t('editor.msUnit') }}</span>

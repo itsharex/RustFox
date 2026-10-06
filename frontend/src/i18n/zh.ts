@@ -300,6 +300,7 @@ export const zh = {
   'editor.reqSettings': '请求设置',
   'editor.timeoutLabel': '超时',
   'editor.timeoutPh': '超时毫秒，留空用全局',
+  'editor.timeoutPhGlobal': '留空用全局（{sec} 秒）',
   'editor.msUnit': '毫秒',
   'editor.followRedirects': '跟随重定向',
   'editor.saveAsCase': '保存为用例',
