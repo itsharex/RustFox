@@ -24,7 +24,7 @@ import {
   variableListToMap,
 } from '../utils/environment'
 import { isCurlCommand } from '../utils/url'
-import { methodTextTone } from '../utils/methodTone'
+import { methodBadgeTone, methodTextTone } from '../utils/methodTone'
 import { useVarCandidates } from '../composables/useVarCandidates'
 import { useVarAutocomplete } from '../composables/useVarAutocomplete'
 import { lazyComponent } from '../composables/lazyComponent'
@@ -1029,7 +1029,7 @@ onUnmounted(() => {
           @update:model-value="draft.method = String($event) as HttpMethod"
         >
           <template #display="{ label }">
-            <span :class="methodTextTone(draft.method)">{{ label }}</span>
+            <span class="method-badge" :class="methodBadgeTone(draft.method)">{{ label }}</span>
           </template>
         </CustomSelect>
         <span v-if="!isAbsolutePath(draft.path)" class="req-bar-divider"></span>
@@ -1053,7 +1053,7 @@ onUnmounted(() => {
               @close="baseUrlMenuOpen = false"
             >
               <template #display>
-                <Icon name="globe" :size="13" class="env-badge-icon" />
+                <Icon name="globe" :size="14" class="env-badge-icon" />
                 <span class="env-badge-text">{{ envBadgeLabel }}</span>
               </template>
               <template #option="{ option }">
@@ -1075,7 +1075,7 @@ onUnmounted(() => {
             class="base-url-copy"
           >
             <button type="button" class="base-url-copy-btn" @click.stop="copyBaseUrl">
-              <Icon name="copy" :size="12" />
+              <Icon name="copy" :size="14" />
             </button>
           </Tooltip>
         </div>
@@ -1102,18 +1102,18 @@ onUnmounted(() => {
           <template v-if="urlPath">
             <Tooltip :content="t('editor.copyUrl')" placement="top" class="url-qbtn url-qbtn-copy">
               <button type="button" class="url-qbtn-btn" @click="copyRequestUrl">
-                <Icon name="copy" :size="13" />
+                <Icon name="copy" :size="14" />
               </button>
             </Tooltip>
             <Tooltip :content="t('editor.clearPath')" placement="top" class="url-qbtn">
               <button type="button" class="url-qbtn-btn" @click="clearPath">
-                <Icon name="x" :size="13" />
+                <Icon name="x" :size="14" />
               </button>
             </Tooltip>
           </template>
         </div>
         <button v-if="!sending" class="rf-btn rf-btn-send bar-send" type="button" @click="send">
-          <Icon name="send" :size="14" />
+          <Icon name="send" :size="16" />
           {{ t('editor.send') }}
         </button>
         <button
@@ -1125,12 +1125,12 @@ onUnmounted(() => {
         >
           <span class="btn-spinner" aria-hidden="true"></span>
           <span>{{ t('editor.sending') }} <span class="bar-send-elapsed">{{ elapsedText }}</span></span>
-          <Icon name="stop" :size="13" />
+          <Icon name="stop" :size="16" />
         </button>
       </div>
       <div class="editor-actions">
         <button class="rf-btn rf-btn-sm" type="button" :title="t('editor.toolsHint')" @click="showTools = true">
-          <Icon name="gauge" :size="13" /> {{ t('editor.tools') }}
+          <Icon name="gauge" :size="16" /> {{ t('editor.tools') }}
         </button>
         <CodeExportMenu
           v-if="!isGrpc"
@@ -1142,7 +1142,7 @@ onUnmounted(() => {
         />
         <div class="save-group">
           <button class="rf-btn save-main" type="button" @click="save">
-            <Icon name="save" :size="14" /> {{ t('editor.saveHint') }}
+            <Icon name="save" :size="16" /> {{ t('editor.saveHint') }}
           </button>
           <button
             class="rf-btn save-arrow"
@@ -1150,7 +1150,7 @@ onUnmounted(() => {
             :title="t('editor.saveMore')"
             @click="openSaveMenu($event)"
           >
-            <Icon name="chevron-down" :size="12" />
+            <Icon name="chevron-down" :size="14" />
           </button>
         </div>
       </div>
@@ -1369,7 +1369,8 @@ onUnmounted(() => {
 .editor {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  /* 卡片间距：请求区面板与响应区面板之间 14px（gap-3.5） */
+  gap: 14px;
   padding: 12px;
   overflow-y: auto;
   height: 100%;
@@ -1475,17 +1476,31 @@ onUnmounted(() => {
   box-shadow: 0 0 0 2px var(--accent-tint);
 }
 
+/* Method Badge：与侧栏标签块一致——淡底 + 方法色 + mono semibold（色源 methodBadgeTone） */
 .request-bar .method-select {
-  width: 116px;
+  width: auto;
+  flex: 0 0 auto;
   border: none;
-  background: var(--bg-panel);
+  background: transparent;
 }
 .request-bar .method-select :deep(.cs-trigger) {
   height: 100%;
+  padding: 0 10px;
   border: none;
   background: transparent;
   box-shadow: none;
   border-radius: 0;
+}
+.method-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
 }
 
 .req-bar-divider {
@@ -1935,8 +1950,11 @@ onUnmounted(() => {
   display: flex;
   gap: 8px;
   flex-shrink: 0;
+  /* 与发送按钮（主 CTA）之间保持 12px 独立间隔（ml-3） */
+  margin-left: 12px;
 }
 
+/* 核心输入区卡片：比全局背景浅一档，微阴影 + 圆角增强悬浮感 */
 .config-box {
   display: flex;
   flex-direction: column;
@@ -1944,6 +1962,11 @@ onUnmounted(() => {
   flex-shrink: 0;
   min-height: 0;
   overflow-y: auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border-panel);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
+  padding: 10px 12px;
 }
 
 /* 无响应阶段：请求区占满剩余高度（body 大内容少滚动），响应仅留一行提示 */

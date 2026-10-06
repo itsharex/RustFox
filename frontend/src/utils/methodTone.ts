@@ -21,6 +21,18 @@ export const METHOD_TONE: Record<string, string> = {
   options: 'text-method-neutral bg-method-neutral/10 border-method-neutral/20',
 }
 
+/** 徽章式（主操作栏 Method 选择器，与侧栏标签块一致）：15% 淡底 + 方法色文字。 */
+export const METHOD_BADGE_TONE: Record<string, string> = {
+  get: 'bg-method-get/15 text-method-get',
+  post: 'bg-method-post/15 text-method-post',
+  put: 'bg-method-put/15 text-method-put',
+  delete: 'bg-method-delete/15 text-method-delete',
+  patch: 'bg-method-patch/15 text-method-patch',
+  grpc: 'bg-method-grpc/15 text-method-grpc',
+  head: 'bg-method-neutral/15 text-method-neutral',
+  options: 'bg-method-neutral/15 text-method-neutral',
+}
+
 /** 纯文本式：仅文字色（TestCaseDrawer 徽章底 / 历史行等用 currentColor 派生底色处）。 */
 export const METHOD_TEXT_TONE: Record<string, string> = {
   get: 'text-method-get',
@@ -43,7 +55,13 @@ export function methodTone(method: string): string {
   return toneOf(METHOD_TONE, method)
 }
 
+/** 徽章式语义类（未知方法兜底中性灰）。 */
+export function methodBadgeTone(method: string): string {
+  return toneOf(METHOD_BADGE_TONE, method)
+}
+
 /** 纯文本式语义类（未知方法兜底中性灰）。 */
 export function methodTextTone(method: string): string {
   return toneOf(METHOD_TEXT_TONE, method)
 }
+

@@ -432,8 +432,9 @@ const streamBadge = computed(() => {
 }
 .grpc-message-editor {
   position: relative;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 1px solid var(--border-editor);
+  border-radius: var(--radius-md);
+  background: var(--bg-code);
   overflow: hidden;
 }
 .grpc-proto {

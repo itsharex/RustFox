@@ -230,6 +230,12 @@ function metaRows(metadata: [string, string][]): Array<{ key: string; value: str
   padding: 10px 12px;
   height: 100%;
   overflow-y: auto;
+  /* 与 HTTP 响应面板同款卡片浮层（顶边由分割条承接） */
+  background: var(--bg-card);
+  border: 1px solid var(--border-panel);
+  border-top: none;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
 }
 .grpc-head {
   display: flex;
@@ -240,22 +246,18 @@ function metaRows(metadata: [string, string][]): Array<{ key: string; value: str
 .grpc-head-spacer {
   flex: 1;
 }
+/* 状态：小圆点 + 同色文本（与 HTTP 响应区同款，去色块降负担） */
 .status-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 2px 10px;
-  border-radius: 999px;
+  font-family: var(--font-mono);
   color: var(--danger);
-  background: var(--danger-tint);
-  border: 1px solid var(--danger-border);
 }
 .status-pill.ok {
   color: var(--success);
-  background: var(--success-tint);
-  border-color: color-mix(in srgb, var(--success) 30%, transparent);
 }
 .status-code {
   font-weight: 400;
@@ -391,7 +393,7 @@ function metaRows(metadata: [string, string][]): Array<{ key: string; value: str
 .stream-detail {
   margin: 0;
   padding: 8px 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-editor);
   border-radius: var(--radius);
   font-size: 12px;
   font-family: var(--font-mono, monospace);

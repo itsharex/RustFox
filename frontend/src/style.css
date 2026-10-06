@@ -50,16 +50,23 @@
 
 :root {
   color-scheme: dark;
-  /* ---- 色板（Obsidian 近黑系：app 深埋，panel/card 逐层浮起，边框细亮一档） ---- */
-  --bg-app: #090b0e;
-  --bg-panel: #0e1116;
-  --bg-card: #14171d;
-  --bg-elevated: #1a1f27;
-  --bg-code: #0d1015;
+  /* ---- 色板（app 深埋，panel 全局背景，card 核心输入/输出卡片浮起） ---- */
+  --bg-app: #0e0e10;
+  --bg-panel: #141416;
+  --bg-card: #1f1f23;
+  --bg-elevated: #26262c;
+  --bg-code: #19191d;
   --bg-hover: rgba(255, 255, 255, 0.06);
   --bg-active: rgba(255, 255, 255, 0.1);
-  --border: #23272f;
-  --border-strong: #343945;
+  --border: #2a2a30;
+  --border-strong: #3a3a42;
+  /* 编辑器/代码块专用边框（暗色半透白；浅色为半透黑保持可见性） */
+  --border-editor: rgba(255, 255, 255, 0.1);
+  /* 主面板浮层：white/8 极细边框 + 深色沉浸阴影（shadow-xl shadow-black/50） */
+  --border-panel: rgba(255, 255, 255, 0.08);
+  --shadow-panel:
+    0 20px 25px -5px rgba(0, 0, 0, 0.5),
+    0 8px 10px -6px rgba(0, 0, 0, 0.5);
   --text-1: #e9eaee;
   --text-2: #a7a8b3;
   --text-3: #71737f;
@@ -158,7 +165,7 @@
   /* ---- 侧边栏（Obsidian 质感） ----
    * 注意：组件内禁止写 `:global(html[data-theme=...])` 覆盖——该写法经构建
    * 后丢失（已实证），主题差异一律用此类变量表达。 */
-  --sidebar-bg: #14161a;
+  --sidebar-bg: #121214;
   --sidebar-border: #262933;
   --sidebar-search-bg: #1c1f26;
 
@@ -168,7 +175,7 @@
   --overflow-tip-text: #e9eaee;
 
   /* ---- rf-* 兼容别名（指向新令牌，旧组件自动跟随） ---- */
-  --rf-bg: var(--bg-app);
+  --rf-bg: var(--bg-panel); /* 主工作区全局背景 */
   --rf-bg-panel: var(--bg-panel);
   --rf-bg-panel-2: var(--bg-card);
   --rf-input-bg: var(--bg-code);
@@ -195,15 +202,20 @@
 
 [data-theme='light'] {
   color-scheme: light;
-  --bg-app: #f7f8fa;
-  --bg-panel: #ffffff;
+  --bg-app: #eef0f3;
+  --bg-panel: #f5f6f8;
   --bg-card: #ffffff;
   --bg-elevated: #ffffff;
-  --bg-code: #f4f5f7;
+  --bg-code: #f8f9fb;
   --bg-hover: rgba(0, 0, 0, 0.04);
   --bg-active: rgba(0, 0, 0, 0.08);
   --border: #e4e7ec;
   --border-strong: #d0d5dd;
+  --border-editor: rgba(0, 0, 0, 0.1);
+  --border-panel: rgba(23, 28, 48, 0.08);
+  --shadow-panel:
+    0 20px 25px -5px rgba(23, 28, 48, 0.1),
+    0 8px 10px -6px rgba(23, 28, 48, 0.08);
   --text-1: #1f2329;
   --text-2: #5c6670;
   --text-3: #98a1ab;

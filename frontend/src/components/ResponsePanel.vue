@@ -465,12 +465,12 @@ onUnmounted(() => {
       <span class="rp-sep"></span>
       <span class="rp-meta">
         <span class="rp-meta-label">{{ t('response.duration') }}</span>
-        <span class="rp-meta-value"><Icon name="clock" :size="12" /> {{ formatDuration(response.duration_ms) }}</span>
+        <span class="rp-meta-value"><Icon name="clock" :size="14" /> {{ formatDuration(response.duration_ms) }}</span>
       </span>
       <span class="rp-sep"></span>
       <span class="rp-meta">
         <span class="rp-meta-label">{{ t('response.size') }}</span>
-        <span class="rp-meta-value"><Icon name="package" :size="12" /> {{ sizeText }}</span>
+        <span class="rp-meta-value"><Icon name="package" :size="14" /> {{ sizeText }}</span>
       </span>
       <span v-if="response.content_type" class="rp-sep"></span>
       <span v-if="response.content_type" class="rp-type">{{ response.content_type }}</span>
@@ -496,7 +496,7 @@ onUnmounted(() => {
             :aria-label="t('response.findHint')"
             @click="toggleFind"
           >
-            <Icon name="search" :size="13" />
+            <Icon name="search" :size="16" />
           </button>
         </Tooltip>
         <Tooltip v-if="treeVisible" :content="treeExpanded ? t('response.collapseAll') : t('response.expandAll')" placement="bottom">
@@ -516,12 +516,12 @@ onUnmounted(() => {
             :aria-label="t('response.saveExample')"
             @click="emit('saveExample')"
           >
-            <Icon name="save" :size="13" />
+            <Icon name="save" :size="16" />
           </button>
         </Tooltip>
         <Tooltip :content="t('response.copyBody')" placement="bottom">
           <button class="rp-icon-btn" type="button" :aria-label="t('response.copyBody')" @click="copyBody">
-            <Icon name="copy" :size="13" />
+            <Icon name="copy" :size="16" />
           </button>
         </Tooltip>
         <Tooltip :content="collapsed ? t('response.expand') : t('response.collapse')" placement="bottom">
@@ -633,11 +633,12 @@ onUnmounted(() => {
 
 <style scoped>
 .rp {
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border-panel);
   /* 顶边无边框：与请求区之间仅由分割条分隔（Single Border Architecture） */
   border-top: none;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   background: var(--bg-card);
+  box-shadow: var(--shadow-panel);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -657,11 +658,11 @@ onUnmounted(() => {
 .rp-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 36px;
-  padding: 4px 10px;
+  gap: 10px;
+  min-height: 40px;
+  padding: 4px 12px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
+  background: transparent;
   flex-shrink: 0;
   overflow: hidden;
 }
@@ -685,33 +686,26 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+/* 状态：小圆点 + 同色数值/文本（无色块底，视觉负担最小） */
 .rp-status {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-weight: 700;
+  gap: 6px;
+  font-weight: 600;
   font-size: 12px;
   font-family: var(--font-mono);
   line-height: 1.4;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
 }
 .rp.tone-ok .rp-status {
-  background: var(--success);
-  color: #fff;
-  box-shadow: 0 2px 10px rgba(34, 197, 94, 0.35);
+  color: var(--success);
 }
 .rp.tone-warn .rp-status {
-  background: #b45309;
-  color: #fff;
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--warning) 30%, transparent);
+  color: var(--warning);
 }
 .rp.tone-err .rp-status {
-  background: var(--danger);
-  color: #fff;
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--danger) 35%, transparent);
+  color: var(--danger);
 }
 
 /* 指标竖线分隔 */
@@ -725,13 +719,14 @@ onUnmounted(() => {
 .rp-meta {
   flex-shrink: 0;
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   white-space: nowrap;
 }
 
+/* 指标明暗对比：标签 text-zinc-500 档，数值 text-zinc-200 档 mono medium */
 .rp-meta-label {
-  font-size: var(--fs-xxs);
+  font-size: var(--fs-xs);
   color: var(--text-3);
 }
 
@@ -739,9 +734,9 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-family: var(--font-mono);
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-1);
 }
 .rp-meta-value svg {
@@ -819,10 +814,15 @@ onUnmounted(() => {
   min-height: 0;
 }
 
+/* 响应正文 = 输出代码块：圆角卡片 + 半透边框 + 代码底色 */
 .rp-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  margin: 0 12px 12px;
+  border: 1px solid var(--border-editor);
+  border-radius: var(--radius-md);
+  background: var(--bg-code);
   padding: 8px 0;
 }
 
