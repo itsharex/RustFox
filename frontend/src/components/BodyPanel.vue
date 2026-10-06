@@ -559,6 +559,9 @@ const binPath = useDebouncedField(
   gap: 8px;
   flex: 1;
   min-height: 0;
+  /* 高度受限（响应出现后 config-box 固定高）时编辑器内容不得溢出到
+   * 相邻的请求设置行上（cm-editor 为 positioned 元素，会盖住行内文本） */
+  overflow: hidden;
 }
 
 /* 主编辑器（JsonEditor 直接子级）：底部无边框，与分割条无缝贴合 */

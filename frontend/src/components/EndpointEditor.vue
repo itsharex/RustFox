@@ -1959,6 +1959,10 @@ onUnmounted(() => {
   flex-wrap: wrap;
   padding-top: 6px;
   border-top: 1px dashed var(--border);
+  /* 高度受限（响应出现后 config-box 固定高）时不被 flex 压缩；
+   * relative 提升绘制层级，避免被面板内 position:relative 的编辑器溢出内容盖住 */
+  flex-shrink: 0;
+  position: relative;
 }
 .rs-label {
   font-size: var(--fs-xs);
