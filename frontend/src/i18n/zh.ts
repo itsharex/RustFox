@@ -319,8 +319,6 @@ export const zh = {
   'editor.saveHint': '保存 (⌘S)',
   'editor.saveMore': '更多保存选项',
   'editor.splitterHint': '拖拽调整请求区高度（双击折叠 / 展开）',
-  'editor.expandRequest': '展开请求区',
-  'editor.collapseRequest': '折叠请求区',
   'editor.sendingTitle': '正在发送请求…',
   'editor.cancelRequest': '取消请求',
   'editor.sendFail': '发送失败：{v}',

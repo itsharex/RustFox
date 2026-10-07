@@ -24,7 +24,14 @@ import { deepClone } from '../utils/clone'
 import type { BodyTab, RawSubtype } from '../utils/bodyMode'
 import type { BodySpec, Endpoint, GraphQLSpec, KeyValue, MultipartField, RequestSpec } from '../types/foxApi'
 
-const props = defineProps<{ draft: Endpoint | null }>()
+const props = withDefaults(
+  defineProps<{
+    draft: Endpoint | null
+    /** true = 响应期：编辑器填充分割条分配的高度；false = 未发送期：编辑器贴内容自适应（min~max）。 */
+    fill?: boolean
+  }>(),
+  { fill: false },
+)
 
 const locale = useLocaleStore()
 const t = locale.t
@@ -54,6 +61,26 @@ const BODY_TABS = computed<SegmentOption[]>(() => [
 ])
 
 const RAW_SUBTYPE_OPTIONS = RAW_SUBTYPES.map((s) => ({ value: s.value, label: s.label }))
+
+/** 请求体 JSON 校验状态（JsonEditor 外报，标签渲染在模式栏右侧）。 */
+type JsonStatus = 'empty' | 'ok' | 'invalid' | 'large'
+const jsonStatus = ref<JsonStatus>('empty')
+const jsonStatusText = computed(
+  () =>
+    ({ ok: t('jsonEditor.ok'), invalid: t('jsonEditor.invalid'), large: t('jsonEditor.large') })[
+      jsonStatus.value as 'ok' | 'invalid' | 'large'
+    ] ?? '',
+)
+const jsonStatusHint = computed(
+  () =>
+    (
+      {
+        ok: t('jsonEditor.okHint'),
+        invalid: t('jsonEditor.invalidHint'),
+        large: t('jsonEditor.largeHint'),
+      }
+    )[jsonStatus.value as 'ok' | 'invalid' | 'large'] ?? '',
+)
 
 /** 各接口离开 raw 前的子类型 + 文本记忆（切回 raw 时还原，而非默认 text）。 */
 const rawMemory = new Map<string, { subtype: RawSubtype; raw: string }>()
@@ -404,9 +431,22 @@ const binPath = useDebouncedField(
           size="sm"
           class="raw-subtype"
           pop-class="raw-subtype-pop"
+          pop-auto-width
         />
       </div>
       <div class="mode-bar-right">
+        <!-- JSON 校验状态：从编辑器工具栏外移到模式栏右侧，不占编辑区行位。
+             三重守卫：status 缺失（热更失步）时整枚不渲染，杜绝裸点 -->
+        <span
+          v-if="activeTab === 'raw' && rawSubtype === 'json' && jsonStatus && jsonStatus !== 'empty'"
+          class="bp-json-status"
+          :class="jsonStatus"
+          :title="jsonStatusHint"
+        >
+          <Icon v-if="jsonStatus === 'ok' || jsonStatus === 'invalid'" :name="jsonStatus === 'ok' ? 'check' : 'x'" :size="11" />
+          <span v-else-if="jsonStatus === 'large'" class="bp-json-dot" aria-hidden="true"></span>
+          <template v-if="jsonStatusText">{{ jsonStatusText }}</template>
+        </span>
         <button
           v-if="activeTab === 'raw' || activeTab === 'graphql'"
           class="bp-icon-btn"
@@ -436,9 +476,13 @@ const binPath = useDebouncedField(
       v-if="activeTab === 'raw' && rawSubtype === 'json'"
       v-model="bodyAny.raw"
       placeholder='{ "key": "value" }'
-      :min-height="120"
+      :min-height="160"
+      :max-height="480"
+      :auto-height="!fill"
+      :show-status="false"
       :query="findOpen ? searchQuery : ''"
       :active-match="activeMatch"
+      @status-change="jsonStatus = $event"
       @match-count="jsonTotal = $event"
     />
     <textarea
@@ -468,6 +512,8 @@ const binPath = useDebouncedField(
         v-model="graphql.variables"
         placeholder='{ "id": "42" }'
         :min-height="80"
+        :max-height="320"
+        :auto-height="!fill"
         :query="findOpen ? searchQuery : ''"
         :active-match="activeMatch"
       />
@@ -584,8 +630,43 @@ const binPath = useDebouncedField(
 .mode-bar-right {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   margin-left: auto;
+}
+
+/* JSON 校验状态徽标（编辑器外部渲染）：胶囊 Badge 档（text-xs + px-2.5 py-1），
+ * 语义色底/字；语法错误态用红系实感 Badge（红字向白提亮，浅色主题保持原红保对比） */
+.bp-json-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.bp-json-status.ok {
+  background: var(--success-tint);
+  color: var(--success);
+}
+.bp-json-status.invalid {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  color: color-mix(in srgb, var(--danger) 72%, #fff);
+}
+.bp-json-status.large {
+  background: var(--warning-tint);
+  color: var(--warning);
+}
+html[data-theme='light'] .bp-json-status.invalid {
+  color: var(--danger);
+}
+.bp-json-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: currentColor;
 }
 
 .bp-icon-btn {
@@ -630,8 +711,8 @@ const binPath = useDebouncedField(
   font-family: var(--font-mono);
   font-size: 12.5px;
   resize: vertical;
-  /* 与 JsonEditor 代码块同圆角档（rounded-lg） */
-  border-radius: var(--radius-md);
+  /* 与 JsonEditor 代码块同圆角档（rounded-md） */
+  border-radius: var(--radius);
 }
 
 .gql-editor {

@@ -27,13 +27,28 @@ const props = withDefaults(
     query?: string
     /** 当前选中的匹配索引（0-based）。 */
     activeMatch?: number
+    /** 自适应内容高度（贴内容生长，min~max 夹取）；false = 填充分配高度（响应期分割契约）。 */
+    autoHeight?: boolean
+    /** autoHeight 模式的高度上限（px），超出转编辑器内部滚动。 */
+    maxHeight?: number
+    /** 工具栏内渲染校验状态 Tag；false 时不渲染（宿主自行经 status-change 事件在外部展示）。 */
+    showStatus?: boolean
   }>(),
-  { placeholder: '', minHeight: 120, query: '', activeMatch: 0 },
+  {
+    placeholder: '',
+    minHeight: 120,
+    query: '',
+    activeMatch: 0,
+    autoHeight: false,
+    maxHeight: 480,
+    showStatus: true,
+  },
 )
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
   (e: 'match-count', total: number): void
+  (e: 'status-change', status: 'empty' | 'ok' | 'invalid' | 'large'): void
 }>()
 
 const toast = useToast()
@@ -151,6 +166,20 @@ watch(
 
 const lineCount = computed(() => (isLargeDoc.value ? 0 : shownText.value.split('\n').length))
 
+/* 自适应高度：行盒 = --fs-sm(13px) × line-height 1.55，另加 wrap 上下 padding 20 与边框 2。
+ * 由行数推算而非回读 scrollHeight（ta height:100% 会把旧高度读回来卡住），增删行双向即时跟随 */
+const wrapHeight = computed<number | null>(() => {
+  if (!props.autoHeight) return null
+  if (isLargeDoc.value) return props.maxHeight
+  const content = Math.ceil(lineCount.value * 13 * 1.55) + 22
+  return Math.min(Math.max(content, props.minHeight), props.maxHeight)
+})
+
+const wrapStyle = computed(() => ({
+  minHeight: `${props.minHeight}px`,
+  ...(wrapHeight.value ? { height: `${wrapHeight.value}px` } : {}),
+}))
+
 /* 行号槽宽度走全局 --code-gutter-w（固定 54px，与响应树/行视图共用，
  * 不随位数伸缩——保证与响应区代码左缘绝对对齐），见 style.css。 */
 
@@ -174,6 +203,15 @@ const statusText = computed(
     ] ?? '',
 )
 const statusIcon = computed(() => (status.value === 'ok' ? 'check' : 'x'))
+
+/** 状态外报：宿主可将校验标签展示在编辑器之外（如 Body 模式栏右侧）。 */
+watch(
+  status,
+  (s) => {
+    emit('status-change', s)
+  },
+  { immediate: true },
+)
 
 /** 是否有内容可格式化 / 复制（textarea 实时值为权威，见 format 注释）。 */
 const hasContent = computed(() => (taRef.value?.value ?? props.modelValue).trim().length > 0)
@@ -253,7 +291,7 @@ async function copyJson(): Promise<void> {
     <!-- 顶部工具栏：状态 Tag + 快捷操作（替代原悬浮层，不遮挡代码） -->
     <div class="je-toolbar">
       <span
-        v-if="status !== 'empty'"
+        v-if="showStatus && status !== 'empty'"
         class="je-status"
         :class="status"
         :title="
@@ -303,7 +341,7 @@ async function copyJson(): Promise<void> {
       </div>
     </div>
 
-    <div class="hl-wrap" :style="{ minHeight: `${minHeight}px` }">
+    <div class="hl-wrap" :class="{ 'auto-height': autoHeight }" :style="wrapStyle">
       <div v-if="!isLargeDoc" class="hl-gutter" aria-hidden="true">
         <div
           class="hl-gutter-inner"
@@ -347,7 +385,7 @@ async function copyJson(): Promise<void> {
 .hl-wrap {
   position: relative;
   border: 1px solid var(--border-editor);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius);
   background: var(--bg-code);
   overflow: hidden;
   flex: 1;
@@ -355,6 +393,14 @@ async function copyJson(): Promise<void> {
   transition:
     border-color var(--dur) var(--ease),
     box-shadow var(--dur) var(--ease);
+}
+
+/* 自适应高度模式：贴内容生长，不参与 flex 抢高；textarea 手柄禁用（高度由内容驱动） */
+.hl-wrap.auto-height {
+  flex: 0 0 auto;
+}
+.hl-wrap.auto-height .hl-ta {
+  resize: none;
 }
 
 /* 1px 紫色聚焦光晕（替代原 3px 重描边） */

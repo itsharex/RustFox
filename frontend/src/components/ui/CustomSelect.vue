@@ -41,8 +41,10 @@ const props = withDefaults(
     popClass?: string
     /** 弹窗最小宽度（px）：触发器太窄时（如请求栏模块选择）保证选项可读，默认跟触发器等宽。 */
     popMinWidth?: number
+    /** 弹层宽度随内容自适应（w-auto，不窄于触发器/popMinWidth）：长文案选项（如 JavaScript）不再被触发器宽度截断。 */
+    popAutoWidth?: boolean
   }>(),
-  { modelValue: null, placeholder: '', disabled: false, size: 'md', popClass: '', popMinWidth: 0 },
+  { modelValue: null, placeholder: '', disabled: false, size: 'md', popClass: '', popMinWidth: 0, popAutoWidth: false },
 )
 
 const locale = useLocaleStore()
@@ -62,10 +64,11 @@ const open = ref(false)
 const highlight = ref(-1)
 const triggerEl = ref<HTMLButtonElement | null>(null)
 const popupEl = ref<HTMLDivElement | null>(null)
-const pos = ref<{ left: number; top: number; width: number; up: boolean }>({
+const pos = ref<{ left: number; top: number; width: number | 'auto'; minWidth: number; up: boolean }>({
   left: 0,
   top: 0,
   width: 0,
+  minWidth: 0,
   up: false,
 })
 
@@ -102,10 +105,13 @@ function measure(): void {
   const height = popupEl.value?.offsetHeight || estimated
   const spaceBelow = window.innerHeight - rect.bottom - 8
   const up = spaceBelow < height && rect.top > height
+  const minW = Math.max(rect.width, props.popMinWidth ?? 0)
   pos.value = {
     left: rect.left,
     top: up ? rect.top - height - 4 : rect.bottom + 4,
-    width: Math.max(rect.width, props.popMinWidth ?? 0),
+    // auto 模式：宽度随内容（w-auto），不窄于触发器——长选项文案不再截断
+    width: props.popAutoWidth ? 'auto' : minW,
+    minWidth: minW,
     up,
   }
 }
@@ -242,7 +248,12 @@ defineExpose({ close })
         ref="popupEl"
         class="cs-pop"
         :class="[popClass, { up: pos.up }]"
-        :style="{ left: `${pos.left}px`, top: `${pos.top}px`, width: `${pos.width}px` }"
+        :style="{
+          left: `${pos.left}px`,
+          top: `${pos.top}px`,
+          width: pos.width === 'auto' ? 'auto' : `${pos.width}px`,
+          minWidth: `${pos.minWidth}px`,
+        }"
         role="listbox"
       >
         <div v-if="$slots.search" class="cs-pop-search" role="search">

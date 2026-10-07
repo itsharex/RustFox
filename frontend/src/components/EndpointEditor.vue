@@ -817,6 +817,20 @@ function requestMaxHeight(): number {
   return Math.max((editorEl.value?.clientHeight ?? 600) - MAX_OFFSET, REQUEST_MIN + 40)
 }
 
+/** 首次出现响应区时初始化分割：请求区约 35%、响应区 65%（优先放大响应展示空间），
+ * 请求区下限钳到 REQUEST_DEFAULT(200px) 保证编辑可用，而非固定 200px 压扁编辑器。
+ * 仅在 无响应→有响应 跳变时计算（此时工作区仍是 grow 布局，clientHeight 即可用总高）；
+ * 同一响应会话内的手动拖拽在重发时不受影响（hasResponse 保持 true 不再触发）。 */
+watch(hasResponse, (has) => {
+  if (!has) return
+  const available = editorEl.value?.clientHeight ?? 0
+  if (available <= 0) return
+  requestBodyHeight.value = Math.min(
+    Math.max(Math.round(available * 0.35), REQUEST_DEFAULT),
+    requestMaxHeight(),
+  )
+})
+
 /** 分割条 mousedown：开始拖拽，动态调整请求区高度（响应区 flex:1 自动补位）。 */
 function onSplitterDown(event: MouseEvent): void {
   if (event.button !== 0) return
@@ -1165,7 +1179,7 @@ onUnmounted(() => {
       <ParamsPanel v-if="activeTab === 'params'" :draft="draft" />
       <AuthPanel v-else-if="activeTab === 'auth'" :draft="draft" />
       <HeadersPanel v-else-if="activeTab === 'headers'" :draft="draft" />
-      <BodyPanel v-else-if="activeTab === 'body'" :draft="draft" />
+      <BodyPanel v-else-if="activeTab === 'body'" :draft="draft" :fill="hasResponse" />
       <GrpcPanel v-else-if="activeTab === 'grpc'" :draft="draft" />
       <PathVariablesPanel v-else-if="activeTab === 'path'" :draft="draft" />
       <RequestExamplesPanel v-else-if="activeTab === 'examples'" :draft="draft" />
@@ -1186,6 +1200,7 @@ onUnmounted(() => {
           <CustomNumberInput
             class="rs-timeout"
             size="sm"
+            tone="inset"
             :model-value="draft.request.timeout_ms ?? ''"
             :placeholder="timeoutPlaceholder"
             @update:model-value="onTimeoutInput"
@@ -1204,6 +1219,7 @@ onUnmounted(() => {
     </div>
 
     <template v-if="hasResponse">
+      <!-- 隐形拖拽热区：视觉（边界细线/拖拽图标）已移交响应面板，仅保留拖拽/双击/键盘能力 -->
       <div
         class="rp-splitter"
         :class="{ dragging: splitterDragging }"
@@ -1218,18 +1234,7 @@ onUnmounted(() => {
         @mousedown="onSplitterDown"
         @dblclick="toggleRequestBody"
         @keydown="onSplitterKeydown"
-      >
-        <button
-          class="rp-splitter-btn"
-          type="button"
-          :title="requestBodyCollapsed ? t('editor.expandRequest') : t('editor.collapseRequest')"
-          @mousedown.stop
-          @dblclick.stop
-          @click="toggleRequestBody"
-        >
-          <Icon :name="requestBodyCollapsed ? 'chevron-up' : 'chevron-down'" :size="11" />
-        </button>
-      </div>
+      ></div>
 
       <div class="response-zone">
         <!-- Apifox 式请求中占位：转圈 + 实时计时 + 骨架 shimmer，一眼可知「这次发出去了」。 -->
@@ -1251,7 +1256,12 @@ onUnmounted(() => {
             :response="grpcDisplay.response"
             :stream="grpcDisplay.stream"
           />
-          <ResponsePanel v-else-if="!isGrpc && response" :response="response" @save-example="saveExample" />
+          <ResponsePanel
+            v-else-if="!isGrpc && response"
+            :response="response"
+            @save-example="saveExample"
+            @drag-start="onSplitterDown"
+          />
           <div v-else-if="sendError" class="send-error" role="alert">
             <span>{{ t('editor.sendFail', { v: sendError }) }}</span>
           </div>
@@ -1265,7 +1275,12 @@ onUnmounted(() => {
         </div>
       </div>
     </template>
-    <p v-else class="response-hint">{{ t('editor.responseHint') }}</p>
+    <div v-else class="response-hint">
+      <div class="response-hint-inner">
+        <Icon name="send" :size="20" />
+        <p>{{ t('editor.responseHint') }}</p>
+      </div>
+    </div>
     <div v-if="activeExamples.length" class="examples">
       <h3 class="section-title">{{ t('editor.examples', { n: activeExamples.length }) }}</h3>
       <div v-for="ex in activeExamples" :key="ex.id" class="example-row">
@@ -1695,7 +1710,8 @@ onUnmounted(() => {
   background: transparent;
   box-shadow: none;
   border-radius: 0;
-  padding: 0 62px 0 10px;
+  /* 右侧快捷图标区 58px + gap 8px：正文与图标组之间留出明确间距 */
+  padding: 0 66px 0 10px;
   font-family: var(--font-mono);
 }
 
@@ -1972,23 +1988,72 @@ onUnmounted(() => {
   padding: 10px 12px;
 }
 
-/* 无响应阶段：请求区占满剩余高度（body 大内容少滚动），响应仅留一行提示 */
+/* 无响应阶段：请求卡贴合内容高度（编辑器 auto-height 160~480 随内容生长），
+ * 不再让单行 JSON 撑满整个工作区；出现响应后转分割条分配的固定高度 */
 .config-box.grow {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
 }
 
-/* ---- 配置区底部：单请求超时 / 跟随重定向（请求设置行） ---- */
+/* ---- 配置区底部：请求设置 Footer Bar（内缩圆角条、实线切割、暗一档底色） ---- */
 .req-settings {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   flex-wrap: wrap;
-  padding-top: 6px;
-  border-top: 1px dashed var(--border);
   /* 高度受限（响应出现后 config-box 固定高）时不被 flex 压缩；
    * relative 提升绘制层级，避免被面板内 position:relative 的编辑器溢出内容盖住 */
   flex-shrink: 0;
   position: relative;
+  /* 贴卡片左右内容宽（ml 一档由卡片内距承担），底部与卡片边缘齐平 */
+  margin: 8px 0 -10px;
+  padding: 6px 16px;
+  border-top: 1px solid var(--border-panel);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  /* 黑色低透明底：深色明显压暗一档（≈ zinc-900/60），浅色呈浅灰条——两主题可见 */
+  background: color-mix(in srgb, black 22%, transparent);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+/* 浅色主题降档：22% 黑底过重，6% 恰好成可见的浅灰 Footer */
+html[data-theme='light'] .req-settings {
+  background: color-mix(in srgb, black 6%, transparent);
+}
+
+/* 跟随重定向勾选框：appearance 自绘（14px 圆角框 + 对勾），与 inset 输入框同一描边语言 */
+.rs-check input[type='checkbox'] {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-content: center;
+  border: 1px solid var(--border-editor);
+  border-radius: 4px;
+  background: color-mix(in srgb, black 26%, transparent);
+  cursor: pointer;
+  transition:
+    background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+html[data-theme='light'] .rs-check input[type='checkbox'] {
+  background: color-mix(in srgb, black 5%, transparent);
+}
+.rs-check input[type='checkbox']::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  transform: scale(0);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  background: #fff;
+  transition: transform 120ms var(--ease);
+}
+.rs-check input[type='checkbox']:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.rs-check input[type='checkbox']:checked::before {
+  transform: scale(1);
 }
 .rs-label {
   font-size: var(--fs-xs);
@@ -2023,14 +2088,33 @@ onUnmounted(() => {
   accent-color: var(--accent);
 }
 
+/* ---- 响应占位区（未发送）：干净黑底 + white/8 顶边细线，占满请求卡以下空间；
+ * 图标 + 文案整组绝对居中（flex items-center justify-center），不贴底不贴顶 ---- */
 .response-hint {
   margin: 0;
-  padding: 10px 4px;
-  border-top: 1px dashed var(--border);
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-3);
+  flex: 1;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-app);
+  border-top: 1px solid var(--border-panel);
+  border-radius: var(--radius-md);
   user-select: none;
+}
+.response-hint-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-3);
+}
+.response-hint-inner svg {
+  opacity: 0.75;
+}
+.response-hint-inner p {
+  margin: 0;
+  font-size: var(--fs-xs);
 }
 
 /* ---- 请求区 / 响应区分割条（Single Border Architecture：唯一分隔线）----
@@ -2049,58 +2133,22 @@ onUnmounted(() => {
   cursor: row-resize;
   user-select: none;
   touch-action: none;
+  /* 无任何视觉元素：边界细线由响应面板顶边框承担 */
 }
-.rp-splitter::before {
+/* 命中热区外扩（上下各 +6/+8px，覆盖卡片底 padding 与工作区间隙这两段死区）：
+ * 6px 的实际盒高太小，瞄准易脱靶——热区不碰两侧任何可交互元素 */
+.rp-splitter::after {
   content: '';
   position: absolute;
   left: 0;
   right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  height: 1px;
-  background: var(--border);
-  transition:
-    background var(--dur) var(--ease),
-    box-shadow var(--dur) var(--ease);
-}
-.rp-splitter:hover::before,
-.rp-splitter.dragging::before {
-  background: var(--accent);
-  box-shadow: 0 0 6px var(--accent);
+  top: -6px;
+  bottom: -8px;
 }
 .rp-splitter:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
-}
-.rp-splitter:focus-visible::before {
-  background: var(--accent);
-}
-
-/* 居中拖拽指示胶囊：默认隐约（opacity .4），Hover/拖拽时主题色高亮 */
-.rp-splitter-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 12px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-card);
-  color: var(--text-3);
-  opacity: 0.4;
-  cursor: pointer;
-  transition:
-    opacity var(--dur) var(--ease),
-    border-color var(--dur) var(--ease),
-    color var(--dur) var(--ease);
-}
-.rp-splitter:hover .rp-splitter-btn,
-.rp-splitter.dragging .rp-splitter-btn {
-  opacity: 1;
-  border-color: var(--accent);
-  color: var(--accent);
 }
 
 .kv-remove {

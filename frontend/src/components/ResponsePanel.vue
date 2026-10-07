@@ -25,7 +25,7 @@ import type { ExecuteResponse } from '../types/foxApi'
 
 const props = defineProps<{ response: ExecuteResponse }>()
 
-const emit = defineEmits<{ saveExample: [] }>()
+const emit = defineEmits<{ saveExample: []; dragStart: [event: MouseEvent] }>()
 
 const toast = useToast()
 const locale = useLocaleStore()
@@ -534,6 +534,15 @@ onUnmounted(() => {
           </button>
         </Tooltip>
       </span>
+      <!-- 面板高度拖拽把手（视觉 affordance）：按下向宿主上报，拖拽热区仍在整条分割带 -->
+      <span
+        class="rp-drag-grip"
+        aria-hidden="true"
+        :title="t('editor.splitterHint')"
+        @mousedown="emit('dragStart', $event as MouseEvent)"
+      >
+        <Icon name="chevrons-up-down" :size="14" />
+      </span>
     </div>
 
     <div v-show="!collapsed" v-if="activeTab === 'body'" class="rp-body">
@@ -633,8 +642,7 @@ onUnmounted(() => {
 <style scoped>
 .rp {
   border: 1px solid var(--border-panel);
-  /* 顶边无边框：与请求区之间仅由分割条分隔（Single Border Architecture） */
-  border-top: none;
+  /* 顶边细线即请求/响应边界（分割条已无视觉元素，white/8 档细线） */
   border-radius: var(--radius-md);
   background: var(--bg-card);
   box-shadow: var(--shadow-panel);
@@ -646,7 +654,6 @@ onUnmounted(() => {
 }
 .rp.tone-err {
   border-color: var(--danger-border);
-  border-top: none;
 }
 /* 折叠时只保留状态栏，面板收缩为内容高度 */
 .rp.collapsed {
@@ -772,6 +779,26 @@ onUnmounted(() => {
   align-items: center;
   gap: 4px;
 }
+
+/* 面板高度拖拽把手（工具栏最右）：按下上报宿主开拖，拖拽热区仍覆盖整条分割带 */
+.rp-drag-grip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  cursor: row-resize;
+  transition:
+    background var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+.rp-drag-grip:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
 .rp-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -822,7 +849,7 @@ onUnmounted(() => {
   overflow-y: auto;
   margin: 0 12px 12px;
   border: 1px solid var(--border-editor);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius);
   background: var(--bg-code);
   padding: 8px 0;
 }

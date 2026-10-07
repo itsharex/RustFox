@@ -323,8 +323,6 @@ export const en: Record<ZhKey, string> = {
   'editor.saveHint': 'Save (⌘S)',
   'editor.saveMore': 'More save options',
   'editor.splitterHint': 'Drag to resize the request area (double-click to collapse / expand)',
-  'editor.expandRequest': 'Expand request area',
-  'editor.collapseRequest': 'Collapse request area',
   'editor.sendingTitle': 'Sending request…',
   'editor.cancelRequest': 'Cancel request',
   'editor.sendFail': 'Send failed: {v}',

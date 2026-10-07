@@ -74,9 +74,10 @@ describe('BodyPanel：raw JSON 编辑与格式化', () => {
     await compactBtnOf(wrapper)!.trigger('click')
     expect(rawOf(draft)).toBe('{"b":2,"c":3}')
 
-    // 顶部工具栏状态 Tag：有效（非悬浮层）
+    // 校验状态徽标：有效（已外移到模式栏右侧，非悬浮层、不在编辑器工具栏内）
     expect(wrapper.find('.hl-float').exists()).toBe(false)
-    expect(wrapper.find('.je-status').text()).toContain('JSON 有效')
+    expect(wrapper.find('.je-status').exists()).toBe(false)
+    expect(wrapper.find('.bp-json-status').text()).toContain('JSON 有效')
   })
 
   it('回归：格式化保留重复键（多个 "body" 键不丢失）', async () => {
