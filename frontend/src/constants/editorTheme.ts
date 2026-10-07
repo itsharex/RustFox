@@ -16,12 +16,10 @@
 /** JSON 缩进单位（空格数），请求编辑器与响应 Pretty 视图统一。 */
 export const EDITOR_INDENT = 2
 
-/** 行号栏结构规范（左右两侧组件共用）。 */
-export const LINE_NUMBER_SPEC = {
-  /** 行号文字色（--tok-gutter）。 */
-  colorVar: 'var(--tok-gutter)',
-  /** 行号与正文的左侧间距（px）。 */
-  rightPad: 10,
-  /** 行号字号（px）。 */
-  fontSize: 11,
-} as const
+/**
+ * 行号栏几何唯一事实源：style.css 的 --code-gutter-w / --code-gutter-gap /
+ * --code-fold-w（请求编辑器、响应树、响应行视图三处共用）。
+ * 代码左缘 = 行号槽(54) + 折叠列(16)，两侧同值逐像素对齐；
+ * 折叠箭头固定在专用列内，不挤占代码位。
+ * 行号字号统一 --fs-xxs，文字色统一 --tok-gutter。
+ */

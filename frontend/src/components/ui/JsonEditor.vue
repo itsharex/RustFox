@@ -151,10 +151,8 @@ watch(
 
 const lineCount = computed(() => (isLargeDoc.value ? 0 : shownText.value.split('\n').length))
 
-/** 行号栏宽度随位数增长：左留白 + 位数×字宽 + 右留白。 */
-const gutterWidth = computed(() =>
-  isLargeDoc.value ? 0 : 10 + String(lineCount.value).length * 8 + 10,
-)
+/* 行号槽宽度走全局 --code-gutter-w（固定 54px，与响应树/行视图共用，
+ * 不随位数伸缩——保证与响应区代码左缘绝对对齐），见 style.css。 */
 
 const status = computed<'empty' | 'ok' | 'invalid' | 'large'>(() => {
   if (isLargeDoc.value) return 'large'
@@ -266,7 +264,7 @@ async function copyJson(): Promise<void> {
               : t('jsonEditor.okHint')
         "
       >
-        <Icon v-if="status === 'ok' || status === 'invalid'" :name="statusIcon" :size="11" />
+        <Icon v-if="status === 'ok' || status === 'invalid'" :name="statusIcon" :size="10" />
         <span v-else class="je-dot" aria-hidden="true"></span>
         {{ statusText }}
       </span>
@@ -306,12 +304,7 @@ async function copyJson(): Promise<void> {
     </div>
 
     <div class="hl-wrap" :style="{ minHeight: `${minHeight}px` }">
-      <div
-        v-if="!isLargeDoc"
-        class="hl-gutter"
-        :style="{ width: `${gutterWidth}px` }"
-        aria-hidden="true"
-      >
+      <div v-if="!isLargeDoc" class="hl-gutter" aria-hidden="true">
         <div
           class="hl-gutter-inner"
           :style="{ transform: `translateY(${-scrollTop}px)` }"
@@ -325,7 +318,6 @@ async function copyJson(): Promise<void> {
         class="hl-pre"
         aria-hidden="true"
         v-html="html"
-        :style="{ paddingLeft: `${gutterWidth}px` }"
       ></pre>
       <textarea
         ref="taRef"
@@ -334,7 +326,6 @@ async function copyJson(): Promise<void> {
         :value="modelValue"
         :placeholder="placeholder"
         spellcheck="false"
-        :style="{ paddingLeft: `${gutterWidth}px` }"
         @input="onInput"
         @change="onInput"
         @scroll="syncScroll"
@@ -376,6 +367,8 @@ async function copyJson(): Promise<void> {
 .hl-ta {
   margin: 0;
   padding: 10px 12px;
+  /* 正文让出「行号槽 + 折叠列」整条前区（与响应树同值同源，代码左缘绝对对齐） */
+  padding-left: calc(var(--code-gutter-w) + var(--code-fold-w));
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
   line-height: 1.55;
@@ -410,10 +403,11 @@ async function copyJson(): Promise<void> {
   color: var(--text-3);
 }
 
-/* 纯文本模式：大文档降级，直接在 textarea 上着色 */
+/* 纯文本模式：大文档降级，直接在 textarea 上着色（无行号槽，回到常规左距） */
 .hl-ta.plain {
   color: var(--text-1);
   background: var(--code-bg);
+  padding-left: 12px;
 }
 
 /* ---- 语法高亮色系 ---- */
@@ -455,14 +449,14 @@ async function copyJson(): Promise<void> {
   outline-offset: 1px;
 }
 
-/* 行号栏 */
+/* 行号栏：与响应区共用 --code-gutter-* 几何（宽度/间隙单源），
+ * 无独立底色与分隔线——数字直接落在代码底色上，与响应树/行视图一致 */
 .hl-gutter {
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  background: var(--bg-card, #121318);
-  border-right: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  width: var(--code-gutter-w);
   overflow: hidden;
   user-select: none;
   pointer-events: none;
@@ -478,7 +472,7 @@ async function copyJson(): Promise<void> {
   line-height: 1.55;
   color: var(--tok-gutter, #5c6370);
   text-align: right;
-  padding-right: 8px;
+  padding-right: var(--code-gutter-gap);
 }
 
 /* 工具栏 */
@@ -493,13 +487,14 @@ async function copyJson(): Promise<void> {
   flex: 1;
 }
 
+/* 校验状态 Tag：弱化的次级信息（10px 微字 + 紧凑内距），不与代码争夺注意力 */
 .je-status {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 2px 7px;
+  gap: 4px;
+  padding: 1px 6px;
   border-radius: 9999px;
-  font-size: var(--fs-xxs);
+  font-size: 10px;
   font-weight: 500;
   line-height: 1.4;
 }
@@ -517,8 +512,8 @@ async function copyJson(): Promise<void> {
 }
 
 .je-dot {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
   border-radius: 9999px;
   background: currentColor;
 }

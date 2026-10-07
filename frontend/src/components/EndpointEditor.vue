@@ -1452,15 +1452,16 @@ onUnmounted(() => {
 
 /* 方法文本色统一走 utils/methodTone.ts（text-method-*），此处不再定义。 */
 
-/* 统一请求栏：方法下拉 + 基础URL标签 + 路径输入合并为一个控件 */
+/* 统一请求栏（Input Group）：方法徽章 + 基础URL + 路径输入同处一容器，
+ * align-items 居中衔接（圆角 --radius-md，边框走 border-editor 的半透细线档） */
 .request-bar {
   flex: 1;
   min-width: 0;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   height: var(--h-md);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
+  border: 1px solid var(--border-editor);
+  border-radius: var(--radius-md);
   background: var(--bg-card);
   overflow: hidden;
   transition:
@@ -1503,8 +1504,10 @@ onUnmounted(() => {
   line-height: 1.4;
 }
 
+/* 短分隔线：容器已改 align-items 居中，需自带高度（16px 居中短档，避免整高通顶断层） */
 .req-bar-divider {
   width: 1px;
+  height: 16px;
   flex-shrink: 0;
   background: var(--border);
 }

@@ -564,12 +564,7 @@ const binPath = useDebouncedField(
   overflow: hidden;
 }
 
-/* 主编辑器（JsonEditor 直接子级）：底部无边框，与分割条无缝贴合 */
-.panel > :deep(.json-editor .hl-wrap) {
-  border-bottom: none;
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
+/* 编辑器圆角统一 rounded-lg（--radius-md）：请求/响应两区代码块同为完整圆角卡片 */
 
 .mode-bar {
   display: flex;
@@ -635,9 +630,8 @@ const binPath = useDebouncedField(
   font-family: var(--font-mono);
   font-size: 12.5px;
   resize: vertical;
-  border-bottom: none;
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
+  /* 与 JsonEditor 代码块同圆角档（rounded-lg） */
+  border-radius: var(--radius-md);
 }
 
 .gql-editor {

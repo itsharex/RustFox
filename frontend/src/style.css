@@ -70,6 +70,8 @@
   --text-1: #e9eaee;
   --text-2: #a7a8b3;
   --text-3: #71737f;
+  /* 数据数值档（响应指标/耗时/大小等）：深 zinc-300 / 浅 zinc-600，介于 text-1/2 之间 */
+  --text-value: #d4d4d8;
   /* 单一 accent：靛青降饱和（saturation ≈ 70%，避开 AI 紫大饱和），hover 略提亮 */
   --accent: #8380e8;
   --accent-hover: #9995ef;
@@ -156,6 +158,15 @@
   --tok-punct: #abb2bf;
   --tok-gutter: #5c6370;
 
+  /* ---- 行号槽几何（请求编辑器 / 响应树 / 响应行视图三处共用）----
+   * 代码左缘 = 行号槽 + 折叠列，两侧同值，逐像素对齐：
+   * 行号槽 54 = 左留白 10 + 4 位行号 × 8 + 间隙 12（固定宽，不随位数伸缩）；
+   * 折叠列 16 = 响应树折叠箭头专列（请求编辑器保留同宽空列），
+   * 箭头不再挤占代码位，树内所有行代码左缘恒定。 */
+  --code-gutter-w: 54px;
+  --code-gutter-gap: 12px;
+  --code-fold-w: 16px;
+
   /* ---- 代码编辑区表面（JsonEditor 覆盖层；深色为基准） ---- */
   --code-bg: #121318;
   --code-fg: #d7dbe3;
@@ -219,6 +230,7 @@
   --text-1: #1f2329;
   --text-2: #5c6670;
   --text-3: #98a1ab;
+  --text-value: #52525b;
   --accent: #5f5ad4;
   --accent-hover: #4e49c7;
   --success: #16a34a;

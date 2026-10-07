@@ -318,24 +318,22 @@ defineExpose({ expandAll, collapseAll, matchCount })
 
 <template>
   <div ref="rootRef" class="jt">
-    <div
-      v-for="(line, i) in lines"
-      :key="i"
-      class="jt-line"
-      :class="{ 'has-toggle': line.toggleable }"
-      :style="{ paddingLeft: `${line.depth * 16}px` }"
-    >
+    <div v-for="(line, i) in lines" :key="i" class="jt-line">
       <span class="jt-gutter">{{ i + 1 }}</span>
-      <button
-        v-if="line.toggleable"
-        type="button"
-        class="jt-toggle"
-        :class="{ open: line.open }"
-        :aria-label="line.open ? t('jsonTree.collapse') : t('jsonTree.expand')"
-        @click="toggle(line.toggleable, line.open ?? false)"
-      >
-        <Icon :name="line.open ? 'chevron-down' : 'chevron-right'" :size="12" />
-      </button>
+      <!-- 折叠列：箭头专列（所有行保留等宽空位），不挤占代码位 -->
+      <span class="jt-fold">
+        <button
+          v-if="line.toggleable"
+          type="button"
+          class="jt-toggle"
+          :class="{ open: line.open }"
+          :aria-label="line.open ? t('jsonTree.collapse') : t('jsonTree.expand')"
+          @click="toggle(line.toggleable, line.open ?? false)"
+        >
+          <Icon :name="line.open ? 'chevron-down' : 'chevron-right'" :size="12" />
+        </button>
+      </span>
+      <span class="jt-indent" :style="{ width: `${line.depth * 16}px` }" aria-hidden="true"></span>
       <span class="jt-code" v-tooltip-overflow="line.title ?? ''" v-html="lineHtmls[i]"></span>
     </div>
   </div>
@@ -358,12 +356,27 @@ defineExpose({ expandAll, collapseAll, matchCount })
 
 .jt-gutter {
   flex-shrink: 0;
-  width: 38px;
+  /* 与请求编辑器共用 --code-gutter-* 几何（style.css 单源），代码左缘绝对对齐 */
+  width: var(--code-gutter-w);
+  padding-right: var(--code-gutter-gap);
   text-align: right;
-  padding-right: 10px;
   user-select: none;
   color: var(--tok-gutter);
   font-size: var(--fs-xxs);
+}
+
+/* 折叠列：箭头专列，所有行等宽保留（空行占位），代码左缘不随有无箭头跳动 */
+.jt-fold {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--code-fold-w);
+}
+
+/* 层级缩进只推移代码（含折叠箭头），行号槽保持固定——编辑器式行号栏 */
+.jt-indent {
+  flex-shrink: 0;
 }
 
 .jt-toggle {

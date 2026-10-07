@@ -2,7 +2,7 @@
 /**
  * ResponsePanel：响应面板。
  * - 顶栏：高对比状态栏（2xx 实心绿 / 3xx 琥珀 / 4xx-5xx 红，`201 Created`）
- *   + 耗时 / 大小指标（竖线分隔）+ 类型；
+ *   + 耗时 / 大小 / 类型指标（同组 gap 分组，数值统一等宽字体）+ 截断徽标；
  * - 工具栏：Body/Headers/Cookies 标签 + 格式化/原始/预览 分段切换（右）
  *   + 查找（⌘F）/ 展开-收起全部 / 保存为示例 / 复制响应（最右）；
  * - 查找：顶部弹出搜索框，高亮匹配 + 上一个/下一个导航（Enter / Shift+Enter / Esc）；
@@ -459,22 +459,21 @@ onUnmounted(() => {
 <template>
   <div class="rp" :class="[`tone-${tone}`, { collapsed }]">
     <div class="rp-toolbar">
-      <span class="rp-status">
-        <Icon name="dot" :size="8" /> {{ statusText }}
-      </span>
-      <span class="rp-sep"></span>
-      <span class="rp-meta">
-        <span class="rp-meta-label">{{ t('response.duration') }}</span>
-        <span class="rp-meta-value"><Icon name="clock" :size="14" /> {{ formatDuration(response.duration_ms) }}</span>
-      </span>
-      <span class="rp-sep"></span>
-      <span class="rp-meta">
-        <span class="rp-meta-label">{{ t('response.size') }}</span>
-        <span class="rp-meta-value"><Icon name="package" :size="14" /> {{ sizeText }}</span>
-      </span>
-      <span v-if="response.content_type" class="rp-sep"></span>
-      <span v-if="response.content_type" class="rp-type">{{ response.content_type }}</span>
-      <span v-if="response.truncated" class="rp-truncated" :title="t('response.truncatedHint')">{{ t('response.truncated') }}</span>
+      <div class="rp-metrics">
+        <span class="rp-status">
+          <Icon name="dot" :size="8" /> {{ statusText }}
+        </span>
+        <span class="rp-meta">
+          <span class="rp-meta-label">{{ t('response.duration') }}</span>
+          <span class="rp-meta-value"><Icon name="clock" :size="14" /> {{ formatDuration(response.duration_ms) }}</span>
+        </span>
+        <span class="rp-meta">
+          <span class="rp-meta-label">{{ t('response.size') }}</span>
+          <span class="rp-meta-value"><Icon name="package" :size="14" /> {{ sizeText }}</span>
+        </span>
+        <span v-if="response.content_type" class="rp-type">{{ response.content_type }}</span>
+        <span v-if="response.truncated" class="rp-truncated" :title="t('response.truncatedHint')">{{ t('response.truncated') }}</span>
+      </div>
 
       <Tabs v-model="activeTab" :tabs="responseTabs" size="sm" class="rp-inline-tabs" />
       <span class="rp-toolbar-spacer"></span>
@@ -654,11 +653,12 @@ onUnmounted(() => {
   height: auto;
 }
 
-/* ---- 单行工具栏：状态指标 + 页签 + 模式 + 操作 ---- */
+/* ---- 单行工具栏：状态指标 + 页签 + 模式 + 操作 ----
+ * 整排 flex items-center 同一水平中轴；横向节奏统一 12px（gap-3） */
 .rp-toolbar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-height: 40px;
   padding: 4px 12px;
   border-bottom: 1px solid var(--border);
@@ -708,12 +708,12 @@ onUnmounted(() => {
   color: var(--danger);
 }
 
-/* 指标竖线分隔 */
-.rp-sep {
-  flex-shrink: 0;
-  width: 1px;
-  height: 14px;
-  background: var(--border);
+/* 指标组：状态徽章 + 耗时/大小/类型 同组 flex items-center gap-3（12px），随 flex 居中同一水平轴线 */
+.rp-metrics {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
 }
 
 .rp-meta {
@@ -724,7 +724,7 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-/* 指标明暗对比：标签 text-zinc-500 档，数值 text-zinc-200 档 mono medium */
+/* 指标明暗对比：标签 text-3 档；数值统一 mono / text-xs / medium / text-value 档（深 zinc-300·浅 zinc-600） */
 .rp-meta-label {
   font-size: var(--fs-xs);
   color: var(--text-3);
@@ -737,7 +737,7 @@ onUnmounted(() => {
   font-size: var(--fs-xs);
   font-family: var(--font-mono);
   font-weight: 500;
-  color: var(--text-1);
+  color: var(--text-value);
 }
 .rp-meta-value svg {
   color: var(--accent);
@@ -746,8 +746,10 @@ onUnmounted(() => {
 
 .rp-type {
   min-width: 0;
-  font-size: 11.5px;
-  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--text-value);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -763,13 +765,12 @@ onUnmounted(() => {
   background: var(--warning-tint);
 }
 
-/* 最右操作区（纯图标按钮，自带 Tooltip） */
+/* 最右操作区（纯图标按钮，自带 Tooltip）；与分段切换的间距由工具栏 gap 统一 */
 .rp-actions {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-left: 6px;
 }
 .rp-icon-btn {
   display: inline-flex;
@@ -841,11 +842,19 @@ onUnmounted(() => {
   color: var(--text-1);
 }
 
+/* 空折叠列占位：与树视图（箭头专列）同宽，Body/原始 切换时代码与行号不横跳 */
+.rp-line::before {
+  content: '';
+  flex-shrink: 0;
+  width: var(--code-fold-w);
+}
+
 .rp-line-gutter {
   flex-shrink: 0;
-  width: 38px;
+  /* 与请求编辑器共用 --code-gutter-* 几何（style.css 单源），代码左缘绝对对齐 */
+  width: var(--code-gutter-w);
+  padding-right: var(--code-gutter-gap);
   text-align: right;
-  padding-right: 10px;
   user-select: none;
   color: var(--tok-gutter);
   font-size: var(--fs-xxs);
